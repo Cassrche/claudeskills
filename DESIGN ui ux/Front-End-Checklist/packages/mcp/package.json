@@ -1,0 +1,37 @@
+{
+  "name": "@repo/mcp",
+  "version": "0.0.1",
+  "private": true,
+  "description": "MCP server exposing Front-End Checklist rules to AI agents",
+  "exports": {
+    ".": "./src/index.ts",
+    "./load-rules": "./src/load-rules.ts"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "evaluate": "jest tests/quality --runInBand",
+    "lint": "biome check .",
+    "test": "jest",
+    "test:ci": "jest --ci --runInBand --passWithNoTests",
+    "test:coverage": "jest --coverage --ci --passWithNoTests",
+    "test:watch": "jest --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@frontendchecklist/rules": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@repo/config": "workspace:*",
+    "@repo/types": "workspace:*",
+    "node-html-parser": "^7.1.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@repo/config-typescript": "workspace:^",
+    "@types/jest": "catalog:",
+    "@types/node": "catalog:",
+    "jest": "catalog:",
+    "ts-jest": "catalog:",
+    "typescript": "catalog:"
+  }
+}

@@ -1,0 +1,59 @@
+---
+title: Performance Quick Wins
+description: High-impact performance optimizations that are relatively easy to implement. Get the most improvement with the least effort.
+icon: zap
+rules:
+  - performance/compression
+  - performance/page-weight
+  - performance/browser-caching
+  - performance/http-requests
+  - performance/lazy-loading
+  - performance/resource-hints
+  - images/optimized
+  - performance/cdn
+estimatedTime: "20 minutes"
+difficulty: beginner
+order: 3
+featured: true
+---
+
+These performance optimizations deliver significant improvements with minimal effort. Start here before diving into more complex optimizations.
+
+## When To Use It
+
+Use this checklist when you need measurable performance gains quickly and do not yet need a deep Core Web Vitals investigation.
+
+## Who It's For
+
+- Junior developers looking for high-impact wins
+- Launch teams needing fast improvements before release
+- Reviewers triaging obvious performance debt
+
+## Done Looks Like
+
+You should finish with the simplest high-leverage loading, caching, transfer, and page-weight issues addressed so later metric work starts from a healthier baseline.
+
+## Why Performance Matters
+
+- **User Experience** - Faster sites have higher engagement
+- **SEO Rankings** - Core Web Vitals affect search rankings
+- **Conversion Rates** - Every second of delay costs conversions
+- **Accessibility** - Fast sites work better on slow connections
+
+## Quick Win Categories
+
+### Compression & Caching
+Enable gzip/brotli compression and set proper cache headers for immediate wins.
+
+### Image Optimization
+Images and other heavy assets are often the largest contributors to page weight. Reduce transfer cost before chasing framework-level micro-optimizations.
+
+### Code Minification
+Compression, caching, and loading order usually pay off earlier than isolated minification tasks on their own.
+
+## Measuring Impact
+
+Use these tools to measure before and after:
+- Lighthouse in Chrome DevTools
+- WebPageTest.org
+- GTmetrix

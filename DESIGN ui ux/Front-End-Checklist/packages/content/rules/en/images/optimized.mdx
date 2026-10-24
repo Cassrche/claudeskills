@@ -1,0 +1,286 @@
+---
+title: Optimise images for faster loading
+description: >-
+  All images are compressed and metadata-stripped before deployment, removing
+  unnecessary bytes without visible quality loss.
+categories:
+  - images
+subcategory: optimization
+priority: high
+difficulty: intermediate
+estimatedTime: 20
+relatedRules:
+  - slug: modern-format
+    reason: >-
+      Converting to WebP/AVIF provides additional compression beyond JPEG/PNG
+      optimization
+  - slug: responsive-size
+    reason: Serving correctly-sized images eliminates pixels that are never rendered
+  - slug: image-file-size
+    reason: Optimization is how file sizes reach recommended thresholds
+  - slug: svg-inline
+    reason: >-
+      Both rules sit in the `images/optimization` area and are commonly reviewed
+      together.
+tools:
+  - name: Squoosh
+    url: 'https://squoosh.app/'
+  - name: ImageOptim
+    url: 'https://imageoptim.com/'
+  - name: Sharp
+    url: 'https://sharp.pixelplumbing.com/'
+  - name: SVGO
+    url: 'https://github.com/svg/svgo'
+  - name: Lighthouse
+    url: 'https://developer.chrome.com/docs/lighthouse/'
+resources:
+  - name: Efficiently encode images — web.dev Lighthouse
+    url: 'https://web.dev/learn/images/performance-issues'
+    type: article
+    author: web.dev
+  - name: Use imagemin to compress images — web.dev
+    url: 'https://web.dev/articles/use-imagemin-to-compress-images'
+    type: article
+    author: web.dev
+  - name: Optimise your images — web.dev Learn
+    url: 'https://web.dev/learn/performance/image-performance'
+    type: article
+    author: web.dev
+prompts:
+  check: >-
+    Audit all image assets in this project for optimisation issues: 1) Run
+    Lighthouse and check the 'Efficiently encode images' audit—it flags images
+    that could be reduced by 4KB or more. 2) Check if JPEG images use
+    progressive encoding (better perceived performance). 3) Check if images
+    retain EXIF/IPTC metadata (adds unnecessary bytes). 4) Check if PNG images
+    could be quantised (pngquant) for smaller files. 5) Check if SVG files
+    contain unnecessary editor metadata, comments, or redundant attributes.
+    Report each image with its current size and estimated savings.
+  fix: >-
+    For each unoptimised image: 1) JPEG: re-encode with mozjpeg at quality 80
+    with progressive=true. 2) PNG: run pngquant at quality 65-80 for lossy
+    compression, or oxipng for lossless. 3) WebP: encode at quality 80. 4) AVIF:
+    encode at quality 60 with effort 6. 5) SVG: run through SVGO to remove
+    editor metadata, comments, and redundant attributes. 6) Strip EXIF metadata
+    from all JPEG/WebP images. For each image, show the before/after file size
+    and percentage reduction.
+  explain: >-
+    Explain what image optimisation means technically. JPEG compression works by
+    converting pixel data to frequency components (DCT) and quantising the
+    high-frequency data—quality settings control how aggressively this
+    quantisation occurs. PNG uses lossless DEFLATE compression, but colour
+    quantisation (pngquant) can massively reduce file size with minimal visible
+    change. EXIF metadata (GPS, camera model, timestamps) adds kilobytes to
+    images with no benefit for web users. Progressive JPEG encoding allows the
+    browser to show a low-resolution version immediately while the full image
+    loads, improving perceived performance.
+  codeReview: >-
+    Review image assets, markup, and delivery configuration related to Optimise
+    images for faster loading. Flag exact files or components where format
+    choice, sizing, or loading behavior violates the rule, and describe how to
+    confirm the fix in DevTools.
+tldr:
+  - >-
+    Strip EXIF metadata from all JPEG/WebP images before deployment—it adds
+    unnecessary bytes
+  - >-
+    JPEG: quality 80 with `progressive: true` (mozjpeg); PNG: run pngquant at
+    quality 65-80
+  - 'SVG: run through SVGO to remove editor artefacts and reduce file size'
+  - >-
+    Lighthouse flags images reducible by 4KB+ as 'Efficiently encode images'
+    opportunities
+whyItMatters: >-
+  Unoptimised images are the most prevalent cause of page bloat. A DSLR-quality
+  JPEG with EXIF data can be 8MB; the same image optimised for web delivery is
+  under 200KB with no visible quality difference. Lighthouse's 'Efficiently
+  encode images' audit reports potential savings that, when fixed, directly
+  improve LCP and reduce bandwidth costs.
+aiContext: >-
+  Use when reviewing image assets, markup, and CDN or build transforms related
+  to Optimise images for faster loading. Check encoded size, rendered size,
+  loading strategy, and above-the-fold impact together.
+sources:
+  - title: 'MDN: Responsive images'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Learn/HTML/Multimedia_and_embedding/Responsive_images
+    type: mdn
+    id: mdn-responsive-images
+    role: reference
+    authority: primary
+  - title: 'web.dev: Image performance'
+    url: 'https://web.dev/learn/performance/image-performance'
+    type: guide
+    id: web-dev-image-performance
+    role: implementation
+    authority: primary
+---
+Image optimisation compresses image data and strips unnecessary metadata before serving files to users. It is distinct from format selection (JPEG vs WebP) and responsive sizing—each reduces file size in different ways.
+
+## Code Example
+
+```javascript
+// Sharp (Node.js) — recommended for server-side processing
+import sharp from 'sharp'
+
+await sharp('input.jpg')
+  .jpeg({
+    quality: 80,           // 80 is the sweet spot: minimal visible loss, 40-60% size reduction
+    progressive: true,     // Progressive JPEG shows low-res preview while loading
+    mozjpeg: true,         // Use mozjpeg encoder for better compression at same quality
+  })
+  .toFile('output.jpg')
+  // Note: sharp strips metadata by default
+```
+
+## Why It Matters
+
+Unoptimised images are the most prevalent cause of page bloat. A DSLR-quality JPEG with EXIF data can be 8MB; the same image optimised for web delivery is under 200KB with no visible quality difference. Lighthouse's 'Efficiently encode images' audit reports potential savings that, when fixed, directly improve LCP and reduce bandwidth costs.
+
+## What Optimisation Removes
+
+- **EXIF metadata** — GPS location, camera model, lens, timestamp embedded by cameras (can add 30-60KB per image)
+- **IPTC/XMP metadata** — editorial information added by photo editing software
+- **ICC colour profiles** — rarely needed for web delivery (a few KB each)
+- **Redundant pixel data** — recompression at lower quality removes high-frequency data invisible to the eye
+- **SVG editor artefacts** — Inkscape/Illustrator/Figma export adds comments, IDs, and inline styles that serve no purpose in production
+
+## Optimising PNG
+
+```bash
+# pngquant: lossy compression, 40-80% size reduction with minimal visible change
+pngquant --quality=65-80 --output output.png input.png
+
+# oxipng: lossless compression, 10-20% reduction with zero quality loss
+oxipng -o 6 input.png
+```
+
+```javascript
+// Sharp PNG compression
+await sharp('input.png')
+  .png({
+    compressionLevel: 9,  // 0-9, higher = smaller but slower
+    effort: 10,           // 1-10, higher = slower but better compression
+    palette: true,        // Enable palette quantisation for PNGs with few colours
+    quality: 80,          // Quality when palette is true
+  })
+  .toFile('output.png')
+```
+
+## Optimising SVG
+
+```bash
+# SVGO: removes editor metadata, comments, redundant attributes
+npx svgo input.svg -o output.svg
+
+# Or process all SVGs in a directory
+npx svgo --folder public/icons
+```
+
+```javascript
+// SVGO configuration (svgo.config.js)
+module.exports = {
+  plugins: [
+    'removeDoctype',
+    'removeXMLProcInst',
+    'removeComments',
+    'removeMetadata',
+    'removeEditorsNSData',
+    'cleanupAttrs',
+    'mergeStyles',
+    'inlineStyles',
+    'minifyStyles',
+    'cleanupIds',
+    'removeUselessDefs',
+    'cleanupNumericValues',
+    'convertColors',
+    'removeUnknownsAndDefaults',
+    'removeNonInheritableGroupAttrs',
+    'removeUselessStrokeAndFill',
+    'removeViewBox',         // Set to false if you need responsive SVGs
+    'cleanupEnableBackground',
+    'convertShapeToPath',
+    'convertEllipseToCircle',
+    'moveElemsAttrsToGroup',
+    'moveGroupAttrsToElems',
+    'collapseGroups',
+    'convertPathData',
+    'convertTransform',
+    'removeEmptyAttrs',
+    'removeEmptyContainers',
+    'mergePaths',
+    'removeUnusedNS',
+    'sortDefsChildren',
+    'removeTitle',
+    'removeDesc',
+  ],
+}
+```
+
+## Build Pipeline Integration
+
+```javascript
+// vite.config.js — automatic optimisation at build time
+import { defineConfig } from 'vite'
+import { viteImageOptimizer } from 'vite-plugin-image-optimizer'
+
+export default defineConfig({
+  plugins: [
+    viteImageOptimizer({
+      jpg: { quality: 80, progressive: true },
+      jpeg: { quality: 80, progressive: true },
+      png: { quality: 80, compressionLevel: 9 },
+      webp: { quality: 80, effort: 6 },
+      avif: { quality: 60, effort: 6 },
+      svg: {
+        plugins: [
+          { name: 'removeViewBox', active: false },
+          { name: 'removeDimensions', active: true },
+        ],
+      },
+    })
+  ]
+})
+```
+
+## Automated CI Check
+
+```javascript
+// scripts/check-image-optimisation.mjs
+// Fail CI if any image could be reduced by more than 10KB
+import { execSync } from 'child_process'
+import { globSync } from 'glob'
+
+const images = globSync('public/**/*.{jpg,jpeg,png,gif}')
+let failed = false
+
+for (const imgPath of images) {
+  try {
+    // Use identify (ImageMagick) to check for metadata
+    const result = execSync(`identify -verbose "${imgPath}" 2>&1 | grep -i "exif\\|iptc\\|comment"`, {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+    if (result.trim()) {
+      console.warn(`⚠️  Metadata found in: ${imgPath}`)
+      failed = true
+    }
+  } catch {
+    // No metadata found — this is good
+  }
+}
+
+if (failed) process.exit(1)
+```
+
+## Verification
+
+### Automated Checks
+
+- Run Lighthouse — "Efficiently encode images" shows potential savings per image
+- Use Chrome DevTools → Network → filter by Img → check Transfer Size column for each image
+- Run `exiftool -all= output.jpg` after processing to confirm metadata was stripped
+
+### Manual Checks
+
+- Open each image in Squoosh — compare the original vs compressed side-by-side

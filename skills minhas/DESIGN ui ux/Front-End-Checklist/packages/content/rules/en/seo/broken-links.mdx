@@ -1,0 +1,123 @@
+---
+title: Resolve internal broken links
+description: >-
+  Detects and fixes internal links that return 404 or 5xx errors to improve user
+  experience.
+categories:
+  - seo
+subcategory: technical
+priority: high
+difficulty: beginner
+estimatedTime: 10
+tldr:
+  - >-
+    Identify and fix all internal links that return 404 (Not Found) or 5xx
+    (Server Error) codes
+  - 'Ensure all navigation elements and inline links point to live, valid URLs'
+  - >-
+    Regularly audit your site after moving or deleting content to prevent dead
+    links
+whyItMatters: >-
+  Internal broken links frustrate users and waste crawl budget by sending search
+  engine bots to non-existent pages, potentially harming your site's SEO.
+prompts:
+  check: >-
+    Scan the website for any internal links that lead to 404 pages or server
+    errors.
+  fix: >-
+    Update the broken link to the correct URL or remove it if the destination
+    page no longer exists.
+  explain: >-
+    Explain the concept of 'crawl budget' and how broken links can negatively
+    affect a site's indexing efficiency.
+  codeReview: >-
+    Review metadata generation, rendered HTML, structured data, and response
+    headers related to Resolve internal broken links. Flag exact routes or
+    templates where search-facing output violates the rule, and describe how to
+    verify the final page output.
+aiContext: >-
+  Use when auditing metadata, crawlability, structured data, or indexability
+  related to Resolve internal broken links. Verify the rendered HTML and HTTP
+  response rather than relying only on source files.
+sources:
+  - title: 'Google Search Central: Search Essentials'
+    url: 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide'
+    type: google
+    id: google-search-central-search-essentials
+    role: search
+    authority: primary
+  - title: Google Search Central documentation
+    url: 'https://developers.google.com/search/docs'
+    type: google
+    id: google-search-central-documentation
+    role: implementation
+    authority: primary
+resources:
+  - name: Google Search Console
+    url: 'https://search.google.com/search-console/about'
+    type: tool
+relatedRules:
+  - slug: broken-external-links
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: https-downgrade
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: sitemap-4xx
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: trailing-slash
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+---
+A healthy internal link structure is vital for both user navigation and efficient search engine indexing.
+
+## Code Example
+
+```html
+<!-- Check your internal links regularly -->
+<nav aria-label="Main Menu">
+  <ul>
+    <!-- ❌ Bad: Points to a non-existent page -->
+    <li><a href="/our-servicez">Services</a></li>
+    
+    <!-- ✅ Good: Points to the correct, live URL -->
+    <li><a href="/services">Services</a></li>
+  </ul>
+</nav>
+```
+
+## Why It Matters
+
+- **User Satisfaction**: Prevents users from hitting dead ends, which reduces frustration and bounce rates.
+- **Crawl Efficiency**: Ensures that search engine bots spend their time on your valuable, live content instead of error pages.
+- **Site Authority**: A lack of broken links is a sign of a well-maintained, high-quality website.
+- **Link Equity**: Ensures that 'link juice' flows correctly through your site to your most important pages.
+
+## Exceptions
+
+- Staging, utility, login, account, or internal search pages may intentionally use different crawl or index signals if they are not meant to rank.
+- Temporary migration states can produce noisy intermediate signals; flag the live production URL pattern, not one-off transition artifacts.
+- When redirects, canonicals, robots directives, or indexability signals conflict, fix the strongest final signal first instead of reporting every downstream symptom as a separate blocker.
+
+## Standards
+
+- Use these references as the standard for the final search-facing HTML, metadata, and crawl behavior.
+- Check the implementation against Google Search Central: Search Essentials before treating the rule as satisfied.
+- Check the implementation against Google Search Central documentation before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

@@ -1,0 +1,442 @@
+---
+title: Make accordions keyboard navigable
+description: >-
+  Accordion components use proper ARIA attributes and keyboard interactions for
+  screen reader accessibility.
+categories:
+  - accessibility
+  - html
+subcategory: components
+priority: medium
+difficulty: intermediate
+estimatedTime: 25
+tldr:
+  - Use button elements for accordion triggers with aria-expanded
+  - Associate panels with triggers using aria-controls
+  - Support Arrow keys for navigation between headers
+  - Use heading elements appropriately for document structure
+whyItMatters: >-
+  Poorly implemented accordions trap keyboard users and leave screen reader
+  users unable to understand or navigate collapsed content sections.
+prompts:
+  check: >-
+    Verify accordions use button triggers with aria-expanded, aria-controls, and
+    proper keyboard navigation (Enter, Space, arrows).
+  fix: >-
+    Implement accordions with button elements, aria-expanded state,
+    aria-controls linking to content panels, and keyboard support.
+  explain: >-
+    Explain the ARIA pattern for accessible accordions and how they enable
+    keyboard and screen reader users to navigate collapsible content.
+  codeReview: >-
+    Review templates, server-rendered HTML, and shared components that output
+    markup related to Make accordions keyboard navigable. Flag exact elements,
+    attributes, and routes where the rendered HTML violates the rule.
+aiContext: >-
+  Use when reviewing templates, rendered HTML, or shared components related to
+  Make accordions keyboard navigable. Validate the final browser-facing markup,
+  not just the source framework abstraction.
+sources:
+  - title: 'MDN: HTML'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML'
+    type: mdn
+    id: mdn-html
+    role: reference
+    authority: primary
+  - title: WHATWG HTML Living Standard
+    url: 'https://html.spec.whatwg.org/'
+    type: spec
+    id: whatwg-html-living-standard
+    role: standard
+    authority: primary
+resources:
+  - name: Nu Html Checker
+    url: 'https://validator.w3.org/nu/'
+    type: tool
+  - name: Accordion Pattern – UX Patterns for Developers
+    url: 'https://uxpatterns.dev/patterns/content-management/accordion'
+    type: guide
+    description: >-
+      Comprehensive UX pattern guide covering anatomy, accessibility, best
+      practices, and implementation.
+relatedRules:
+  - slug: tabs-accessibility
+    reason: >-
+      Both rules sit in the `html/components` area and are commonly reviewed
+      together.
+  - slug: carousel-accessibility
+    reason: >-
+      Both rules sit in the `html/components` area and are commonly reviewed
+      together.
+  - slug: accessible-tooltips
+    reason: >-
+      Both rules sit in the `html/components` area and are commonly reviewed
+      together.
+  - slug: custom-element-accessibility
+    reason: >-
+      Both rules sit in the `html/components` area and are commonly reviewed
+      together.
+---
+Accessible accordions allow users to efficiently navigate and reveal content sections using any input method.
+
+## Code Example
+
+```html
+<div class="accordion">
+  <h3>
+    <button
+      type="button"
+      aria-expanded="false"
+      aria-controls="panel-1"
+      class="accordion__trigger"
+      id="accordion-1"
+    >
+      Section 1
+      <span class="accordion__icon" aria-hidden="true"></span>
+    </button>
+  </h3>
+  <div
+    id="panel-1"
+    role="region"
+    aria-labelledby="accordion-1"
+    class="accordion__panel"
+    hidden
+  >
+    <p>Panel 1 content goes here.</p>
+  </div>
+
+  <h3>
+    <button
+      type="button"
+      aria-expanded="false"
+      aria-controls="panel-2"
+      class="accordion__trigger"
+      id="accordion-2"
+    >
+      Section 2
+      <span class="accordion__icon" aria-hidden="true"></span>
+    </button>
+  </h3>
+  <div
+    id="panel-2"
+    role="region"
+    aria-labelledby="accordion-2"
+    class="accordion__panel"
+    hidden
+  >
+    <p>Panel 2 content goes here.</p>
+  </div>
+</div>
+```
+
+## Why It Matters
+
+Poorly implemented accordions trap keyboard users and leave screen reader users unable to understand or navigate collapsed content sections.
+
+## ARIA Pattern Requirements
+
+| Element | Attribute | Purpose |
+|---------|-----------|---------|
+| Trigger | `button` element | Activatable with Enter/Space |
+| Trigger | `aria-expanded` | Indicates open/closed state |
+| Trigger | `aria-controls` | References panel ID |
+| Panel | `id` | Target of aria-controls |
+| Panel | `role="region"` | Optional, for important sections |
+| Header | Heading element | Maintains document structure |
+
+## React Accordion Component
+
+```tsx
+import { useState, useId, useRef, KeyboardEvent } from 'react'
+
+interface AccordionItemProps {
+  title: string
+  children: React.ReactNode
+  defaultOpen?: boolean
+}
+
+interface AccordionProps {
+  children: React.ReactNode
+  allowMultiple?: boolean
+}
+
+export function Accordion({ children, allowMultiple = false }: AccordionProps) {
+  const [openItems, setOpenItems] = useState<Set<string>>(new Set())
+  const itemRefs = useRef<HTMLButtonElement[]>([])
+
+  const toggleItem = (id: string) => {
+    setOpenItems(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        if (!allowMultiple) next.clear()
+        next.add(id)
+      }
+      return next
+    })
+  }
+
+  const handleKeyDown = (e: KeyboardEvent, index: number) => {
+    const items = itemRefs.current.filter(Boolean)
+    let nextIndex: number | null = null
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        nextIndex = (index + 1) % items.length
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        nextIndex = (index - 1 + items.length) % items.length
+        break
+      case 'Home':
+        e.preventDefault()
+        nextIndex = 0
+        break
+      case 'End':
+        e.preventDefault()
+        nextIndex = items.length - 1
+        break
+    }
+
+    if (nextIndex !== null) {
+      items[nextIndex]?.focus()
+    }
+  }
+
+  return (
+    <div className="accordion">
+      {React.Children.map(children, (child, index) => {
+        if (React.isValidElement<AccordionItemProps>(child)) {
+          return React.cloneElement(child, {
+            ...child.props,
+            _index: index,
+            _isOpen: openItems.has(`item-${index}`),
+            _onToggle: () => toggleItem(`item-${index}`),
+            _onKeyDown: (e: KeyboardEvent) => handleKeyDown(e, index),
+            _ref: (el: HTMLButtonElement) => { itemRefs.current[index] = el },
+          } as any)
+        }
+        return child
+      })}
+    </div>
+  )
+}
+
+export function AccordionItem({
+  title,
+  children,
+  defaultOpen = false,
+  _index,
+  _isOpen,
+  _onToggle,
+  _onKeyDown,
+  _ref,
+}: AccordionItemProps & {
+  _index?: number
+  _isOpen?: boolean
+  _onToggle?: () => void
+  _onKeyDown?: (e: KeyboardEvent) => void
+  _ref?: (el: HTMLButtonElement) => void
+}) {
+  const triggerId = useId()
+  const panelId = useId()
+  const isOpen = _isOpen ?? defaultOpen
+
+  return (
+    <div className="accordion__item">
+      <h3 className="accordion__header">
+        <button
+          ref={_ref}
+          type="button"
+          id={triggerId}
+          aria-expanded={isOpen}
+          aria-controls={panelId}
+          onClick={_onToggle}
+          onKeyDown={_onKeyDown}
+          className="accordion__trigger"
+        >
+          <span className="accordion__title">{title}</span>
+          <span
+            className={`accordion__icon ${isOpen ? 'accordion__icon--open' : ''}`}
+            aria-hidden="true"
+          />
+        </button>
+      </h3>
+      <div
+        id={panelId}
+        role="region"
+        aria-labelledby={triggerId}
+        className="accordion__panel"
+        hidden={!isOpen}
+      >
+        <div className="accordion__content">
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
+```
+
+## Usage
+
+```tsx
+<Accordion allowMultiple={false}>
+  <AccordionItem title="What is your return policy?">
+    <p>You can return items within 30 days of purchase...</p>
+  </AccordionItem>
+  <AccordionItem title="How long does shipping take?">
+    <p>Standard shipping takes 5-7 business days...</p>
+  </AccordionItem>
+  <AccordionItem title="Do you ship internationally?">
+    <p>Yes, we ship to over 50 countries...</p>
+  </AccordionItem>
+</Accordion>
+```
+
+## Keyboard Navigation
+
+| Key | Action |
+|-----|--------|
+| `Enter` / `Space` | Toggle panel open/closed |
+| `Arrow Down` | Move focus to next header |
+| `Arrow Up` | Move focus to previous header |
+| `Home` | Move focus to first header |
+| `End` | Move focus to last header |
+
+## Native HTML Details/Summary
+
+```html
+<!-- Simple native accordion (limited styling) -->
+<details class="accordion-native">
+  <summary>Section Title</summary>
+  <div class="accordion-native__content">
+    <p>Content here...</p>
+  </div>
+</details>
+
+<details class="accordion-native">
+  <summary>Another Section</summary>
+  <div class="accordion-native__content">
+    <p>More content...</p>
+  </div>
+</details>
+```
+
+```tsx
+// React wrapper for details/summary
+function NativeAccordion({ title, children, defaultOpen = false }) {
+  return (
+    <details open={defaultOpen} className="accordion-native">
+      <summary>{title}</summary>
+      <div className="accordion-native__content">
+        {children}
+      </div>
+    </details>
+  )
+}
+```
+
+## Styling
+
+```css
+.accordion {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.accordion__item {
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.accordion__item:last-child {
+  border-bottom: none;
+}
+
+.accordion__header {
+  margin: 0;
+}
+
+.accordion__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 1rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: left;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.accordion__trigger:hover {
+  background: #f5f5f5;
+}
+
+.accordion__trigger:focus-visible {
+  outline: 2px solid #0066cc;
+  outline-offset: -2px;
+}
+
+.accordion__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  transition: transform 0.2s;
+}
+
+.accordion__trigger[aria-expanded="true"] .accordion__icon {
+  transform: rotate(180deg);
+}
+
+.accordion__panel[hidden] {
+  display: none;
+}
+
+.accordion__content {
+  padding: 0 1.5rem 1rem;
+}
+
+/* Animation */
+.accordion__panel {
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accordion__panel,
+  .accordion__icon {
+    animation: none;
+    transition: none;
+  }
+}
+```
+
+## Verification
+
+1. Tab to first accordion header
+2. Press Enter/Space to toggle
+3. Use Arrow keys to navigate between headers
+4. Press Home/End to jump to first/last
+5. Test with screen reader (announces expanded state)
+6. Verify heading structure in accessibility tree
+7. Check focus is visible on all interactive elements
+
+<Warning title="Heading Level Consistency">
+Choose an appropriate heading level (h2, h3, etc.) based on the accordion's position in the document outline. Don't skip heading levels.
+</Warning>

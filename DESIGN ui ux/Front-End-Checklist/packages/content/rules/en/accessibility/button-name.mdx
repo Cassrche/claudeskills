@@ -1,0 +1,154 @@
+---
+title: Provide accessible names for buttons
+description: >-
+  All buttons must have a discernible, descriptive accessible name for screen
+  readers.
+categories:
+  - accessibility
+subcategory: interaction
+priority: critical
+difficulty: beginner
+estimatedTime: 5
+tldr:
+  - 'Ensure every <button> has a discernible, descriptive label'
+  - 'Use inner text, aria-label, or aria-labelledby for identification'
+  - Use buttons for actions and state changes, not page navigation
+  - Avoid empty buttons or those containing only non-text icons
+whyItMatters: >-
+  Buttons without accessible names are announced as 'button' by screen readers,
+  leaving users unable to determine what action will be triggered.
+prompts:
+  check: Scan for buttons that lack descriptive text or accessible labels.
+  fix: >-
+    Add an accessible name to the button using text content, an aria-label, or
+    an aria-labelledby reference. If the element navigates to another URL,
+    replace the button with a link instead of keeping button semantics.
+  explain: >-
+    Explain why accessible names are critical for screen reader users to
+    identify and interact with buttons, and why buttons should trigger actions
+    while links should handle navigation.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Provide
+    accessible names for buttons. Flag exact elements, roles, labels, focus
+    behavior, or keyboard interactions that violate the rule, and note how to
+    verify the fix with browser accessibility tooling or assistive tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Provide accessible names for buttons. Check native
+  semantics first, then inspect keyboard behavior, focus flow, accessible names,
+  and screen-reader output where relevant.
+sources:
+  - title: 'W3C WAI: WCAG Overview'
+    url: 'https://www.w3.org/WAI/standards-guidelines/wcag/'
+    type: wcag
+    id: w3c-wai-wcag-overview
+    role: standard
+    authority: primary
+  - title: 'MDN: Accessibility'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility'
+    type: mdn
+    id: mdn-accessibility
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+  - name: Button Pattern – UX Patterns for Developers
+    url: 'https://uxpatterns.dev/patterns/forms/button'
+    type: guide
+    description: >-
+      Comprehensive UX pattern guide covering anatomy, accessibility, best
+      practices, and implementation.
+relatedRules:
+  - slug: aria-treeitem-name
+    reason: >-
+      Both rules affect accessibility quality and can fail in the same
+      implementation.
+  - slug: select-name
+    reason: >-
+      Both rules affect accessibility quality and can fail in the same
+      implementation.
+  - slug: aria-command-name
+    reason: >-
+      Both rules affect accessibility quality and are commonly reviewed
+      together.
+  - slug: aria-input-field-name
+    reason: >-
+      Both rules affect accessibility quality and are commonly reviewed
+      together.
+---
+Every button on a webpage must have an accessible name so that people using assistive technologies, such as screen readers, know what the button does.
+
+## Code Example
+
+```html
+<!-- ✅ Good: Descriptive text content -->
+<button type="submit">Subscribe to Newsletter</button>
+
+<!-- ✅ Good: Icon button with aria-label -->
+<button aria-label="Close modal">
+  <svg>...</svg>
+</button>
+
+<!-- ✅ Good: Using aria-labelledby -->
+<span id="save-desc">Save your changes</span>
+<button aria-labelledby="save-desc">
+  <svg>...</svg>
+</button>
+
+<!-- ❌ Bad: Icon button with no text or label -->
+<button>
+  <i class="fa fa-trash"></i>
+</button>
+```
+
+## Why It Matters
+
+- **Meaningful Interaction**: Users need to know what happens when they click a button.
+- **Non-Visual Navigation**: Screen readers announce the "accessible name" when a user focuses on the button.
+- **Context**: For icon-only buttons, the accessible name provides the only clue to the button's function.
+
+## Best Practices
+
+✅ **Be Concise**: Keep labels short but descriptive (e.g., "Search" instead of "Click here to search our website").
+✅ **Avoid "Button" in Label**: Screen readers already announce the element as a button.
+✅ **Check Visibility**: If using text content, ensure it isn't hidden from screen readers accidentally.
+✅ **Keep semantics aligned**: Use `<button>` for submit, open, close, save, delete, and toggle actions. Use `<a href>` when the user is moving to another URL.
+
+```html
+<!-- ✅ Action -->
+<button type="button">Save draft</button>
+
+<!-- ✅ Navigation -->
+<a href="/pricing">View pricing</a>
+```
+
+## Tools & Validation
+
+- [Axe DevTools](https://www.deque.com/axe/)
+- [WAVE Tool](https://wave.webaim.org/)
+- [Chrome DevTools Accessibility Tab](https://developer.chrome.com/docs/devtools/accessibility/reference/)
+
+## Exceptions
+
+- Evaluate the rendered experience before treating a static-code smell as a blocker; interaction timing, browser behavior, and assistive technology output often determine severity.
+- Not every secondary accessibility issue deserves equal weight; prioritize the issue that most directly blocks perception, operation, or understanding.
+- Avoid adding redundant markup or ARIA solely to satisfy a rule when a simpler semantic implementation would eliminate the issue entirely.
+
+## Standards
+
+- Align the implementation with W3C WAI: WCAG Overview and verify the rendered experience, not only the source code.
+- Align the implementation with MDN: Accessibility and verify the rendered experience, not only the source code.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

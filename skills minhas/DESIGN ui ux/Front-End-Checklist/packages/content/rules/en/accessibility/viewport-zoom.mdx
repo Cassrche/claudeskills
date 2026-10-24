@@ -1,0 +1,183 @@
+---
+title: Do not disable pinch zoom
+description: >-
+  The viewport meta tag must not set user-scalable=no or maximum-scale=1 as
+  these prevent users from zooming in to read content, violating WCAG 2.1 SC
+  1.4.4 (Resize Text).
+categories:
+  - css
+  - accessibility
+subcategory: responsive
+priority: high
+difficulty: beginner
+estimatedTime: 5
+tldr:
+  - Never use `user-scalable=no` or `user-scalable=0` in the viewport meta tag
+  - Never set `maximum-scale=1` (or any value below 5) in the viewport meta tag
+  - >-
+    Both prevent pinch-to-zoom, violating WCAG 2.1 SC 1.4.4 (Resize Text, Level
+    AA)
+  - >-
+    The correct viewport meta tag is: `<meta name='viewport'
+    content='width=device-width, initial-scale=1'>`
+  - >-
+    Note: iOS 10+ ignores `user-scalable=no` in Safari, but other browsers and
+    older iOS do not
+whyItMatters: >-
+  Pinch-to-zoom is an essential accessibility feature for low-vision users who
+  cannot read text at the page's default size. When zoom is disabled, these
+  users cannot enlarge text or images, making the page completely inaccessible
+  without external magnification software. Low-vision users who rely on browser
+  zoom are entirely blocked. Additionally, all users benefit from being able to
+  zoom in on small text, fine-print, or complex images. Disabling zoom is one of
+  the most harmful and easily preventable accessibility failures.
+aiContext: >-
+  Applies to any `<meta name='viewport'>` element in HTML documents. Check the
+  `content` attribute for `user-scalable=no`, `user-scalable=0`,
+  `maximum-scale=1`, or `maximum-scale` values less than 2. This is a common
+  mistake in mobile-first templates and CSS frameworks.
+prompts:
+  check: >-
+    Find the `<meta name='viewport'>` element in the HTML `<head>`. Check its
+    `content` attribute for: (1) `user-scalable=no` — disables all zoom; (2)
+    `user-scalable=0` — same effect; (3) `maximum-scale=1` or
+    `maximum-scale=1.0` — limits zoom to the initial scale; (4) any
+    `maximum-scale` value below 2 — significantly limits zoom range. Flag any of
+    these. Also check CSS for `touch-action: none` or `user-zoom: fixed` (CSS
+    Device Adaptation, rarely used) that may limit zoom.
+  fix: >-
+    Remove `user-scalable=no` and `maximum-scale=1` from the viewport meta tag.
+    The correct viewport meta tag for a responsive site is: `<meta
+    name='viewport' content='width=device-width, initial-scale=1'>`. If
+    `maximum-scale` was set for a specific reason (e.g., to prevent unintended
+    zoom on input focus on iOS), the correct fix is to set form input
+    `font-size: 1rem` (16px) instead — iOS Safari only auto-zooms on input focus
+    when font-size is below 16px.
+  explain: >-
+    WCAG 2.1 SC 1.4.4 (Resize Text, Level AA) requires that text can be resized
+    up to 200% without loss of content or functionality, except for captions and
+    images of text. On mobile devices, pinch-to-zoom and the browser's built-in
+    text size settings are the primary mechanisms for resizing text. Setting
+    `user-scalable=no` or `maximum-scale=1` in the viewport meta tag disables
+    pinch-to-zoom entirely (or limits it to 1x), preventing low-vision users
+    from enlarging content. This is a direct violation of SC 1.4.4. While iOS
+    10+ Safari ignores these settings, Android browsers, Chrome for iOS, and
+    older iOS versions do not — so the setting must be removed regardless.
+  codeReview: >-
+    Review stylesheets, component styles, and responsive states related to Do
+    not disable pinch zoom. Flag exact selectors, declarations, or breakpoints
+    that violate the rule in the rendered UI.
+sources:
+  - title: 'WCAG 2.1 SC 1.4.4: Resize Text'
+    url: 'https://www.w3.org/TR/WCAG21/#resize-text'
+    type: wcag
+    id: wcag-2-1-sc-1-4-4-resize-text
+    role: standard
+    authority: primary
+  - title: 'MDN: <meta name=''viewport''>'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Viewport_meta_tag'
+    type: mdn
+    id: mdn-meta-name-viewport
+    role: reference
+    authority: primary
+  - title: 'WebAIM: Visual Disabilities — Screen Magnification'
+    url: 'https://webaim.org/articles/visual/lowvision'
+    type: guide
+    id: webaim-visual-disabilities-screen-magnification
+    role: implementation
+    authority: secondary
+  - title: >-
+      Google web.dev: Does not have a <meta name='viewport'> tag with width or
+      initial-scale
+    url: 'https://web.dev/viewport/'
+    type: guide
+    id: >-
+      google-web-dev-does-not-have-a-meta-name-viewport-tag-with-width-or-initial-scale
+    role: implementation
+    authority: primary
+resources:
+  - name: Chrome DevTools
+    url: 'https://developer.chrome.com/docs/devtools/'
+    type: tool
+relatedRules:
+  - slug: font-size
+    reason: >-
+      Both rules sit in the `css/responsive` area and are commonly reviewed
+      together.
+  - slug: horizontal-scroll
+    reason: >-
+      Both rules sit in the `css/responsive` area and are commonly reviewed
+      together.
+  - slug: interstitials
+    reason: >-
+      Both rules sit in the `css/responsive` area and are commonly reviewed
+      together.
+  - slug: container-queries
+    reason: >-
+      Both rules sit in the `css/responsive` area and are commonly reviewed
+      together.
+---
+The viewport meta tag controls how mobile browsers scale a page. Disabling zoom in this tag is a common but serious accessibility failure that prevents low-vision users from reading content.
+
+## Code Example
+
+```html
+<!-- ✅ Correct: responsive viewport, zoom enabled -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- ❌ Incorrect: zoom disabled entirely -->
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+<!-- ❌ Incorrect: maximum-scale=1 prevents any zoom beyond initial scale -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+<!-- ❌ Incorrect: combined restriction -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+
+<!-- ✅ Acceptable if maximum-scale allows meaningful zoom -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+```
+
+## Why It Matters
+
+- **Low Vision**: Users who cannot read at default mobile font sizes rely entirely on pinch-to-zoom when browser text size settings are insufficient.
+- **Fine Print**: Dense text (terms and conditions, footnotes, table data) is only readable when users can zoom in.
+- **Image Detail**: Maps, charts, and diagrams require zoom to read labels and annotations.
+- **WCAG AA Compliance**: This is one of the simplest violations to fix — a one-line HTML change — yet one of the most impactful for low-vision users.
+
+## iOS Input Zoom — The Real Problem
+
+The most common reason developers disable zoom is to prevent iOS Safari from zooming into form inputs on focus. The correct solution is not to disable zoom — it is to prevent the cause:
+
+```css
+/* ✅ Fix: set font-size to 16px on inputs to prevent iOS auto-zoom */
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+select,
+textarea {
+  font-size: 1rem; /* 16px — iOS Safari does not zoom when font-size ≥ 16px */
+}
+```
+
+## Browser Behavior Notes
+
+| Browser | Honors `user-scalable=no`? |
+|---|---|
+| iOS Safari (10+) | No — ignores it (accessibility improvement) |
+| Chrome for iOS | Yes — still restricts zoom |
+| Chrome for Android | Yes — still restricts zoom |
+| Firefox (Android) | Depends on version |
+| Samsung Internet | Yes |
+
+Because Chrome for iOS and Android still respect the attribute, removing it is required for full cross-browser accessibility.
+
+## Verification
+
+1. Inspect the rendered UI at the breakpoints and interaction states affected by the rule.
+2. Confirm the computed styles match the intended fix in DevTools.
+3. Test at least one mobile and one desktop viewport before shipping.
+4. If the rule affects motion, contrast, or layout stability, verify those user-facing outcomes directly.

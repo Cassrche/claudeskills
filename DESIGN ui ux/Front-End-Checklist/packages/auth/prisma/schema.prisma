@@ -1,0 +1,149 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// --- Better-Auth managed tables ---
+model User {
+  id            String   @id
+  name          String?
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  role          String   @default("user")
+  plan          String   @default("free")
+
+  username                String?   @unique
+  githubUsername          String?
+  headline                String?
+  bio                     String?
+  githubUrl               String?
+  xUrl                    String?
+  linkedinUrl             String?
+  githubCompany           String?
+  githubBlog              String?
+  githubLocation          String?
+  githubPublicRepos       Int?
+  githubPublicGists       Int?
+  githubFollowers         Int?
+  githubFollowing         Int?
+  githubCreatedAt         DateTime?
+  githubUpdatedAt         DateTime?
+  githubProfileImportedAt DateTime?
+  isProfilePublic         Boolean   @default(true)
+  showProgress            Boolean   @default(true)
+  showChecklists          Boolean   @default(true)
+
+  sessions     Session[]
+  accounts     Account[]
+  checklists   UserChecklist[]
+  audits       Audit[]
+  ruleFeedback RuleFeedback[]
+  ruleProgress RuleProgress[]
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                    String    @id
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// --- App tables (user-first) ---
+model UserChecklist {
+  id          String   @id @default(cuid())
+  publicId    String?  @unique // null = private, non-null = shareable
+  userId      String
+  name        String
+  description String?
+  framework   String?
+  ruleIds     String[]
+  color       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// --- Audit storage (dashboard MVP) ---
+model Audit {
+  id          String   @id @default(cuid())
+  publicId    String   @unique // For shareable /report/[publicId] links
+  userId      String?  // Optional: link to user when logged in
+  url         String
+  summary     Json     // { totalChecks, issuesFound, criticalIssues, highIssues, categories }
+  result      Json     // Full AuditUrlResult (issues, suggestions, source)
+  createdAt   DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model RuleFeedback {
+  id        String   @id @default(cuid())
+  ruleId    String
+  userId    String
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ruleId])
+  @@index([ruleId])
+}
+
+model RuleProgress {
+  id          String    @id @default(cuid())
+  userId      String
+  ruleId      String
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  notes       String?
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, ruleId])
+  @@index([userId])
+}
+
+// --- MCP anonymous usage (telemetry) ---
+model McpToolCall {
+  id        String   @id @default(cuid())
+  toolName  String
+  createdAt DateTime @default(now())
+
+  @@index([toolName])
+  @@index([createdAt])
+}

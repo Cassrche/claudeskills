@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motion Base</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- trocar pelas fontes da marca; display=block evita quadro com fonte errada -->
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Nunito:wght@500;600;700&display=block" rel="stylesheet">
+<style>
+/* motion-lib · template base: ícone + frase, frase de contraste, assinatura letra a letra
+ * trocar: tokens de cor e fonte, ICON, textos, linha do tempo T. Cenas extras: ver LIB/exemplos/
+ */
+:root {
+  --color-night: #04070f;      /* fundo */
+  --color-brand: #2459f5;      /* primária da marca */
+  --color-brand-2: #39d6c6;    /* secundária */
+  --color-accent: #ffc93d;     /* acento da palavra de destaque */
+  --color-text: #f7f9ff;
+  --color-text-2: #8d9ab8;
+  --font-display: "Archivo", system-ui, sans-serif;
+  --font-body: "Nunito", ui-rounded, system-ui, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: clip; background: #000; }
+.stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; transform-origin: 0 0; background: var(--color-night); font-family: var(--font-body); color: var(--color-text); }
+.abs { position: absolute; }
+#world { position: absolute; inset: 0; transform-origin: 50% 50%; }
+.glow { position: absolute; border-radius: 50%; filter: blur(140px); }
+#glowA { width: 1300px; height: 1000px; background: var(--color-brand); }
+#glowB { width: 900px; height: 800px; background: var(--color-brand-2); }
+#vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(0, 0, 0, 0.72) 100%); }
+#grain { position: absolute; inset: -40px; opacity: 0.07; background-size: 256px 256px; }
+#fade { position: absolute; inset: 0; background: #000; opacity: 0; }
+.disp { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; }
+.w { display: inline-block; white-space: pre; will-change: transform, filter, opacity; }
+.icon { width: 120px; height: 120px; display: block; }
+
+#ic1 { left: 900px; top: 480px; }
+#t1 { top: 488px; font-size: 92px; white-space: nowrap; }
+.line { position: absolute; left: 0; right: 0; top: 488px; text-align: center; font-size: 64px; white-space: nowrap; }
+#ic6 { left: 900px; top: 470px; }
+#t6 { top: 476px; font-size: 112px; font-weight: 700; letter-spacing: -0.035em; white-space: nowrap; }
+#credit { left: 0; right: 0; top: 960px; text-align: center; font-size: 22px; color: var(--color-text-2); }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="glow" id="glowA"></div>
+  <div class="glow" id="glowB"></div>
+  <div id="world">
+    <div class="abs" id="ic1"></div>
+    <p class="abs disp" id="t1"><span class="w">Frase </span><span class="w">da </span><span class="w" data-tint>marca.</span></p>
+
+    <p class="line disp" id="l5a">Primeira parte do contraste.</p>
+    <p class="line disp" id="l5b">Segunda <span data-tint2>parte.</span></p>
+
+    <div class="abs" id="ic6"></div>
+    <p class="abs disp" id="t6"></p>
+    <p class="abs" id="credit">Crédito curto da marca</p>
+  </div>
+  <div id="grain"></div>
+  <div id="vignette"></div>
+  <div id="fade"></div>
+</div>
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const BRAND = 'Marca';
+
+// ------------------------------------------------------------ linha do tempo: tudo deriva daqui
+const T = {
+  words1: [1.0, 1.12, 1.24],   // uma entrada por palavra de #t1 (com voz: o segundo em que é dita)
+  l5a: 2.6, l5b: 3.5,          // frase de contraste
+  logo: 4.6,                   // assinatura
+};
+const DURATION = +(T.logo + 3.0).toFixed(2);
+
+// ------------------------------------------------------------ som (caminhos relativos a LIB/sons)
+const tk = (x, f, v) => [+x.toFixed(3), `calm/${f}.wav`, v];
+window.CUES = [
+  ...T.words1.map((x, i) => tk(x, i % 2 ? 'tick_b' : 'tick_a', i % 2 ? 0.3 : 0.34)),
+  tk(T.l5a, 'tick_a', 0.3),
+  [T.l5b, 'V4/Granular Shine (45).wav', 0.22],
+  ...BRAND.split('').map((_, i) => tk(T.logo + 0.53 + i * 0.055, i % 2 ? 'tick_b' : 'tick_a', i % 2 ? 0.2 : 0.22)),
+  tk(T.logo + 0.53 + BRAND.length * 0.055 + 0.05, 'bloom', 0.3),
+];
+window.VO = []; // [segundo, 'vo/l1.wav', volume]
+
+// ------------------------------------------------------------ montagem
+// trocar pelo ícone oficial da marca (SVG inline); ids de gradiente precisam ser únicos por cópia
+const ICON = '<svg class="icon" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="var(--color-brand)"/><circle cx="16" cy="16" r="6" fill="var(--color-text)"/></svg>';
+$('#ic1').innerHTML = ICON;
+$('#ic6').innerHTML = ICON;
+$('#t6').innerHTML = BRAND.split('').map((c) => `<span class="w">${c}</span>`).join('');
+
+let seed = 1337;
+const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+const GRAIN = [0, 1, 2, 3].map(() => {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d'), img = g.createImageData(256, 256);
+  for (let i = 0; i < img.data.length; i += 4) { const v = rnd() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
+  g.putImageData(img, 0, 0); return `url(${c.toDataURL()})`;
+});
+
+// ------------------------------------------------------------ curvas
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const prog = (t, s, d) => clamp((t - s) / d);
+const lerp = (a, b, x) => a + (b - a) * x;
+const eOut4 = (x) => 1 - Math.pow(1 - x, 4);
+const eIn3 = (x) => x * x * x;
+const eInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+function spring(dt, f = 1.6, z = 0.8) {
+  if (dt <= 0) return 0;
+  const w = 2 * Math.PI * f, wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * dt) * (Math.cos(wd * dt) + (z * w / wd) * Math.sin(wd * dt));
+}
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const hexRGB = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const mixRGB = (a, b, x) => `rgb(${a.map((v, i) => Math.round(lerp(v, b[i], x))).join(',')})`;
+const ACCENT = hexRGB(css('--color-accent')), WHITE = hexRGB(css('--color-text')), GREY = hexRGB(css('--color-text-2'));
+
+function focus(el, t, o) {
+  const p = eOut4(prog(t, o.in, o.inD ?? 0.8));
+  const q = o.out == null ? 0 : eIn3(prog(t, o.out, o.outD ?? 0.5));
+  const x = (1 - p) * (o.dx ?? 0) + q * (o.odx ?? 0);
+  const y = (1 - p) * (o.dy ?? 30) + q * (o.ody ?? -20);
+  const s = lerp(o.s0 ?? 1, 1, p) * lerp(1, o.os ?? 1.04, q);
+  const b = (1 - p) * (o.b0 ?? 22) + q * (o.ob ?? 18) + (o.dof ?? 0);
+  el.style.transform = `${o.base ?? ''} translate(${x}px, ${y}px) scale(${s})`;
+  el.style.filter = b > 0.05 ? `blur(${b.toFixed(2)}px)` : 'none';
+  el.style.opacity = Math.min(p, 1 - q) * (o.op ?? 1);
+  return p;
+}
+function words(container, t, start, stagger, o) {
+  $$('.w', container).forEach((w, i) => {
+    const s = Array.isArray(start) ? start[i] : start + i * stagger;
+    focus(w, t, { ...o, in: s });
+    if (w.hasAttribute('data-tint')) w.style.color = mixRGB(ACCENT, WHITE, prog(t, s + 0.35, 0.9));
+  });
+}
+
+function render(t) {
+  // fundo vivo
+  const gOut = 1 - prog(t, DURATION - 1.3, 0.8);
+  $('#glowA').style.transform = `translate(${300 + 220 * Math.sin(t * 0.35)}px, ${-260 + 120 * Math.cos(t * 0.28)}px)`;
+  $('#glowB').style.transform = `translate(${1100 + 160 * Math.cos(t * 0.3)}px, ${520 + 100 * Math.sin(t * 0.4)}px)`;
+  $('#glowA').style.opacity = 0.34 * clamp(t / 0.8) * gOut;
+  $('#glowB').style.opacity = 0.14 * clamp(t / 0.8) * gOut;
+  const gf = Math.floor(t * 24);
+  $('#grain').style.backgroundImage = GRAIN[gf % 4];
+  $('#grain').style.backgroundPosition = `${(gf * 73) % 256}px ${(gf * 151) % 256}px`;
+  $('#world').style.transform = `scale(${1 + 0.035 * t / DURATION}) rotate(${-0.25 + 0.5 * t / DURATION}deg)`;
+  $('#fade').style.opacity = prog(t, DURATION - 0.75, 0.6);
+
+  // 1 · ícone cai, desliza, frase palavra a palavra
+  const t1 = $('#t1'), ic1 = $('#ic1');
+  const gap = 34, total = 120 + gap + t1.offsetWidth;
+  const slide = eInOut(prog(t, T.words1[0] - 0.18, 0.55));
+  const drop = spring(t - 0.12, 1.3, 0.85);
+  const out1 = eIn3(prog(t, T.l5a - 0.35, 0.4));
+  ic1.style.transform = `translate(${lerp(0, -(total / 2 - 60), slide)}px, ${(1 - drop) * -300}px) scale(${lerp(0.55, 1, drop) * lerp(1, 1.12, out1)})`;
+  const b1 = (1 - eOut4(prog(t, 0.1, 0.7))) * 24 + out1 * 20;
+  ic1.style.filter = b1 > 0.05 ? `blur(${b1}px)` : 'none';
+  ic1.style.opacity = clamp((t - 0.1) * 3) * (1 - out1);
+  t1.style.left = `${960 - total / 2 + 120 + gap}px`;
+  words(t1, t, T.words1, 0, { inD: 0.75, dx: 40, dy: 0, b0: 18, out: T.l5a - 0.35, outD: 0.4, ody: 0, os: 1.12, ob: 20 });
+
+  // 5 · contraste: cinza vira branco, depois rastreio de letras fechando
+  const a = $('#l5a');
+  focus(a, t, { in: T.l5a, inD: 0.7, dy: 0, b0: 18, out: T.l5b - 0.12, outD: 0.35, ody: 0, os: 1.06 });
+  a.style.color = mixRGB(GREY, WHITE, prog(t, T.l5a + 0.05, 0.6));
+  const b = $('#l5b');
+  focus(b, t, { in: T.l5b, inD: 0.85, dy: 0, b0: 16, out: T.logo - 0.15, outD: 0.35, ody: 0, os: 0.8, ob: 22 });
+  b.style.letterSpacing = `${lerp(0.42, -0.02, eOut4(prog(t, T.l5b, 0.9)))}em`;
+  $('[data-tint2]').style.color = mixRGB(ACCENT, WHITE, prog(t, T.l5b + 0.38, 0.6));
+
+  // 6 · assinatura letra a letra
+  const t6 = $('#t6'), ic6 = $('#ic6');
+  const tot6 = 120 + 36 + t6.offsetWidth;
+  const s6 = eInOut(prog(t, T.logo + 0.4, 0.55));
+  const pop = spring(t - T.logo, 1.4, 0.75);
+  ic6.style.transform = `translate(${lerp(0, -(tot6 / 2 - 60), s6)}px, 0) scale(${lerp(0.5, 1, pop)})`;
+  const b6 = (1 - eOut4(prog(t, T.logo, 0.6))) * 20;
+  ic6.style.filter = b6 > 0.05 ? `blur(${b6}px)` : 'none';
+  ic6.style.opacity = clamp((t - T.logo) * 4);
+  t6.style.left = `${960 - tot6 / 2 + 120 + 36}px`;
+  words(t6, t, T.logo + 0.53, 0.055, { inD: 0.6, dx: 30, dy: 0, b0: 14 });
+  focus($('#credit'), t, { in: T.logo + 1.0, inD: 0.9, dy: 10, b0: 8 });
+}
+window.renderAt = render;
+window.DURATION = DURATION;
+
+const capture = new URLSearchParams(location.search).has('capture');
+function fit() {
+  const s = capture ? 1 : Math.min(innerWidth / 1920, innerHeight / 1080);
+  const st = $('#stage');
+  st.style.transform = `scale(${s})`;
+  st.style.left = capture ? '0' : `${(innerWidth - 1920 * s) / 2}px`;
+  st.style.top = capture ? '0' : `${(innerHeight - 1080 * s) / 2}px`;
+}
+addEventListener('resize', fit); fit();
+if (!capture) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) render(T.logo + 1.5);
+  else {
+    const t0 = performance.now();
+    const loop = (now) => { render(((now - t0) / 1000) % (DURATION + 0.5)); requestAnimationFrame(loop); };
+    document.fonts.ready.then(() => requestAnimationFrame(loop));
+  }
+} else render(0);
+</script>
+</body>
+</html>

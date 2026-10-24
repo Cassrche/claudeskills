@@ -1,0 +1,275 @@
+---
+title: Use valid JSON-LD structured data
+description: >-
+  Validates JSON-LD structured data for syntax correctness, required properties,
+  and schema.org compliance
+categories:
+  - seo
+subcategory: technical
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - >-
+    JSON-LD must be valid JSON, reference `@context: 'https://schema.org'`, and
+    include all required properties for the chosen `@type`
+  - >-
+    Invalid JSON (unclosed brackets, missing commas) causes the entire block to
+    be silently ignored by Google
+  - >-
+    Validate with Google's Rich Results Test before deploying structured data
+    changes
+whyItMatters: >-
+  Invalid JSON-LD is silently ignored by Google — there are no error messages in
+  search results, only the absence of rich results. Invalid structured data
+  means no eligibility for rich results (stars, FAQs, breadcrumbs, etc.) that
+  increase click-through rates.
+aiContext: >-
+  Use when generating or auditing any `<script type='application/ld+json'>`
+  blocks, implementing structured data for articles, products, FAQs,
+  breadcrumbs, or local businesses, or investigating why rich results are not
+  appearing in Google Search Console.
+prompts:
+  check: >-
+    Find all `<script type='application/ld+json'>` elements on the page. For
+    each: (1) Attempt to parse the content as JSON — flag syntax errors. (2)
+    Verify `@context` is set to `'https://schema.org'`. (3) Verify `@type` is a
+    valid schema.org type. (4) For the detected type, check required properties
+    are present (e.g., Article requires `headline`, `author`, `datePublished`;
+    Product requires `name`; FAQPage requires `mainEntity`). (5) Run through
+    Google's Rich Results Test API if available.
+  fix: >
+    1. Parse the JSON-LD with `JSON.parse()` — fix any syntax errors (trailing
+    commas, single quotes, missing brackets).
+
+    2. Ensure `@context` is exactly `"https://schema.org"` (not
+    `"http://schema.org"` or omitted).
+
+    3. Verify the `@type` value against schema.org types.
+
+    4. Add required properties for the type:
+       - Article: headline, author (with @type Person and name), datePublished
+       - Product: name (and ideally offers, description)
+       - FAQPage: mainEntity array with Question and acceptedAnswer
+       - BreadcrumbList: itemListElement array with ListItem, position, name, item
+    5. Validate at https://search.google.com/test/rich-results
+
+    6. Validate JSON syntax at https://jsonlint.com
+  explain: >-
+    Google uses JSON-LD structured data to generate rich results — enhanced
+    search result formats that include stars, images, expandable Q&As, and other
+    features. Invalid JSON-LD is ignored entirely: no rich results are
+    generated, and no error is reported to you. Only by testing with the Rich
+    Results Test can you discover validation failures. Correct, complete JSON-LD
+    is a prerequisite for rich result eligibility.
+  codeReview: >-
+    Extract all `<script type='application/ld+json'>` element contents. Run
+    `JSON.parse()` on each — catch and report parse errors. Validate that
+    `@context` equals `'https://schema.org'`. Check `@type` against a whitelist
+    of common valid types. For each type, validate required properties are
+    present and non-empty. Report the first validation error found for each
+    block.
+relatedRules:
+  - slug: structured-data
+    reason: >-
+      Broader structured data implementation — JSON-LD validity is a
+      prerequisite
+  - slug: faq
+    reason: FAQPage schema is one of the most common JSON-LD types that must be valid
+  - slug: local-business
+    reason: LocalBusiness schema validity is critical for local SEO
+  - slug: review
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+resources:
+  - title: Google Rich Results Test
+    url: 'https://search.google.com/test/rich-results'
+    type: guide
+  - title: 'Schema.org: Full type hierarchy'
+    url: 'https://schema.org/docs/full.html'
+    type: spec
+  - title: 'Google Search Central: Structured data guidelines'
+    url: >-
+      https://developers.google.com/search/docs/appearance/structured-data/sd-policies
+    type: guide
+  - name: Schema Markup Validator
+    url: 'https://validator.schema.org/'
+    type: tool
+  - name: JSONLint
+    url: 'https://jsonlint.com'
+    type: tool
+sources:
+  - title: 'Google Search Central: Introduction to structured data'
+    url: >-
+      https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data
+    type: guide
+    id: google-search-central-introduction-to-structured-data
+    role: search
+    authority: primary
+  - title: Schema.org specification
+    url: 'https://schema.org/docs/schemas.html'
+    type: spec
+    id: schema-org-specification
+    role: standard
+    authority: primary
+  - title: JSON-LD specification
+    url: 'https://www.w3.org/TR/json-ld11/'
+    type: spec
+    id: json-ld-specification
+    role: standard
+    authority: primary
+---
+JSON-LD structured data communicates facts about your page to Google in a machine-readable format. A single syntax error makes the entire block invisible to Google, which is why [structured data implementation](/en/rules/seo/structured-data) only matters when the JSON-LD itself is valid.
+
+## Code Examples
+
+#
+
+## ❌ Avoid — invalid JSON (trailing comma)
+
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "My Article",
+  "author": {
+    "@type": "Person",
+    "name": "Jane Smith",   // <-- trailing comma: invalid JSON
+  }
+}
+```
+
+### ❌ Avoid — missing required properties
+
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "Article"
+  // Missing: headline, author, datePublished
+}
+```
+
+### ✅ Correct — valid Article JSON-LD
+
+```html
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": "How to Optimise Core Web Vitals",
+  "author": {
+    "@type": "Person",
+    "name": "Jane Smith",
+    "url": "https://example.com/authors/jane-smith"
+  },
+  "datePublished": "2024-03-15T10:00:00Z",
+  "dateModified": "2024-11-20T14:00:00Z",
+  "publisher": {
+    "@type": "Organization",
+    "name": "Acme Blog",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://example.com/logo.png"
+    }
+  }
+}
+</script>
+```
+
+### ✅ Correct — valid BreadcrumbList
+
+```html
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://example.com/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Blog",
+      "item": "https://example.com/blog/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": "How to Optimise Core Web Vitals"
+    }
+  ]
+}
+</script>
+```
+
+### ✅ Programmatic generation to avoid syntax errors
+
+```ts
+// Always use JSON.stringify — never manually write JSON-LD strings
+const schema = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: article.title,
+  author: { '@type': 'Person', name: article.authorName },
+  datePublished: article.publishedAt,
+  dateModified: article.updatedAt,
+}
+
+// In Next.js
+<script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }}
+/>
+```
+
+## Why It Matters
+
+- **Rich results eligibility**: Valid structured data is required to appear as rich results (star ratings, FAQs, recipes, etc.) in Google Search, and [Google's structured data introduction](https://developers.google.com/search/docs/appearance/structured-data/intro-structured-data) is the baseline reference for what Google expects.
+- **Silent failure**: Invalid JSON-LD produces no visible error — only the absence of rich results.
+- **Search Console errors**: Google Search Console's Rich Results Status report shows structured data errors, but only for pages Google has crawled recently, which is why Google Rich Results Test is still the fastest first check.
+
+## Common Validation Errors
+
+| Error | Cause |
+|---|---|
+| JSON parse error | Trailing comma, single quotes, unescaped characters |
+| Missing `@context` | Omitted or wrong URL |
+| Wrong `@type` value | Typo, or using a non-schema.org type |
+| Missing required property | e.g., Article without `author` |
+| Wrong value type | String where array expected, or vice versa |
+
+## Validation Tools
+
+- [Google Rich Results Test](https://search.google.com/test/rich-results) — validates against Google's requirements
+- [Schema Markup Validator](https://validator.schema.org/) — validates against schema.org specification
+- [JSONLint](https://jsonlint.com) — validates JSON syntax only
+- Google Search Console → Enhancements → Rich results — ongoing monitoring
+
+## Exceptions
+
+- Only add or enforce schema types that the page can truthfully support; irrelevant structured data is worse than no structured data.
+- A technically valid schema block can still be misleading if the page content does not visibly back it up; audit rendered content and schema together.
+- If indexability, canonical-url, or main content quality is wrong, fix that foundation before optimizing schema details.
+
+## Standards
+
+- Use these references as the standard for the final search-facing HTML, metadata, and crawl behavior.
+- Check the implementation against Google Search Central: Introduction to structured data before treating the rule as satisfied.
+- Check the implementation against Schema.org specification before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

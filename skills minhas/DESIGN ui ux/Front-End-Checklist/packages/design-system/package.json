@@ -1,0 +1,47 @@
+{
+  "name": "@repo/design-system",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./brand-icons": "./src/brand-icons.tsx",
+    "./custom/*": "./src/custom/*.tsx",
+    "./icons": "./src/icons.ts",
+    "./motion/*": "./src/motion/*.tsx",
+    "./typography": "./src/typography.ts",
+    "./ui/*": "./src/ui/*.tsx"
+  },
+  "scripts": {
+    "lint": "biome check .",
+    "test": "jest --passWithNoTests",
+    "test:ci": "jest --ci --passWithNoTests",
+    "test:coverage": "jest --coverage --ci --passWithNoTests"
+  },
+  "dependencies": {
+    "@icons-pack/react-simple-icons": "catalog:",
+    "@radix-ui/react-accordion": "^1.2.12",
+    "@radix-ui/react-checkbox": "catalog:",
+    "@radix-ui/react-dialog": "catalog:",
+    "@radix-ui/react-dropdown-menu": "catalog:",
+    "@radix-ui/react-progress": "catalog:",
+    "@radix-ui/react-select": "catalog:",
+    "@radix-ui/react-slot": "catalog:",
+    "@radix-ui/react-switch": "catalog:",
+    "@radix-ui/react-tabs": "catalog:",
+    "@radix-ui/react-tooltip": "catalog:",
+    "@repo/utils": "workspace:*",
+    "class-variance-authority": "catalog:",
+    "framer-motion": "catalog:",
+    "lucide-react": "^1.17.0",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@testing-library/react": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "jest": "catalog:",
+    "typescript": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "catalog:"
+  }
+}

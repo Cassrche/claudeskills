@@ -1,0 +1,28 @@
+{
+  "name": "@repo/search",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Search functionality with FlexSearch for Front-End Checklist",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "biome check .",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@repo/config": "workspace:*",
+    "@repo/storage": "workspace:*",
+    "@repo/types": "workspace:*",
+    "flexsearch": "^0.8.212",
+    "fuse.js": "^7.3.0"
+  },
+  "devDependencies": {
+    "@repo/config-typescript": "workspace:^",
+    "@types/jest": "catalog:",
+    "@types/node": "catalog:",
+    "jest": "catalog:",
+    "typescript": "catalog:"
+  }
+}

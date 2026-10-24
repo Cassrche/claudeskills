@@ -1,0 +1,210 @@
+---
+title: Use visual regression testing
+description: >-
+  Capture screenshots of components and pages, then automatically compare them
+  against approved baselines to detect unintended visual changes before they
+  reach production.
+categories:
+  - testing
+subcategory: visual
+priority: medium
+difficulty: intermediate
+estimatedTime: 30
+tldr:
+  - Visual regression tests catch CSS regressions that functional tests miss
+  - >-
+    Run screenshot comparisons in CI to block merges that break visual
+    appearance
+  - 'Use component-level (Storybook) tests for focused, fast visual coverage'
+  - >-
+    Set pixel difference thresholds to avoid flaky tests from sub-pixel
+    rendering
+whyItMatters: >-
+  Functional tests verify behavior but don't see your page. A CSS refactor might
+  pass all unit and integration tests while completely breaking the layout —
+  text overlapping images, buttons invisible, wrong colors. Visual regression
+  testing acts as a safety net that reviews your actual rendered output,
+  catching changes that no amount of JavaScript testing can detect.
+relatedRules:
+  - slug: cross-browser-testing
+    reason: >-
+      Visual regression tests should run across multiple browsers to catch
+      rendering differences
+  - slug: accessibility-testing
+    reason: Visual changes can also affect accessibility — run both in CI
+  - slug: accessibility-testing
+    reason: Both rules affect testing quality and are commonly reviewed together.
+  - slug: contract-testing
+    reason: Both rules affect testing quality and are commonly reviewed together.
+tools:
+  - name: Playwright (built-in screenshot comparison)
+    url: 'https://playwright.dev/docs/screenshots'
+  - name: Chromatic (Storybook visual testing)
+    url: 'https://www.chromatic.com'
+  - name: Percy (CI visual testing)
+    url: 'https://percy.io'
+  - name: Storybook (component isolation)
+    url: 'https://storybook.js.org'
+prompts:
+  check: >-
+    Does this project have visual regression testing? What critical components
+    or pages would benefit most from visual baselines?
+  fix: >-
+    Set up visual regression tests for the key components using Playwright's
+    screenshot comparison or a tool like Chromatic.
+  explain: >-
+    Explain visual regression testing, how it differs from functional tests, and
+    how to set up screenshot comparison in a CI pipeline.
+  codeReview: >-
+    Review tests, CI workflows, and enforcement points related to Use visual
+    regression testing. Flag exact gaps where the rule is not automatically
+    verified or where failures do not block regressions.
+aiContext: >-
+  Use when reviewing CI coverage, automated checks, or test strategy related to
+  Use visual regression testing. Focus on whether the rule is continuously
+  verified, not just documented.
+sources:
+  - title: Playwright Docs
+    url: 'https://playwright.dev/docs/intro'
+    type: guide
+    id: playwright-docs
+    role: reference
+    authority: primary
+  - title: Testing Library Guiding Principles
+    url: 'https://testing-library.com/docs/guiding-principles'
+    type: guide
+    id: testing-library-guiding-principles
+    role: implementation
+    authority: primary
+---
+Visual regression testing screenshots your app and compares against approved baselines, failing when pixels change unexpectedly.
+
+## Code Example
+
+```javascript
+// tests/visual/homepage.spec.js
+import { test, expect } from '@playwright/test'
+
+test('homepage looks correct', async ({ page }) => {
+  await page.goto('/')
+  await page.waitForLoadState('networkidle')
+
+  // Full page screenshot
+  await expect(page).toHaveScreenshot('homepage.png', {
+    maxDiffPixelRatio: 0.01 // Allow 1% pixel difference (anti-aliasing, etc.)
+  })
+})
+
+test('button states', async ({ page }) => {
+  await page.goto('/components/buttons')
+
+  // Component-level screenshot
+  const button = page.locator('.button--primary')
+  await expect(button).toHaveScreenshot('button-default.png')
+
+  await button.hover()
+  await expect(button).toHaveScreenshot('button-hover.png')
+})
+```
+
+## Why It Matters
+
+Functional tests verify behavior but don't see your page. A CSS refactor might pass all unit and integration tests while completely breaking the layout — text overlapping images, buttons invisible, wrong colors. Visual regression testing acts as a safety net that reviews your actual rendered output, catching changes that no amount of JavaScript testing can detect.
+
+## Updating Baselines
+
+```bash
+# First run creates baselines
+npx playwright test --update-snapshots
+
+# Subsequent runs compare against baselines
+npx playwright test
+
+# Update specific test's baseline
+npx playwright test homepage.spec.js --update-snapshots
+```
+
+## Storybook + Chromatic
+
+For component libraries, Storybook + Chromatic provides the most streamlined visual testing workflow:
+
+```javascript
+// Button.stories.js
+export default {
+  title: 'Components/Button',
+  component: Button,
+}
+
+export const Primary = {
+  args: { variant: 'primary', children: 'Click me' }
+}
+
+export const Disabled = {
+  args: { variant: 'primary', disabled: true, children: 'Disabled' }
+}
+
+export const Loading = {
+  args: { variant: 'primary', loading: true, children: 'Loading' }
+}
+```
+
+```yaml
+# CI: .github/workflows/visual.yml
+- name: Publish to Chromatic
+  uses: chromaui/action@v1
+  with:
+    projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+    onlyChanged: true # Only test changed components
+```
+
+## Handling Dynamic Content
+
+```javascript
+test('dashboard with dynamic content', async ({ page }) => {
+  await page.goto('/dashboard')
+
+  // Mask dynamic values before screenshotting
+  await page.addStyleTag({
+    content: `
+      .timestamp, .chart-data, .user-avatar { visibility: hidden; }
+    `
+  })
+
+  await expect(page).toHaveScreenshot('dashboard-layout.png')
+})
+```
+
+## CI Configuration
+
+```yaml
+# GitHub Actions
+- name: Run visual tests
+  run: npx playwright test tests/visual/
+  env:
+    CI: true
+
+- name: Upload diff artifacts on failure
+  if: failure()
+  uses: actions/upload-artifact@v3
+  with:
+    name: visual-diff
+    path: test-results/
+```
+
+## Standards
+
+- Use these references as the standard for how the test or monitoring strategy should behave in the shipped workflow.
+- Check the implementation against Playwright Docs before treating the rule as satisfied.
+- Check the implementation against Testing Library Guiding Principles before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Run the relevant test or CI step locally and confirm it fails when the rule is violated.
+
+### Manual Checks
+
+- Ensure the automation blocks regressions instead of only printing warnings.
+- Cover at least one representative high-risk flow, component, or route.
+- Keep thresholds or assertions in version control so changes remain reviewable.

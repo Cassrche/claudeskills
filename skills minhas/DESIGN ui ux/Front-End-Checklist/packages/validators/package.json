@@ -1,0 +1,23 @@
+{
+  "name": "@repo/validators",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Code validation and quality checks for the llms-txt-hub project",
+  "main": "./src/public-api.ts",
+  "types": "./src/public-api.ts",
+  "scripts": {
+    "validate:all": "pnpm validate:imports && pnpm validate:types && pnpm validate:security",
+    "validate:imports": "tsx src/validate-imports.ts",
+    "validate:security": "tsx src/validate-security.ts",
+    "validate:types": "tsx src/validate-types.ts"
+  },
+  "dependencies": {
+    "chalk": "^5.6.2",
+    "glob": "^13.0.6"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

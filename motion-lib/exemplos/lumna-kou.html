@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lumna Focus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Nunito:wght@500;600;700&display=block" rel="stylesheet">
+<style>
+/* Hallmark · macrostructure: motion spot atmosférico, 6 tempos · genre: atmospheric · theme: studied-DNA
+ * DNA de movimento: referência do usuário (Kou_video) · cores e ícone: lumna.org (#2459f5, gradiente do ícone #087fe2 → #39d6c6)
+ * dials: ENERGY 2 / RHYTHM 3 / MOTION 3 · motivo: tudo entra por desfoque até ficar nítido, como foco de câmera
+ * Hallmark · pre-emit critique: P5 H5 E4 S4 R5 V4
+ */
+:root {
+  --color-night: #04070f;
+  --color-blue: #2459f5;
+  --color-icon-a: #087fe2;
+  --color-icon-b: #0755b5;
+  --color-icon-c: #39d6c6;
+  --color-volt: #ffc93d;
+  --color-text: #f7f9ff;
+  --color-text-2: #8d9ab8;
+  --color-row: rgba(255, 255, 255, 0.045);
+  --color-row-line: rgba(255, 255, 255, 0.08);
+  --color-chip: rgba(255, 255, 255, 0.1);
+
+  --font-display: "Archivo", system-ui, sans-serif;
+  --font-body: "Nunito", ui-rounded, system-ui, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: clip; background: #000; }
+.stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; transform-origin: 0 0; background: var(--color-night); font-family: var(--font-body); color: var(--color-text); }
+.abs { position: absolute; }
+#world { position: absolute; inset: 0; transform-origin: 50% 50%; }
+.glow { position: absolute; border-radius: 50%; filter: blur(140px); }
+#glowA { width: 1300px; height: 1000px; background: var(--color-blue); opacity: 0.34; }
+#glowB { width: 900px; height: 800px; background: var(--color-icon-c); opacity: 0.14; }
+#vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(0, 0, 0, 0.72) 100%); pointer-events: none; }
+#grain { position: absolute; inset: -40px; opacity: 0.07; background-size: 256px 256px; pointer-events: none; }
+#fade { position: absolute; inset: 0; background: #000; opacity: 0; }
+
+.disp { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; }
+.w { display: inline-block; white-space: pre; will-change: transform, filter, opacity; }
+
+/* ícone oficial (lumna.org/icon.svg) */
+.icon { width: 120px; height: 120px; display: block; filter: drop-shadow(0 0 40px rgba(36, 89, 245, 0.55)); }
+
+/* Tempo 1 */
+#ic1 { left: 900px; top: 480px; }
+#t1 { top: 488px; font-size: 92px; white-space: nowrap; }
+
+/* Tempo 2 · caminho do dia */
+#t2 { left: 300px; top: 250px; font-size: 64px; }
+.orb { position: absolute; top: 400px; width: 340px; margin-left: -170px; text-align: center; }
+.disc { width: 230px; height: 230px; margin: 0 auto; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 30%, rgba(36, 89, 245, 0.55), rgba(7, 85, 181, 0.18) 55%, rgba(4, 7, 15, 0.9));
+  border: 2px solid rgba(255, 255, 255, 0.14); }
+.disc svg { width: 84px; height: 84px; stroke: var(--color-text); }
+.orb b { display: block; margin-top: 26px; font-family: var(--font-display); font-weight: 600; font-size: 32px; }
+.orb span { display: block; margin-top: 6px; font-size: 23px; color: var(--color-text-2); }
+#ring { position: absolute; left: 960px; top: 515px; width: 250px; height: 250px; margin: -125px 0 0 -125px; border-radius: 50%; border: 4px solid var(--color-icon-c); box-shadow: 0 0 50px rgba(57, 214, 198, 0.55), inset 0 0 40px rgba(57, 214, 198, 0.25); }
+
+/* Tempo 3 · bloco em 3D */
+#p3 { position: absolute; inset: 0; perspective: 1500px; }
+#block { position: absolute; left: 420px; top: 330px; width: 1080px; transform-style: preserve-3d; }
+#block h2 { font-size: 72px; }
+#block p { margin-top: 22px; font-size: 32px; line-height: 1.42; color: var(--color-text-2); max-width: 1000px; }
+.cta { margin-top: 34px; display: inline-flex; align-items: center; gap: 14px; height: 64px; padding: 0 26px; border-radius: 32px; background: var(--color-chip); font-weight: 700; font-size: 26px; }
+.cta i { width: 12px; height: 12px; border-radius: 50%; background: var(--color-icon-c); box-shadow: 0 0 14px var(--color-icon-c); }
+
+/* Tempo 4 · conversa em lista inclinada */
+#p4 { position: absolute; inset: 0; perspective: 1700px; }
+#list { position: absolute; left: 470px; top: 250px; width: 980px; transform-style: preserve-3d; }
+.row { height: 108px; margin-bottom: 14px; border-radius: 22px; background: var(--color-row); border: 1px solid var(--color-row-line); display: flex; align-items: center; gap: 24px; padding: 0 30px; }
+.av { width: 58px; height: 58px; border-radius: 16px; flex: none; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; font-size: 24px; }
+.av.me { background: var(--color-blue); }
+.av.pt { background: linear-gradient(135deg, var(--color-icon-b), var(--color-icon-c)); }
+.row .tx { flex: 1; min-width: 0; }
+.row b { display: block; font-size: 29px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row span { display: block; margin-top: 4px; font-size: 22px; color: var(--color-text-2); }
+.row svg { width: 30px; height: 30px; stroke: var(--color-text-2); flex: none; }
+#chips { position: absolute; left: 0; right: 0; top: 920px; display: flex; justify-content: center; gap: 16px; }
+.chip { height: 62px; padding: 0 28px; border-radius: 31px; display: inline-flex; align-items: center; background: var(--color-chip); font-weight: 700; font-size: 25px; color: var(--color-text); }
+.chip.on { background: var(--color-blue); box-shadow: 0 0 40px rgba(36, 89, 245, 0.7); }
+
+/* Tempo 5 · frase */
+.line { position: absolute; left: 0; right: 0; text-align: center; font-size: 64px; white-space: nowrap; }
+#l5a { top: 488px; }
+#l5b { top: 488px; }
+
+/* Tempo 6 · assinatura */
+#ic6 { left: 900px; top: 470px; }
+#t6 { top: 476px; font-size: 112px; font-weight: 700; letter-spacing: -0.035em; white-space: nowrap; }
+#credit { left: 0; right: 0; top: 960px; text-align: center; font-size: 22px; color: var(--color-text-2); }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="glow" id="glowA"></div>
+  <div class="glow" id="glowB"></div>
+
+  <div id="world">
+    <!-- 1 -->
+    <div class="abs" id="ic1"></div>
+    <p class="abs disp" id="t1"><span class="w">Medicina </span><span class="w">de </span><span class="w" data-tint>plantão.</span></p>
+
+    <!-- 2 -->
+    <h2 class="abs disp" id="t2"><span class="w">Um </span><span class="w">caminho </span><span class="w">por </span><span class="w" data-tint>dia</span></h2>
+    <div id="ring"></div>
+    <div class="orb" id="o0" style="left:630px"><div class="disc" data-icon="quiz"></div><b>Quiz</b><span>explicação na hora</span></div>
+    <div class="orb" id="o1" style="left:960px"><div class="disc" data-icon="paciente"></div><b>Paciente simulado</b><span>anamnese por texto ou voz</span></div>
+    <div class="orb" id="o2" style="left:1290px"><div class="disc" data-icon="reteste"></div><b>Reteste</b><span>o que errou volta amanhã</span></div>
+
+    <!-- 3 -->
+    <div id="p3"><div id="block">
+      <h2 class="disp"><span class="w">Quem </span><span class="w">pergunta </span><span class="w">é </span><span class="w" data-tint>você</span></h2>
+      <p>O paciente simulado responde o que um paciente responderia: nem mais, nem em ordem. No fim, uma Supervisora comenta a sua conduta.</p>
+      <span class="cta"><i></i>Atender um paciente</span>
+    </div></div>
+
+    <!-- 4 -->
+    <div id="p4"><div id="list"></div></div>
+    <div id="chips"><span class="chip">Quiz</span><span class="chip">Reteste</span><span class="chip" id="chipOn">Paciente simulado</span></div>
+
+    <!-- 5 -->
+    <p class="line disp" id="l5a">Mais que um banco de questões.</p>
+    <p class="line disp" id="l5b">É um <span data-tint2>plantão.</span></p>
+
+    <!-- 6 -->
+    <div class="abs" id="ic6"></div>
+    <p class="abs disp" id="t6"></p>
+    <p class="abs" id="credit">Um projeto do Hospital Moinhos de Vento com a FIAP</p>
+  </div>
+
+  <div id="grain"></div>
+  <div id="vignette"></div>
+  <div id="fade"></div>
+</div>
+<script>
+const DURATION = 13;
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+// ------------------------------------------------------------ som: esparso, como na referência
+// [segundo, arquivo, volume, corte (opcional)] · calm/ = sintetizado para esta peça
+window.CUES = [
+  [0.00, 'V4/Deep, Mini, Whoosh (8).wav', 0.45],
+  [0.05, 'calm/air_0.9.wav', 0.28],
+  [0.74, 'V5/Deep, Mini, Whoosh 14.wav', 0.50],
+  [1.02, 'calm/tick_a.wav', 0.40], [1.14, 'calm/tick_b.wav', 0.34], [1.26, 'calm/tick_a.wav', 0.40],
+  [1.90, 'calm/air_0.7.wav', 0.30],
+  [2.28, 'Editing Pack/Select, Gratonal, Gleam_3.wav', 0.38],
+  [2.62, 'V4/Button, Cursor, Select  (5).wav', 0.30],
+  [3.00, 'calm/tick_a.wav', 0.34],
+  [3.70, 'calm/air_0.7.wav', 0.24],
+  [3.95, 'calm/air_0.9.wav', 0.30],
+  [4.10, 'calm/tick_b.wav', 0.30],
+  [5.50, 'calm/air_0.7.wav', 0.22],
+  [5.80, 'calm/tick_a.wav', 0.26], [5.94, 'calm/tick_b.wav', 0.22], [6.08, 'calm/tick_a.wav', 0.26], [6.22, 'calm/tick_b.wav', 0.22], [6.36, 'calm/tick_a.wav', 0.26],
+  [7.15, 'calm/tick_b.wav', 0.30],
+  [7.50, 'V4/Button, Cursor, Select  (5).wav', 0.45],
+  [7.52, 'Editing Pack/Select, Gratonal, Gleam_3.wav', 0.30],
+  [7.00, 'V4/Deep, Mini, Whoosh (7).wav', 0.38],
+  [8.28, 'calm/tick_a.wav', 0.32],
+  [8.90, 'calm/air_0.9.wav', 0.28],
+  [9.05, 'V4/Granular Shine (45).wav', 0.22],
+  [9.95, 'V5/Deep, Mini, Whoosh 14.wav', 0.55],
+  [10.48, 'calm/tick_a.wav', 0.22], [10.535, 'calm/tick_b.wav', 0.2], [10.59, 'calm/tick_a.wav', 0.22], [10.645, 'calm/tick_b.wav', 0.2], [10.70, 'calm/tick_a.wav', 0.22],
+  [10.80, 'calm/bloom.wav', 0.30],
+];
+
+// ------------------------------------------------------------ montagem
+const ICON = '<svg class="icon" viewBox="0 0 32 32" fill="none"><defs><linearGradient id="IDG" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop stop-color="#087fe2"/><stop offset="0.5" stop-color="#0755b5"/><stop offset="1" stop-color="#39d6c6"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#IDG)"/><path d="M13.4 6.5h5.2v6.9h6.9v5.2h-6.9v6.9h-5.2v-6.9H6.5v-5.2h6.9z" fill="#ffffff"/></svg>';
+$('#ic1').innerHTML = ICON.replace(/IDG/g, 'g1');
+$('#ic6').innerHTML = ICON.replace(/IDG/g, 'g6');
+const GLYPH = {
+  quiz: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"/></svg>',
+  reteste: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.5"/><path d="M4 3.5v5h5"/></svg>',
+  paciente: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>',
+};
+$$('.disc').forEach((d) => (d.innerHTML = GLYPH[d.dataset.icon]));
+const MIC = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
+const ROWS = [
+  ['me', 'V', 'Quando começou a dor?', 'Você'],
+  ['pt', 'P', 'Faz umas duas horas. É um aperto aqui no meio do peito.', 'Paciente simulado'],
+  ['me', 'V', 'A dor irradia para algum lugar?', 'Você'],
+  ['pt', 'P', 'Vai pro braço esquerdo.', 'Paciente simulado'],
+  ['pt', 'P', 'E eu tô suando frio desde que começou.', 'Paciente simulado'],
+];
+$('#list').innerHTML = ROWS.map(([k, a, m, who]) =>
+  `<div class="row"><div class="av ${k}">${a}</div><div class="tx"><b>${m}</b><span>${who}</span></div>${MIC}</div>`).join('');
+$('#t6').innerHTML = 'Lumna'.split('').map((c) => `<span class="w">${c}</span>`).join('');
+
+// granulação determinística: 4 quadros de ruído gerados uma vez, com semente fixa
+let seed = 1337;
+const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+const GRAIN = [0, 1, 2, 3].map(() => {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d'), img = g.createImageData(256, 256);
+  for (let i = 0; i < img.data.length; i += 4) { const v = rnd() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
+  g.putImageData(img, 0, 0); return `url(${c.toDataURL()})`;
+});
+
+// ------------------------------------------------------------ curvas
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const prog = (t, s, d) => clamp((t - s) / d);
+const lerp = (a, b, x) => a + (b - a) * x;
+const eOut4 = (x) => 1 - Math.pow(1 - x, 4);
+const eIn3 = (x) => x * x * x;
+const eInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+function spring(dt, f = 1.6, z = 0.8) {
+  if (dt <= 0) return 0;
+  const w = 2 * Math.PI * f, wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * dt) * (Math.cos(wd * dt) + (z * w / wd) * Math.sin(wd * dt));
+}
+const mixRGB = (a, b, x) => `rgb(${a.map((v, i) => Math.round(lerp(v, b[i], x))).join(',')})`;
+const VOLT = [255, 201, 61], TEAL = [57, 214, 198], WHITE = [247, 249, 255], GREY = [141, 154, 184];
+
+// foco de câmera: entra desfocado e deslocado, sai desfocado e à deriva
+// o = { in, inD, out, outD, dx, dy, s0, b0, odx, ody, os, ob, base }
+function focus(el, t, o) {
+  const p = eOut4(prog(t, o.in, o.inD ?? 0.8));
+  const q = o.out == null ? 0 : eIn3(prog(t, o.out, o.outD ?? 0.5));
+  const x = (1 - p) * (o.dx ?? 0) + q * (o.odx ?? 0);
+  const y = (1 - p) * (o.dy ?? 30) + q * (o.ody ?? -20);
+  const s = lerp(o.s0 ?? 1, 1, p) * lerp(1, o.os ?? 1.04, q);
+  const b = (1 - p) * (o.b0 ?? 22) + q * (o.ob ?? 18) + (o.dof ?? 0);
+  el.style.transform = `${o.base ?? ''} translate(${x}px, ${y}px) scale(${s})`;
+  el.style.filter = b > 0.05 ? `blur(${b.toFixed(2)}px)` : 'none';
+  el.style.opacity = Math.min(p, 1 - q) * (o.op ?? 1);
+  return p;
+}
+// palavra a palavra; data-tint começa em volt e esfria para branco
+function words(container, t, start, stagger, o) {
+  $$('.w', container).forEach((w, i) => {
+    const p = focus(w, t, { ...o, in: start + i * stagger });
+    if (w.hasAttribute('data-tint')) w.style.color = mixRGB(VOLT, WHITE, prog(t, start + i * stagger + 0.35, 0.9));
+  });
+}
+
+function render(t) {
+  // fundo vivo: brilho que respira e granulação a 24 qps
+  const gA = $('#glowA'), gB = $('#glowB');
+  gA.style.transform = `translate(${300 + 220 * Math.sin(t * 0.35)}px, ${-260 + 120 * Math.cos(t * 0.28)}px)`;
+  gB.style.transform = `translate(${1100 + 160 * Math.cos(t * 0.3)}px, ${520 + 100 * Math.sin(t * 0.4)}px)`;
+  gA.style.opacity = 0.34 * clamp(t / 0.8) * (1 - prog(t, 12.2, 0.8));
+  gB.style.opacity = 0.14 * clamp(t / 0.8) * (1 - prog(t, 12.2, 0.8));
+  const gf = Math.floor(t * 24);
+  $('#grain').style.backgroundImage = GRAIN[gf % 4];
+  $('#grain').style.backgroundPosition = `${(gf * 73) % 256}px ${(gf * 151) % 256}px`;
+  $('#world').style.transform = `scale(${1 + 0.035 * t / DURATION}) rotate(${-0.25 + 0.5 * t / DURATION}deg)`;
+  $('#fade').style.opacity = prog(t, 12.35, 0.6);
+
+  // ---------- 1 · ícone desce, a frase entra palavra a palavra (0 a 2.3)
+  const t1 = $('#t1'), ic1 = $('#ic1');
+  const gap = 34, w1 = t1.offsetWidth, total = 120 + gap + w1;
+  const slide = eInOut(prog(t, 0.82, 0.55));
+  const icX = lerp(0, -(total / 2 - 60), slide);
+  const drop = spring(t - 0.12, 1.3, 0.85);
+  const out1 = eIn3(prog(t, 1.95, 0.4));
+  ic1.style.transform = `translate(${icX}px, ${(1 - drop) * -300}px) scale(${lerp(0.55, 1, drop) * lerp(1, 1.12, out1)})`;
+  const b1 = (1 - eOut4(prog(t, 0.1, 0.7))) * 24 + out1 * 20;
+  ic1.style.filter = b1 > 0.05 ? `blur(${b1}px)` : 'none';
+  ic1.style.opacity = clamp((t - 0.1) * 3) * (1 - out1);
+  t1.style.left = `${960 - total / 2 + 120 + gap}px`;
+  words(t1, t, 1.0, 0.12, { inD: 0.75, dx: 40, dy: 0, b0: 18, out: 1.95, outD: 0.4, ody: 0, odx: 0, os: 1.12, ob: 20 });
+
+  // ---------- 2 · anel vira os três círculos do caminho do dia (2.2 a 4.1)
+  const ring = $('#ring');
+  const rp = focus(ring, t, { in: 2.25, inD: 0.5, dy: 0, s0: 0.6, b0: 16, out: 2.62, outD: 0.3, ody: 0, os: 0.92, ob: 6 });
+  const orbs = [$('#o0'), $('#o1'), $('#o2')];
+  orbs.forEach((o, i) => {
+    const side = i !== 1;
+    const sharp = prog(t, 3.0, 0.5);
+    const dof = side ? lerp(9, 0, eOut4(sharp)) : 0;
+    focus(o, t, { in: side ? 2.66 : 2.55, inD: 0.7, dx: side ? (i === 0 ? 330 : -330) : 0, dy: 0, s0: side ? 0.7 : 0.85, b0: 14,
+      out: 3.72, outD: 0.45, odx: 140, ody: 60, ob: 16, os: 1.02, dof, op: side ? lerp(0.45, 1, sharp) : 1 });
+  });
+  words($('#t2'), t, 3.0, 0.08, { inD: 0.7, dx: 30, dy: 0, b0: 16, out: 3.7, outD: 0.45, odx: 140, ody: 60 });
+
+  // ---------- 3 · bloco de texto inclinado em 3D (4.0 a 6.0)
+  const ry = lerp(30, 4, eOut4(prog(t, 4.0, 1.6)));
+  const block = $('#block');
+  focus(block, t, { in: 4.0, inD: 0.9, dx: 180, dy: 20, b0: 20, out: 5.55, outD: 0.5, odx: -120, ody: -90, ob: 16,
+    base: `rotateY(${ry}deg) rotateX(${lerp(10, 3, prog(t, 4, 1.6))}deg)` });
+  words($('#block h2'), t, 4.15, 0.07, { inD: 0.6, dx: 24, dy: 0, b0: 12 });
+
+  // ---------- 4 · conversa em lista inclinada, foco no centro (5.7 a 8.2)
+  const list = $('#list');
+  const lOut = eIn3(prog(t, 7.85, 0.45));
+  list.style.transform = `rotateX(${lerp(16, 10, prog(t, 5.7, 2.5))}deg) rotateY(${lerp(-16, -7, prog(t, 5.7, 2.5))}deg) translateY(${lerp(70, -50, eInOut(prog(t, 5.7, 2.4)))}px) translateX(${-100 * lOut}px)`;
+  list.style.opacity = 1 - lOut;
+  list.style.filter = lOut > 0 ? `blur(${lOut * 18}px)` : 'none';
+  const listY = lerp(70, -50, eInOut(prog(t, 5.7, 2.4)));
+  $$('.row', list).forEach((r, i) => {
+    const centerY = 250 + listY + i * 122 + 54;
+    const dof = Math.max(0, Math.abs(centerY - 520) - 150) / 34;
+    focus(r, t, { in: 5.78 + i * 0.14, inD: 0.65, dx: 0, dy: 60, b0: 14, dof });
+  });
+  const chips = $('#chips');
+  focus(chips, t, { in: 7.1, inD: 0.6, dy: 40, b0: 14, out: 8.0, outD: 0.5, odx: -520, ody: -380, ob: 14, os: 0.9 });
+  const on = t >= 7.5;
+  $('#chipOn').classList.toggle('on', on);
+  $('#chipOn').style.transform = `scale(${1 - 0.06 * (prog(t, 7.48, 0.06) - prog(t, 7.56, 0.16))})`;
+
+  // ---------- 5 · frase com rastreio de letras (8.2 a 10.0)
+  const a = $('#l5a');
+  focus(a, t, { in: 8.25, inD: 0.7, dy: 0, b0: 18, out: 8.9, outD: 0.35, ody: 0, os: 1.06 });
+  a.style.color = mixRGB(GREY, WHITE, prog(t, 8.3, 0.6));
+  const b = $('#l5b');
+  const bp = focus(b, t, { in: 9.02, inD: 0.85, dy: 0, b0: 16, out: 9.8, outD: 0.35, ody: 0, os: 0.8, ob: 22 });
+  b.style.letterSpacing = `${lerp(0.42, -0.02, eOut4(prog(t, 9.02, 0.9)))}em`;
+  $('[data-tint2]').style.color = mixRGB(VOLT, WHITE, prog(t, 9.4, 0.6));
+
+  // ---------- 6 · assinatura (9.95 a 13)
+  const t6 = $('#t6'), ic6 = $('#ic6');
+  const w6 = t6.offsetWidth, tot6 = 120 + 36 + w6;
+  const s6 = eInOut(prog(t, 10.35, 0.55));
+  const pop = spring(t - 9.95, 1.4, 0.75);
+  ic6.style.transform = `translate(${lerp(0, -(tot6 / 2 - 60), s6)}px, 0) scale(${lerp(0.5, 1, pop)})`;
+  const b6 = (1 - eOut4(prog(t, 9.95, 0.6))) * 20;
+  ic6.style.filter = b6 > 0.05 ? `blur(${b6}px)` : 'none';
+  ic6.style.opacity = clamp((t - 9.95) * 4);
+  t6.style.left = `${960 - tot6 / 2 + 120 + 36}px`;
+  words(t6, t, 10.48, 0.055, { inD: 0.6, dx: 30, dy: 0, b0: 14 });
+  focus($('#credit'), t, { in: 10.95, inD: 0.9, dy: 10, b0: 8 });
+}
+window.renderAt = render;
+window.DURATION = DURATION;
+
+const capture = new URLSearchParams(location.search).has('capture');
+function fit() {
+  const s = capture ? 1 : Math.min(innerWidth / 1920, innerHeight / 1080);
+  const st = $('#stage');
+  st.style.transform = `scale(${s})`;
+  st.style.left = capture ? '0' : `${(innerWidth - 1920 * s) / 2}px`;
+  st.style.top = capture ? '0' : `${(innerHeight - 1080 * s) / 2}px`;
+}
+addEventListener('resize', fit); fit();
+if (!capture) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) render(11.5);
+  else {
+    const t0 = performance.now();
+    const loop = (now) => { render(((now - t0) / 1000) % (DURATION + 0.5)); requestAnimationFrame(loop); };
+    document.fonts.ready.then(() => requestAnimationFrame(loop));
+  }
+} else render(0);
+</script>
+</body>
+</html>

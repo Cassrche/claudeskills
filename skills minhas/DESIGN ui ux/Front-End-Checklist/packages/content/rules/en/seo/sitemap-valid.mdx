@@ -1,0 +1,195 @@
+---
+title: Keep XML sitemaps valid
+description: >-
+  Validates sitemap XML structure against the sitemaps.org protocol, URL limits,
+  and encoding requirements.
+categories:
+  - seo
+subcategory: technical
+priority: high
+difficulty: beginner
+estimatedTime: 10
+tldr:
+  - The root element must be `<urlset>` with the correct `xmlns` namespace
+  - >-
+    Each `<url>` must contain exactly one `<loc>` element with a fully
+    qualified, percent-encoded URL
+  - >-
+    Maximum 50,000 URLs and 50 MB per sitemap file; use a sitemap index for
+    larger sites
+  - >-
+    Encode XML special characters: `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;`,
+    `"` → `&quot;`, `'` → `&apos;`
+whyItMatters: >-
+  An invalid or malformed sitemap is silently ignored by search engines, leaving
+  newly published or orphaned pages undiscovered by crawlers.
+aiContext: >-
+  Applies to any site with a manually or programmatically generated XML sitemap.
+  Use when debugging sitemap submission errors in Google Search Console.
+prompts:
+  check: >-
+    Fetch the sitemap and validate it against the sitemaps.org schema. Check
+    that the `xmlns` attribute is `http://www.sitemaps.org/schemas/sitemap/0.9`,
+    all `<loc>` values are absolute URLs, no file exceeds 50,000 URLs or 50 MB,
+    and special characters are properly XML-encoded.
+  fix: >-
+    Re-generate the sitemap using a validated sitemap library. Encode all
+    special characters in URLs (`&` → `&amp;`). Split oversized sitemaps into
+    multiple files and reference them from a sitemap index. Resubmit to Google
+    Search Console.
+  explain: >-
+    Explain the sitemaps.org XML schema requirements, what causes validation
+    errors in Google Search Console, and how encoding errors in `<loc>` URLs
+    prevent crawlers from fetching those pages.
+  codeReview: >-
+    Review metadata generation, rendered HTML, structured data, and response
+    headers related to Keep XML sitemaps valid. Flag exact routes or templates
+    where search-facing output violates the rule, and describe how to verify the
+    final page output.
+sources:
+  - title: Sitemaps XML format
+    url: 'https://www.sitemaps.org/protocol.html'
+    type: spec
+    id: sitemaps-xml-format
+    role: standard
+    authority: primary
+  - title: 'Google: Sitemap best practices'
+    url: >-
+      https://developers.google.com/search/docs/crawling-indexing/sitemaps/overview
+    type: guide
+    id: google-sitemap-best-practices
+    role: search
+    authority: primary
+  - title: 'Google: Build and submit a sitemap'
+    url: >-
+      https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap
+    type: guide
+    id: google-build-and-submit-a-sitemap
+    role: search
+    authority: primary
+resources:
+  - name: Google Search Console
+    url: 'https://search.google.com/search-console/about'
+    type: tool
+relatedRules:
+  - slug: sitemap-domain
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: sitemap
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: special-chars
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: noindex-in-sitemap
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+---
+A valid XML sitemap must conform to the sitemaps.org protocol. Invalid sitemaps cause submission errors in Google Search Console and prevent crawlers from processing the included URLs.
+
+## Code Example
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://www.example.com/page/</loc>
+    <lastmod>2025-03-01</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>
+```
+
+## Why It Matters
+
+An invalid or malformed sitemap is silently ignored by search engines, leaving newly published or orphaned pages undiscovered by crawlers.
+
+## Element Reference
+
+| Element | Required | Values |
+|---------|----------|--------|
+| `<loc>` | Yes | Absolute URL, max 2048 chars |
+| `<lastmod>` | No | W3C Datetime format (e.g., `2025-03-01`) |
+| `<changefreq>` | No | `always`, `hourly`, `daily`, `weekly`, `monthly`, `yearly`, `never` |
+| `<priority>` | No | `0.0` to `1.0` (default: `0.5`) |
+
+Note: Google ignores `changefreq` and `priority` — include `lastmod` as it is used for crawl scheduling.
+
+## Common Validation Errors
+
+#
+
+## ❌ Missing or wrong namespace
+
+```xml
+<!-- Wrong -->
+<urlset>
+
+<!-- Correct -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+```
+
+### ❌ Unencoded ampersand in URL
+
+```xml
+<!-- Wrong — XML parse error -->
+<loc>https://example.com/search?q=shoes&color=red</loc>
+
+<!-- Correct -->
+<loc>https://example.com/search?q=shoes&amp;color=red</loc>
+```
+
+### ❌ Relative URLs
+
+```xml
+<!-- Wrong -->
+<loc>/about</loc>
+
+<!-- Correct -->
+<loc>https://www.example.com/about</loc>
+```
+
+### ❌ Exceeding URL limits
+
+A sitemap with more than 50,000 URLs should be split into multiple files referenced by a sitemap index:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>https://www.example.com/sitemap-1.xml</loc>
+  </sitemap>
+  <sitemap>
+    <loc>https://www.example.com/sitemap-2.xml</loc>
+  </sitemap>
+</sitemapindex>
+```
+
+## Validation Tools
+
+- [Google Search Console](https://search.google.com/search-console/about) → Sitemaps (shows processing errors)
+- [XML Sitemap Validator](https://www.xml-sitemaps.com/validate-xml-sitemap.html)
+- `xmllint --noout sitemap.xml` via command line
+
+## Exceptions
+
+- Staging, utility, login, account, or internal search pages may intentionally use different crawl or index signals if they are not meant to rank.
+- Temporary migration states can produce noisy intermediate signals; flag the live production URL pattern, not one-off transition artifacts.
+- When redirects, canonicals, robots directives, or indexability signals conflict, fix the strongest final signal first instead of reporting every downstream symptom as a separate blocker.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

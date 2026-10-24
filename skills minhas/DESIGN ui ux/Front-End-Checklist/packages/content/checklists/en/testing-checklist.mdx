@@ -1,0 +1,95 @@
+---
+title: Testing Checklist
+description: Comprehensive testing strategy for frontend applications. Ensure quality and reliability with unit, integration, and end-to-end tests.
+icon: flask-conical
+rules:
+  - testing/unit-tests
+  - testing/integration-testing
+  - testing/e2e-testing
+  - testing/cross-browser-testing
+  - testing/accessibility-testing
+  - testing/mock-best-practices
+estimatedTime: "40 minutes"
+difficulty: intermediate
+order: 8
+featured: false
+---
+
+A robust testing strategy catches bugs before users do, enables confident refactoring, and documents expected behavior. This checklist covers the essential testing practices for frontend applications.
+
+## When To Use It
+
+Use this checklist when the question is "what testing coverage should this product actually have?" rather than "which one test should I write next?"
+
+## Who It's For
+
+- Teams building or tightening a frontend testing strategy
+- Junior developers learning the right test layer for each problem
+- Reviewers assessing confidence before larger changes ship
+
+## Done Looks Like
+
+You should finish with a more intentional mix of unit, integration, end-to-end, browser, and accessibility coverage rather than a grab bag of tests.
+
+## Why This Matters
+
+- **Confidence** - Deploy with confidence knowing tests catch regressions
+- **Documentation** - Tests describe how code should behave
+- **Refactoring** - Safe to change code when tests verify behavior
+- **Collaboration** - New team members understand expectations
+- **Speed** - Automated tests are faster than manual testing
+
+## Testing Pyramid
+
+### Unit Tests (Base)
+Test individual functions and components in isolation. Fast to run, easy to write.
+
+- Test pure functions with various inputs
+- Test component rendering
+- Mock external dependencies
+
+### Integration Tests (Middle)
+Test how components work together. More realistic but slower.
+
+- Test component interactions
+- Test API integration
+- Test state management
+
+### End-to-End Tests (Top)
+Test complete user flows in a real browser. Most realistic but slowest.
+
+- Critical user journeys
+- Checkout flows
+- Authentication
+- Form submissions
+
+## Key Testing Areas
+
+### Cross-Browser Testing
+Your app must work across different browsers and devices. Test on:
+- Chrome, Firefox, Safari, Edge
+- Mobile browsers (iOS Safari, Chrome Android)
+- Different screen sizes
+
+### Accessibility Testing
+Automated tools catch ~30% of accessibility issues. Combine with manual testing.
+- axe-core integration
+- Keyboard navigation testing
+- Screen reader testing
+
+## Testing Tools
+
+- **Vitest/Jest** - Unit testing
+- **React Testing Library** - Component testing
+- **Playwright/Cypress** - E2E testing
+- **axe-core** - Accessibility testing
+- **BrowserStack/Sauce Labs** - Cross-browser testing
+
+## Best Practices
+
+1. Write tests alongside code, not after
+2. Test behavior, not implementation details
+3. Keep tests fast and deterministic
+4. Use realistic test data
+5. Mock external services, not internal modules
+6. Run tests in CI on every PR

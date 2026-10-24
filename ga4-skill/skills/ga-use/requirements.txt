@@ -1,0 +1,2 @@
+google-analytics-data>=0.18.0
+pytest>=8.0.0

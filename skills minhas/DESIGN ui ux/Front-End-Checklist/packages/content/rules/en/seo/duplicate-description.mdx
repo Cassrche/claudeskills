@@ -1,0 +1,187 @@
+---
+title: Avoid duplicate meta descriptions
+description: Checks for duplicate meta descriptions across the site
+categories:
+  - seo
+subcategory: meta-tags
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - >-
+    Each page must have a unique `<meta name="description">` — never reuse the
+    same text across multiple pages
+  - >-
+    Google may auto-generate snippets when descriptions are duplicated or
+    missing, often producing worse results
+  - >-
+    Target 50–160 characters; craft descriptions that describe the specific
+    page, not the site
+whyItMatters: >-
+  When multiple pages share the same meta description, Google ignores them and
+  generates its own snippet, often pulling unrelated text. Unique descriptions
+  improve click-through rates from search results and help users quickly
+  understand what a page offers.
+aiContext: >-
+  Use when auditing a site's meta tag uniqueness, generating page-specific meta
+  descriptions, or reviewing CMS templates that inject the same description
+  globally.
+prompts:
+  check: >-
+    Scan the HTML of every page for `<meta name="description" content="...">`.
+    Identify any description value that appears on more than one URL. Flag pages
+    using the same description as another page, and flag pages where the
+    description matches the site tagline or homepage description.
+  fix: >
+    1. List every page with a duplicate meta description.
+
+    2. For each page, write a unique description that summarises that page's
+    specific content (50–160 characters).
+
+    3. In Next.js/React, pass a dynamic `description` prop through your SEO
+    component instead of a static string.
+
+    4. In WordPress/CMS, disable site-wide description fallback in your SEO
+    plugin (Yoast, RankMath) and set per-post descriptions.
+
+    Example of a unique description per page:
+
+    - Homepage: "Front-End Checklist helps developers build faster, more
+    accessible, and better-ranked websites."
+
+    - Blog post: "Learn how canonical tags prevent duplicate-content penalties
+    and consolidate PageRank across URL variants."
+  explain: >-
+    Duplicate meta descriptions tell Google the pages are interchangeable,
+    diluting search visibility. Each page competes in search for different
+    queries, so the description must match the page's unique intent and content
+    to earn a relevant snippet and a higher click-through rate.
+  codeReview: >-
+    Check that no two `<meta name="description">` tags in the rendered HTML
+    across different routes share identical `content` values. Confirm the
+    description is set dynamically per route in the framework's head management
+    (e.g., Next.js `metadata` export, Nuxt `useHead`).
+relatedRules:
+  - slug: title-unique
+    reason: Duplicate titles cause the same indexing problem; fix both together
+  - slug: meta-description
+    reason: Rules for meta description presence and length complement uniqueness
+  - slug: title-unique
+    reason: >-
+      Both rules sit in the `seo/meta-tags` area and are commonly reviewed
+      together.
+  - slug: meta-title
+    reason: >-
+      Both rules sit in the `seo/meta-tags` area and are commonly reviewed
+      together.
+resources:
+  - title: 'Google Search Central: Control your snippets in search results'
+    url: 'https://developers.google.com/search/docs/appearance/snippet'
+    type: guide
+  - title: 'Google Search Central: Title links in search results'
+    url: 'https://developers.google.com/search/docs/appearance/title-link'
+    type: guide
+  - name: 'Screaming Frog'
+    url: 'https://www.screamingfrog.co.uk/seo-spider/'
+    type: tool
+sources:
+  - title: 'Google Search Central: Snippet best practices'
+    url: 'https://developers.google.com/search/docs/appearance/snippet'
+    type: guide
+    id: google-search-central-snippet-best-practices
+    role: search
+    authority: primary
+  - title: 'MDN: meta element name attribute — description'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta/name'
+    type: mdn
+    id: mdn-meta-element-name-attribute-description
+    role: reference
+    authority: primary
+---
+Every page should tell search engines and users what makes it unique. When multiple pages share the same meta description, [Google's snippet guidance](https://developers.google.com/search/docs/appearance/snippet) often leads Google to rewrite the snippet, creating the same ambiguity you see when titles are not unique sitewide.
+
+## Code Examples
+
+#
+
+## ❌ Avoid — same description on every page
+
+```html
+<!-- Homepage -->
+<meta name="description" content="Acme Corp — Building better products.">
+
+<!-- /products page — duplicate! -->
+<meta name="description" content="Acme Corp — Building better products.">
+
+<!-- /contact page — duplicate! -->
+<meta name="description" content="Acme Corp — Building better products.">
+```
+
+### ✅ Correct — unique description per page
+
+```html
+<!-- Homepage -->
+<meta name="description" content="Acme Corp builds enterprise project management software trusted by 10,000+ teams.">
+
+<!-- /products page -->
+<meta name="description" content="Explore Acme's suite of project tools: time tracking, Kanban boards, and automated reporting.">
+
+<!-- /contact page -->
+<meta name="description" content="Get in touch with the Acme Corp sales and support team — we respond within one business day.">
+```
+
+### ✅ Dynamic generation in Next.js
+
+```ts
+// app/products/page.tsx
+export const metadata = {
+  description: 'Explore Acme\'s suite of project tools: time tracking, Kanban boards, and automated reporting.',
+}
+```
+
+## Why It Matters
+
+- **Snippet quality**: Google uses the meta description as the search snippet when it considers it relevant. Unique descriptions mean more useful snippets, and [MDN's description-meta reference](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta/name) is a good baseline for validating the rendered tag.
+- **Click-through rate**: A description tailored to the page's content matches user intent and earns more clicks.
+- **Crawl signals**: Identical descriptions across pages suggest thin or duplicate content, which can suppress rankings and usually needs the same per-route treatment as [meta-title generation](/en/rules/seo/meta-title).
+
+## What to Check
+
+Crawl the site and collect all `<meta name="description" content="...">` values. Group by content value; any group with more than one URL is a violation.
+
+Also flag descriptions that:
+- Are identical to the homepage description
+- Match the site tagline verbatim
+- Are left as a CMS template placeholder
+
+## How to Fix Duplicates
+
+1. Run a site crawl with [Screaming Frog](https://www.screamingfrog.co.uk/seo-spider/), Sitebulb, or Google Search Console's Page Indexing report to identify duplicates.
+2. Export the list of affected URLs and their shared descriptions.
+3. Write a unique, page-specific description for each URL (50–160 characters).
+4. Update your CMS, template, or code to inject these per-page values.
+5. Re-crawl after deploying to confirm all duplicates are resolved.
+
+## Exceptions
+
+- Utility or intentionally noindex pages may keep minimal metadata when richer search presentation is not a goal.
+- Template-driven pages can look repetitive in isolation; confirm the fully rendered production output before flagging duplication or omission.
+- If a page is intentionally redirected or excluded from indexation, resolve that crawlability decision before treating metadata polish as the primary issue.
+
+## Standards
+
+- Use these references as the standard for the final search-facing HTML, metadata, and crawl behavior.
+- Check the implementation against Google Search Central: Snippet best practices before treating the rule as satisfied.
+- Check the implementation against MDN: meta element name attribute — description before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

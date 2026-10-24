@@ -1,0 +1,30 @@
+{
+  "name": "@frontendchecklist/rules",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Public Front-End Checklist rules package for external consumers",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./load-rules": "./src/load-rules.ts"
+  },
+  "files": [
+    "README.md",
+    "rules",
+    "src"
+  ],
+  "scripts": {
+    "lint": "biome check .",
+    "prepack": "pnpm sync:rules",
+    "sync:rules": "tsx src/sync-rules.ts",
+    "test": "node --import tsx --test src/__tests__/load-rules.test.ts",
+    "test:ci": "node --import tsx --test src/__tests__/load-rules.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@repo/config-typescript": "workspace:^",
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

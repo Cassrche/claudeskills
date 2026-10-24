@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "codemap": {
+      "command": "codemap",
+      "args": [
+        "mcp",
+        "--configured-version",
+        "dev",
+        "--integration",
+        "codex-plugin"
+      ]
+    }
+  }
+}

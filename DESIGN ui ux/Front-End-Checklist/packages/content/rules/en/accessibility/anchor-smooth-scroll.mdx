@@ -1,0 +1,230 @@
+---
+title: Provide instant anchor scroll option
+description: >-
+  Smooth scroll animations to anchor links respect motion preferences or provide
+  an instant alternative.
+categories:
+  - accessibility
+  - css
+subcategory: animation
+priority: low
+difficulty: beginner
+estimatedTime: 10
+tldr:
+  - Disable smooth scroll when prefers-reduced-motion is set
+  - 'Use CSS scroll-behavior: smooth with media query check'
+  - Ensure focus moves to anchor target for keyboard users
+  - Provide instant scroll as default or fallback
+whyItMatters: >-
+  Smooth scroll animations can trigger vertigo, nausea, and disorientation for
+  users with vestibular disorders—instant navigation is safer and often faster.
+prompts:
+  check: >-
+    Click anchor links (same-page navigation) and verify smooth scrolling is
+    disabled when prefers-reduced-motion is set. Confirm anchor navigation works
+    correctly with keyboard and screen readers.
+  fix: >-
+    Use scroll-behavior: smooth only within a prefers-reduced-motion media query
+    check. Provide instant scrolling as the default or reduced-motion fallback.
+    Ensure focus moves to the anchor target.
+  explain: >-
+    Explain how animated scroll transitions can cause motion sickness and
+    disorientation for users with vestibular disorders, and why instant
+    navigation is often preferable for accessibility.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Provide
+    instant anchor scroll option. Flag exact elements, roles, labels, focus
+    behavior, or keyboard interactions that violate the rule, and note how to
+    verify the fix with browser accessibility tooling or assistive tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Provide instant anchor scroll option. Check native
+  semantics first, then inspect keyboard behavior, focus flow, accessible names,
+  and screen-reader output where relevant.
+sources:
+  - title: 'W3C WAI: WCAG Overview'
+    url: 'https://www.w3.org/WAI/standards-guidelines/wcag/'
+    type: wcag
+    id: w3c-wai-wcag-overview
+    role: standard
+    authority: primary
+  - title: 'MDN: Accessibility'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility'
+    type: mdn
+    id: mdn-accessibility
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: reduced-motion
+    reason: >-
+      Both rules sit in the `accessibility/animation` area and are commonly
+      reviewed together.
+  - slug: parallax-effects
+    reason: >-
+      Both rules sit in the `accessibility/animation` area and are commonly
+      reviewed together.
+  - slug: scrolljacking
+    reason: >-
+      Both rules sit in the `accessibility/animation` area and are commonly
+      reviewed together.
+  - slug: flashing-content
+    reason: >-
+      Both rules sit in the `accessibility/animation` area and are commonly
+      reviewed together.
+---
+Smooth scrolling should respect motion preferences to avoid triggering vestibular disorders.
+
+## Code Example
+
+```css
+/* ❌ Bad: Always smooth, ignores preferences */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ✅ Good: Respect motion preferences */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Users who prefer reduced motion get instant scrolling (default) */
+```
+
+## Why It Matters
+
+Smooth scroll animations can trigger vertigo, nausea, and disorientation for users with vestibular disorders—instant navigation is safer and often faster.
+
+## JavaScript Approach
+
+```typescript
+function scrollToElement(elementId: string) {
+  const element = document.getElementById(elementId)
+  if (!element) return
+
+  const prefersReducedMotion = window.matchMedia(
+    '(prefers-reduced-motion: reduce)'
+  ).matches
+
+  element.scrollIntoView({
+    behavior: prefersReducedMotion ? 'instant' : 'smooth',
+    block: 'start'
+  })
+
+  // Move focus to target for keyboard users
+  element.focus({ preventScroll: true })
+}
+```
+
+## React Hook
+
+```tsx
+function useScrollToAnchor() {
+  const prefersReducedMotion = useReducedMotion()
+
+  const scrollTo = useCallback((elementId: string) => {
+    const element = document.getElementById(elementId)
+    if (!element) return
+
+    element.scrollIntoView({
+      behavior: prefersReducedMotion ? 'instant' : 'smooth',
+      block: 'start'
+    })
+
+    // Set tabindex if element isn't focusable
+    if (!element.hasAttribute('tabindex')) {
+      element.setAttribute('tabindex', '-1')
+    }
+    element.focus({ preventScroll: true })
+  }, [prefersReducedMotion])
+
+  return scrollTo
+}
+
+function useReducedMotion() {
+  const [prefersReduced, setPrefersReduced] = useState(false)
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    setPrefersReduced(mediaQuery.matches)
+
+    const handler = (e: MediaQueryListEvent) => setPrefersReduced(e.matches)
+    mediaQuery.addEventListener('change', handler)
+    return () => mediaQuery.removeEventListener('change', handler)
+  }, [])
+
+  return prefersReduced
+}
+```
+
+## Anchor Link Component
+
+```tsx
+interface AnchorLinkProps {
+  href: string
+  children: React.ReactNode
+}
+
+function AnchorLink({ href, children }: AnchorLinkProps) {
+  const scrollTo = useScrollToAnchor()
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (href.startsWith('#')) {
+      e.preventDefault()
+      scrollTo(href.slice(1))
+    }
+  }
+
+  return (
+    <a href={href} onClick={handleClick}>
+      {children}
+    </a>
+  )
+}
+```
+
+## Focus Management
+
+```html
+<!-- Target must be focusable for keyboard navigation -->
+<section id="features" tabindex="-1">
+  <h2>Features</h2>
+  <!-- Content -->
+</section>
+```
+
+```css
+/* Hide focus ring when section is focused via anchor */
+section:focus {
+  outline: none;
+}
+
+/* But show focus for keyboard navigation */
+section:focus-visible {
+  outline: 2px solid var(--focus-color);
+}
+```
+
+## Exceptions
+
+- Simple data tables can sometimes fail more from missing header relationships than from missing enhancements such as captions or mobile wrappers, so prioritize the strongest semantic issue.
+- Do not convert layout structures into data-table markup just to satisfy a rule; the correct fix may be to remove table semantics entirely.
+- When several table-accessibility issues overlap, resolve the header-cell relationship first because downstream announcements depend on it.
+
+## Verification
+
+### Automated Checks
+
+- Use browser accessibility tooling, axe, Lighthouse, or equivalent automated checks against a representative rendered state.
+
+### Manual Checks
+
+- Enable "Reduce motion" in system accessibility settings
+- Click anchor links—should scroll instantly, not smoothly
+- Verify focus moves to target section
+- Tab through page after anchor click—focus should continue from anchor target

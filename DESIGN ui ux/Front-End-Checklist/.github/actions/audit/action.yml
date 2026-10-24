@@ -1,0 +1,79 @@
+# Frontend Checklist Audit Action
+# Run a single-page audit against the Frontend Checklist MCP API.
+# Use in your repo to gate on frontend quality (e.g. after deploy).
+#
+# Example:
+#   - uses: ./.github/actions/audit
+#     with:
+#       url: 'https://my-app.vercel.app'
+#       fail-on-critical: '1'
+#
+name: 'Frontend Checklist Audit'
+description: 'Audit a URL against Frontend Checklist rules via MCP API. Optionally fail the job if critical/high issues exceed thresholds.'
+inputs:
+  url:
+    description: 'URL to audit (must be https)'
+    required: true
+  fail-on-critical:
+    description: 'Fail the job if critical issues >= this number (default 0 = do not fail)'
+    required: false
+    default: '0'
+  fail-on-high:
+    description: 'Fail the job if high issues >= this number (default 0 = do not fail)'
+    required: false
+    default: '0'
+  mcp-endpoint:
+    description: 'MCP API base URL'
+    required: false
+    default: 'https://mcp.frontendchecklist.io'
+outputs:
+  issues-found:
+    description: 'Total issues found'
+  critical-count:
+    description: 'Critical issues count'
+  high-count:
+    description: 'High issues count'
+runs:
+  using: 'composite'
+  steps:
+    - name: Audit URL with Frontend Checklist
+      id: audit
+      shell: bash
+      run: |
+        set -e
+        URL="${{ inputs.url }}"
+        ENDPOINT="${{ inputs.mcp-endpoint }}"
+        if [ "${ENDPOINT#http}" = "$ENDPOINT" ]; then
+          ENDPOINT="https://$ENDPOINT"
+        fi
+        API="${ENDPOINT%/}/api/mcp"
+        BODY=$(jq -n \
+          --arg u "$URL" \
+          '{ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "audit_url", arguments: { url: $u } } }')
+        RESP=$(curl -sS -X POST "$API" -H "Content-Type: application/json" -d "$BODY" || echo '{"error":"request failed"}')
+        TEXT=$(echo "$RESP" | jq -r '.result.content[0].text // .error.message // empty')
+        if [ -z "$TEXT" ]; then
+          echo "Audit request failed or invalid response"
+          exit 1
+        fi
+        CRITICAL=$(echo "$TEXT" | jq -r '.summary.criticalIssues // 0')
+        HIGH=$(echo "$TEXT" | jq -r '.summary.highIssues // 0')
+        TOTAL=$(echo "$TEXT" | jq -r '.summary.issuesFound // 0')
+        echo "issues-found=$TOTAL" >> $GITHUB_OUTPUT
+        echo "critical-count=$CRITICAL" >> $GITHUB_OUTPUT
+        echo "high-count=$HIGH" >> $GITHUB_OUTPUT
+        echo "## Frontend Checklist Audit" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**URL:** $URL" >> $GITHUB_STEP_SUMMARY
+        echo "- Issues: $TOTAL | Critical: $CRITICAL | High: $HIGH" >> $GITHUB_STEP_SUMMARY
+        FAIL_CRITICAL=${{ inputs.fail-on-critical }}
+        FAIL_HIGH=${{ inputs.fail-on-high }}
+        if [ -n "$FAIL_CRITICAL" ] && [ "$FAIL_CRITICAL" != "0" ] && [ "${CRITICAL:-0}" -ge "$FAIL_CRITICAL" ]; then
+          echo "Failure: critical issues ($CRITICAL) >= $FAIL_CRITICAL"
+          exit 1
+        fi
+        if [ -n "$FAIL_HIGH" ] && [ "$FAIL_HIGH" != "0" ] && [ "${HIGH:-0}" -ge "$FAIL_HIGH" ]; then
+          echo "Failure: high issues ($HIGH) >= $FAIL_HIGH"
+          exit 1
+        fi
+        echo "Audit passed (within thresholds)."

@@ -1,0 +1,116 @@
+---
+title: Provide clear affiliate disclosures
+description: >-
+  Checks for affiliate and sponsored content disclosures to maintain
+  transparency.
+categories:
+  - seo
+subcategory: content
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - Add a clear and conspicuous disclosure for any affiliate or sponsored links
+  - >-
+    Place the disclosure at the top of the page, before any affiliate links
+    appear
+  - 'Use simple, unambiguous language to explain the financial relationship'
+whyItMatters: >-
+  Clear disclosures are required by law (e.g., FTC guidelines) and are essential
+  for maintaining user trust and preventing search engine penalties for hidden
+  advertisements.
+prompts:
+  check: >-
+    Verify that all pages containing affiliate links or sponsored content have a
+    clear, visible disclosure before the links appear.
+  fix: >-
+    Add a standardized disclosure statement at the beginning of your content or
+    near affiliate links to inform users of the partnership.
+  explain: >-
+    Explain the legal and ethical importance of affiliate disclosures and how
+    they impact user trust and SEO.
+  codeReview: >-
+    Review metadata generation, rendered HTML, structured data, and response
+    headers related to Provide clear affiliate disclosures. Flag exact routes or
+    templates where search-facing output violates the rule, and describe how to
+    verify the final page output.
+aiContext: >-
+  Use when auditing metadata, crawlability, structured data, or indexability
+  related to Provide clear affiliate disclosures. Verify the rendered HTML and
+  HTTP response rather than relying only on source files.
+sources:
+  - title: 'Google Search Central: Search Essentials'
+    url: 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide'
+    type: google
+    id: google-search-central-search-essentials
+    role: search
+    authority: primary
+  - title: Google Search Central documentation
+    url: 'https://developers.google.com/search/docs'
+    type: google
+    id: google-search-central-documentation
+    role: implementation
+    authority: primary
+resources:
+  - name: Google Search Console
+    url: 'https://search.google.com/search-console/about'
+    type: tool
+relatedRules:
+  - slug: disclaimers
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+  - slug: about-page
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+  - slug: anchor-text
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+  - slug: author-byline
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+---
+Transparency regarding financial incentives is crucial for building a sustainable relationship with your audience and complying with consumer protection laws.
+
+## Code Example
+
+```html
+<article>
+  <header>
+    <h1>The Best Laptops for Developers in 2024</h1>
+    <div class="disclosure" style="background: #f9f9f9; padding: 10px; border-radius: 4px;">
+      <p><small><em>Disclaimer: This post contains affiliate links. If you click on one and make a purchase, we may receive a small commission at no extra cost to you.</em></small></p>
+    </div>
+  </header>
+  
+  <p>Looking for a new laptop? Here are our top recommendations...</p>
+</article>
+```
+
+## Why It Matters
+
+- **Legal Compliance**: Adheres to FTC (Federal Trade Commission) and other international regulations regarding online advertising.
+- **User Trust**: Demonstrates honesty and transparency, which can lead to higher conversion rates over time.
+- **SEO Quality**: Prevents being flagged for "sneaky redirects" or hidden affiliate programs that can negatively impact rankings.
+- **E-E-A-T**: Supports the "Trust" pillar by showing you aren't hiding financial motivations.
+
+## Exceptions
+
+- Necessary utility or compliance pages can be intentionally brief and should not be judged by the same editorial-depth expectations as ranking-focused content.
+- AI-assisted drafting is not a failure by itself; flag unsupported claims, missing editorial review, or low-originality output instead.
+- When a page has both trust-signal issues and crawl/index problems, make the page eligible to rank first and then improve the content quality signals.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

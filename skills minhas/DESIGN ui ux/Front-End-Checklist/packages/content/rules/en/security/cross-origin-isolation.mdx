@@ -1,0 +1,184 @@
+---
+title: Use COOP, COEP, and CORP for cross-origin isolation when needed
+description: >-
+  Sensitive or high-capability applications use COOP, COEP, and CORP
+  deliberately, audit third-party embeds, and verify cross-origin isolation in
+  the browser before relying on it.
+categories:
+  - security
+  - javascript
+subcategory: headers
+priority: medium
+difficulty: advanced
+estimatedTime: 30
+tldr:
+  - Use `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` together when you need cross-origin isolation
+  - Audit every cross-origin script, iframe, image, worker, and font before enforcing COEP
+  - Serve embeddable resources with CORS or `Cross-Origin-Resource-Policy` as appropriate
+  - Verify `self.crossOriginIsolated === true` before depending on isolated-only features
+whyItMatters: >-
+  Cross-origin isolation reduces opener-based attacks and XS-Leak risk, and it
+  is required for powerful browser features such as SharedArrayBuffer in modern
+  browsers. It also breaks integrations if deployed carelessly, so it needs a
+  deliberate rollout rather than a copy-pasted header block.
+prompts:
+  check: >-
+    Review security headers and embedded resources for cross-origin isolation.
+    Check whether the app needs COOP/COEP, whether resources are compatible with
+    COEP, and whether the runtime actually becomes crossOriginIsolated.
+  fix: >-
+    Add COOP and COEP only after auditing dependencies, ensure subresources use
+    CORP or CORS as required, and verify the final document becomes
+    crossOriginIsolated in the browser.
+  explain: >-
+    Explain how COOP, COEP, and CORP work together, what they protect against,
+    and why third-party embeds often block a successful rollout.
+  codeReview: >-
+    Review server headers, third-party integrations, popups, workers, and asset
+    responses related to Use COOP, COEP, and CORP for cross-origin isolation
+    when needed. Flag exact responses or integrations that would block
+    isolation or break once isolation is enforced.
+aiContext: >-
+  Use when reviewing security-sensitive web apps, SharedArrayBuffer usage,
+  worker-heavy apps, editors, or measurement features that require
+  cross-origin isolation. Check both headers and real browser behavior.
+sources:
+  - title: 'MDN: Cross-Origin-Opener-Policy (COOP) header'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Opener-Policy
+    type: mdn
+    id: mdn-cross-origin-opener-policy-header
+    role: reference
+    authority: primary
+  - title: 'MDN: Cross-Origin-Embedder-Policy (COEP) header'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cross-Origin-Embedder-Policy'
+    type: mdn
+    id: mdn-cross-origin-embedder-policy-header
+    role: reference
+    authority: primary
+  - title: 'MDN: Cross-Origin-Resource-Policy (CORP) header'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Resource-Policy
+    type: mdn
+    id: mdn-cross-origin-resource-policy-header
+    role: standard
+    authority: primary
+  - title: 'web.dev: Why you need cross-origin isolated for powerful features'
+    url: 'https://web.dev/articles/why-coop-coep'
+    type: guide
+    id: web-dev-why-you-need-cross-origin-isolated
+    role: implementation
+    authority: primary
+resources:
+  - name: Mozilla Observatory
+    url: 'https://observatory.mozilla.org/'
+    type: tool
+relatedRules:
+  - slug: content-security-policy
+    reason: >-
+      Both rules are header-based browser hardening measures that should be
+      rolled out with real response verification.
+  - slug: permissions-policy
+    reason: >-
+      Powerful browser capabilities should be limited deliberately alongside any
+      cross-origin isolation rollout.
+  - slug: cross-origin-security
+    reason: >-
+      CORS, postMessage, and opener behavior interact with the same trust
+      boundaries as COOP, COEP, and CORP.
+  - slug: x-frame-options
+    reason: >-
+      Embedding policy and opener isolation are different controls, but both
+      belong to the same browser-isolation review.
+---
+Cross-origin isolation is not a blanket requirement for every app, but it is a meaningful hardening step when you handle sensitive data, want stronger opener isolation, or need features that browsers gate behind `crossOriginIsolated`. The key is to deploy it intentionally, because one incompatible third-party resource can break the page.
+
+## Code Example
+
+```http
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+```http
+Cross-Origin-Resource-Policy: same-origin
+```
+
+```javascript
+if (!self.crossOriginIsolated) {
+  console.warn('This page is not cross-origin isolated yet.')
+}
+```
+
+## Why It Matters
+
+COOP and COEP change how the browser groups documents and what cross-origin resources may be embedded. Combined with compatible subresource responses, they reduce classes of opener-based and cross-origin leak risks and unlock isolated-only APIs.
+
+- better protection against opener-based cross-origin attacks and XS-Leaks
+- required for certain high-capability features such as SharedArrayBuffer
+- clearer trust boundaries around what third-party resources can join the page
+- higher deployment risk if assets, popups, or embeds are not audited first
+
+## Best Practices
+
+### Roll out COOP and COEP together when the document truly needs isolation
+
+For full cross-origin isolation, the common pattern is:
+
+```http
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+Then verify in the browser:
+
+```javascript
+console.log(self.crossOriginIsolated)
+```
+
+### Audit every cross-origin dependency first
+
+COEP changes what your page is allowed to embed. Review:
+
+- scripts
+- fonts
+- images
+- iframes
+- workers
+- analytics and tag-manager integrations
+
+Any cross-origin resource loaded under COEP must opt in through CORS or CORP.
+
+### Be deliberate about popup flows
+
+OAuth, payment, and support popup flows often rely on opener relationships. If your app depends on those behaviors, test them explicitly before enforcing COOP and choose the narrowest compatible setting.
+
+## Thresholds
+
+- Pass if intended routes return compatible COOP and COEP headers and `self.crossOriginIsolated === true` where isolation is required.
+- Fail if the app depends on isolated-only APIs but the runtime is not actually cross-origin isolated.
+- Fail if critical popup or embed flows break under the enforced header set.
+
+## Exceptions
+
+- Most sites do not need full cross-origin isolation. Add it when you need the security boundary or the gated browser capabilities, not as a fashionable default.
+- A route-specific rollout can be safer than enabling the headers globally if only a small subset of the app needs isolated-only features.
+- Some third-party content simply will not work under COEP. Replacing or isolating that dependency may be required before rollout.
+
+## Support Notes
+
+- Compatibility and third-party breakage matter more than the header syntax alone, so verify against the project's actual browser support policy and dependency set.
+- Isolation should be proven by runtime behavior such as `self.crossOriginIsolated`, not only by seeing headers in the response.
+
+## Verification
+
+### Automated Checks
+
+- Inspect representative document responses and confirm COOP and COEP are present where intended.
+- Inspect critical subresource responses and confirm they provide compatible CORS or CORP behavior.
+
+### Manual Checks
+
+- Open the page in a browser and check `self.crossOriginIsolated`.
+- Test popup, OAuth, payment, analytics, and embed flows in a staging environment.
+- Fail the rollout if the app depends on isolated-only APIs but `self.crossOriginIsolated` is still `false`, or if critical third-party integrations stop working.

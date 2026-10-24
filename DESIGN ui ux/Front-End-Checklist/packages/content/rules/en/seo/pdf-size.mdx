@@ -1,0 +1,184 @@
+---
+title: Keep linked PDFs under 60 MB
+description: Checks linked PDF sizes against Googlebot 60MB truncation limit
+categories:
+  - seo
+subcategory: technical
+priority: medium
+difficulty: intermediate
+estimatedTime: 15
+tldr:
+  - >-
+    Googlebot truncates files larger than 15 MB for crawling; 60 MB is a
+    documented upper limit
+  - Large PDFs may be partially indexed or skipped entirely
+  - >-
+    Compress PDFs before publishing: use PDF optimisation tools to reduce file
+    size
+  - Add HTML landing pages alongside PDFs to ensure content is indexable
+whyItMatters: >-
+  PDFs larger than Googlebot's download threshold are partially crawled or
+  skipped, meaning their content may not appear in search results even when
+  linked from well-indexed pages.
+aiContext: >-
+  Use when auditing a site that publishes downloadable PDFs (reports, white
+  papers, legal documents, manuals). Applies to any site where PDFs are linked
+  as indexable content resources.
+prompts:
+  check: >-
+    Find all <a href='*.pdf'> links on the site. For each linked PDF, perform a
+    HEAD request and check the Content-Length header. Flag any PDF exceeding 10
+    MB (recommend compression) or 15 MB (likely to be truncated by Googlebot).
+  fix: >-
+    Compress large PDFs using a PDF optimisation tool (Adobe Acrobat,
+    Ghostscript, or Smallpdf). Remove embedded high-resolution images, fonts,
+    and metadata not required for reading. If compression is insufficient,
+    create an HTML page with the same content as the primary indexable version,
+    and offer the PDF as a download.
+  explain: >-
+    Googlebot downloads and indexes the content of PDFs linked from your site.
+    However, it has a file size limit for downloads — files beyond this limit
+    are partially indexed or skipped. Large PDFs also slow down crawling and
+    consume crawl budget. Keeping PDFs small ensures their full content appears
+    in search results.
+  codeReview: >-
+    Find all <a href> links with .pdf extension. For each PDF URL, perform a
+    HEAD request and check Content-Length header value. Flag PDFs exceeding
+    10,485,760 bytes (10 MB) for compression review. Flag PDFs exceeding
+    15,728,640 bytes (15 MB) as at-risk for partial indexing. Verify PDF URLs
+    return 200 status and appropriate Content-Type: application/pdf header.
+relatedRules:
+  - slug: broken-links
+    reason: Broken PDF links should also be detected alongside large PDFs
+  - slug: mime-type
+    reason: 'PDFs must be served with correct Content-Type: application/pdf'
+  - slug: html-size
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: dead-end-pages
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+resources:
+  - title: Ghostscript PDF compression
+    url: 'https://ghostscript.com/docs/9.54.0/VectorDevices.htm'
+    type: other
+  - title: Google Search Console — Coverage
+    url: 'https://search.google.com/search-console'
+    type: guide
+sources:
+  - title: 'Google Search Central: File types indexable by Google'
+    url: 'https://developers.google.com/search/docs/crawling-indexing/indexable-file-types'
+    type: guide
+    id: google-search-central-file-types-indexable-by-google
+    role: search
+    authority: primary
+  - title: 'Google Search Central: File size limits for indexing'
+    url: >-
+      https://developers.google.com/search/docs/crawling-indexing/overview-google-crawlers
+    type: guide
+    id: google-search-central-file-size-limits-for-indexing
+    role: implementation
+    authority: primary
+---
+Google indexes PDFs and can show them directly in search results. However, very large PDF files may be truncated during download, resulting in partial indexing of the content, which is why large documents often need an accompanying HTML strategy rather than relying on the PDF alone.
+
+## Code Example
+
+```bash
+# Check a single PDF's size via HTTP header
+curl -I https://example.com/docs/annual-report.pdf | grep -i content-length
+
+# Check file size in bytes
+# 1 MB = 1,048,576 bytes
+# 10 MB = 10,485,760 bytes
+# 60 MB = 62,914,560 bytes
+```
+
+## Why It Matters
+
+PDFs larger than Googlebot's download threshold are partially crawled or skipped, meaning their content may not appear in search results even when linked from well-indexed pages. That makes file-size control part of the same discoverability work as [HTML companion pages](/en/rules/seo/quality) and crawl-friendly document delivery.
+
+## Googlebot's Size Limits
+
+Google has not published an exact byte limit, but has documented:
+- Files above **15 MB** may have crawling issues
+- The practical upper limit is approximately **60 MB** for content indexing
+- Very large files are skipped or only the first portion is indexed
+
+## Size Targets
+
+| File Size | Status |
+|-----------|--------|
+| < 5 MB | Ideal |
+| 5–15 MB | Acceptable — consider compressing |
+| 15–60 MB | At risk of partial indexing |
+| > 60 MB | Likely skipped by Googlebot |
+
+## Compressing PDFs
+
+**Ghostscript (command line):**
+```bash
+gs -sDEVICE=pdfwrite \
+   -dCompatibilityLevel=1.4 \
+   -dPDFSETTINGS=/ebook \
+   -dNOPAUSE \
+   -dQUIET \
+   -dBATCH \
+   -sOutputFile=compressed.pdf \
+   original.pdf
+```
+
+PDF settings presets: `/screen` (72dpi), `/ebook` (150dpi), `/printer` (300dpi), `/prepress` (300dpi+)
+
+**Online tools:**
+- Adobe Acrobat (File → Reduce File Size)
+- Smallpdf, ILovePDF, PDF24
+
+## HTML Companion Page Strategy
+
+For critical content in large PDFs, create an HTML landing page:
+
+```html
+<!-- HTML page for the PDF content -->
+<article>
+  <h1>Annual Report 2024</h1>
+  <p>Key findings from our 2024 annual report...</p>
+  <!-- full text content here -->
+  <a href="/reports/annual-2024.pdf" rel="nofollow">
+    Download PDF (8.2 MB)
+  </a>
+</article>
+```
+
+The HTML page is indexed fully; the PDF link uses `rel="nofollow"` if you don't need the PDF itself indexed separately.
+
+## PDF SEO Best Practices
+
+- Add metadata (Title, Author, Subject) to the PDF properties
+- Ensure the PDF is not password-protected or encrypted
+- Use descriptive file names: `annual-report-2024.pdf` not `doc123.pdf`
+- Avoid scanned PDFs without OCR — the text is an image and can't be indexed
+
+<Warning title="PDFs vs HTML for SEO">
+HTML pages almost always outrank PDFs for the same content. If a PDF contains important content you want to rank, consider creating an HTML version as the primary page and offering the PDF as a supplementary download.
+</Warning>
+
+## Exceptions
+
+- Necessary utility or compliance pages can be intentionally brief and should not be judged by the same editorial-depth expectations as ranking-focused content.
+- AI-assisted drafting is not a failure by itself; flag unsupported claims, missing editorial review, or low-originality output instead.
+- When a page has both trust-signal issues and crawl/index problems, make the page eligible to rank first and then improve the content quality signals.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

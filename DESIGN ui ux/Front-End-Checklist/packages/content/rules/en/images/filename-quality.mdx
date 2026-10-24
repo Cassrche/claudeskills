@@ -1,0 +1,238 @@
+---
+title: Use descriptive image filenames
+description: >-
+  Image filenames are descriptive and human-readable, using lowercase letters,
+  hyphens as separators, and meaningful words that reflect the image content.
+categories:
+  - images
+subcategory: optimization
+priority: low
+difficulty: beginner
+estimatedTime: 10
+relatedRules:
+  - slug: alt-text
+    reason: Descriptive filenames complement meaningful alt text for better image SEO
+  - slug: error-images
+    reason: >-
+      Both rules sit in the `images/optimization` area and are commonly reviewed
+      together.
+  - slug: image-cdn
+    reason: >-
+      Both rules sit in the `images/optimization` area and are commonly reviewed
+      together.
+  - slug: broken-images
+    reason: >-
+      Both rules sit in the `images/optimization` area and are commonly reviewed
+      together.
+tools:
+  - name: Google Search Console
+    url: 'https://search.google.com/search-console'
+resources:
+  - name: Google Image SEO best practices
+    url: 'https://developers.google.com/search/docs/appearance/google-images'
+    type: documentation
+    author: Google
+  - name: 'Image SEO: optimising your alt text and file names'
+    url: >-
+      https://developers.google.com/search/docs/appearance/google-images#descriptive-titles-captions-filenames
+    type: documentation
+    author: Google
+prompts:
+  check: >-
+    Scan all image file references in this codebase (<img src>, CSS url(),
+    import statements, and public/assets directories). Identify filenames that:
+    1) Use auto-generated names (e.g., IMG_1234.jpg, DSC_0056.png,
+    screenshot-2024-01-01.png). 2) Use meaningless names (e.g., image1.jpg,
+    photo.png, pic.jpg). 3) Contain spaces (e.g., 'my photo.jpg'). 4) Use
+    underscores as word separators (e.g., hero_image.jpg instead of
+    hero-image.jpg). 5) Mix uppercase and lowercase letters. Report each
+    problematic filename with its path.
+  fix: >-
+    Rename image files with descriptive, SEO-friendly names: 1) Replace generic
+    names with descriptive ones reflecting the content (e.g., rename
+    IMG_1234.jpg to blue-running-shoes-side-view.jpg). 2) Use lowercase letters
+    only. 3) Replace spaces and underscores with hyphens. 4) Keep names concise
+    but meaningful—3 to 5 words is ideal. 5) Update all references to the
+    renamed file in HTML, CSS, and JavaScript. For large-scale renames, provide
+    a migration script that reads old paths, generates new names, and updates
+    all references.
+  explain: >-
+    Explain why descriptive filenames matter for image SEO. Google explicitly
+    states it uses filename as a signal for image search ranking. A filename
+    like product-red-leather-wallet.jpg gives Google context about the image
+    before it even analyses the pixels. Generic filenames (image1.jpg,
+    photo.png) provide no signal. Additionally, descriptive filenames improve
+    developer experience—team members can understand what an asset is without
+    opening it.
+  codeReview: >-
+    Review image assets, markup, and delivery configuration related to Use
+    descriptive image filenames. Flag exact files or components where format
+    choice, sizing, or loading behavior violates the rule, and describe how to
+    confirm the fix in DevTools.
+tldr:
+  - >-
+    Use descriptive, hyphen-separated filenames:
+    `hero-homepage-team-collaboration.jpg`
+  - >-
+    Avoid generic names like `image1.jpg`, `photo.png`, or camera defaults like
+    `IMG_4532.jpg`
+  - >-
+    Use lowercase only—avoid uppercase letters and spaces which can cause URL
+    encoding issues
+  - Google uses filenames as a relevance signal for image search results
+whyItMatters: >-
+  Google explicitly recommends descriptive filenames in its Image SEO best
+  practices. A file named red-leather-wallet.jpg gives search engines context
+  about the image content, improving discoverability in image search. Generic
+  filenames waste this SEO signal. Descriptive names also help developers
+  maintain large asset libraries without opening every file to identify its
+  content.
+aiContext: >-
+  Use when reviewing image assets, markup, and CDN or build transforms related
+  to Use descriptive image filenames. Check encoded size, rendered size, loading
+  strategy, and above-the-fold impact together.
+sources:
+  - title: 'MDN: Responsive images'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Learn/HTML/Multimedia_and_embedding/Responsive_images
+    type: mdn
+    id: mdn-responsive-images
+    role: reference
+    authority: primary
+  - title: 'web.dev: Image performance'
+    url: 'https://web.dev/learn/performance/image-performance'
+    type: guide
+    id: web-dev-image-performance
+    role: implementation
+    authority: primary
+---
+Image filenames are a low-effort SEO signal that Google uses alongside alt text and page content to understand image relevance.
+## Code Example
+
+```
+❌ Bad filenames:
+  IMG_4532.jpg          — camera default, meaningless
+  image1.jpg            — generic, no context
+  photo.png             — generic, no context
+  Screenshot 2024.png   — spaces cause URL encoding (%20)
+  hero_image_final.jpg  — underscores, and "final" is noise
+  HeroImage.jpg         — mixed case
+
+✅ Good filenames:
+  homepage-hero-team-meeting.jpg
+  product-red-leather-wallet-front.jpg
+  blog-post-css-grid-layout-example.png
+  logo.svg              — short is fine when context is clear
+  author-jane-doe-headshot.jpg
+```
+
+## Why It Matters
+
+Google explicitly recommends descriptive filenames in its Image SEO best practices. A file named red-leather-wallet.jpg gives search engines context about the image content, improving discoverability in image search. Generic filenames waste this SEO signal. Descriptive names also help developers maintain large asset libraries without opening every file to identify its content.
+
+## Naming Rules
+
+1. **Lowercase only** — avoids case-sensitivity issues on Linux servers and URL encoding problems
+2. **Hyphens as separators** — hyphens are treated as word separators by Google; underscores are not
+3. **Descriptive and specific** — include subject, colour, and context where useful
+4. **Concise** — 3–5 meaningful words; omit filler like "final", "v2", "new"
+5. **No spaces** — spaces become `%20` in URLs and cause issues in some tools
+
+## When to Rename vs When Not To
+
+```
+✅ Always rename:
+  - Camera defaults (IMG_*, DSC_*, DCIM_*)
+  - Generic names (image.jpg, photo.jpg, pic.png)
+  - Names with spaces or special characters
+
+⚠️  Use judgment:
+  - Auto-generated asset names from CMS systems (may break references)
+  - Hashed filenames used for cache-busting (e.g., hero.a3b4c5.jpg)
+    → These are fine; the original source file should still have a good name
+
+✅ Leave unchanged:
+  - Hashed build output filenames
+  - Filenames controlled by a third-party CDN
+```
+
+## Batch Renaming Script
+
+```bash
+#!/bin/bash
+# Rename images in a directory: lowercase, replace spaces/underscores with hyphens
+# Usage: ./rename-images.sh ./public/images
+
+DIR="${1:-.}"
+
+find "$DIR" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) | while read -r file; do
+  dir=$(dirname "$file")
+  base=$(basename "$file")
+
+  # Lowercase, replace spaces and underscores with hyphens, remove consecutive hyphens
+  newbase=$(echo "$base" | tr '[:upper:]' '[:lower:]' | tr ' _' '-' | sed 's/--*/-/g')
+
+  if [ "$base" != "$newbase" ]; then
+    echo "Renaming: $base → $newbase"
+    mv "$file" "$dir/$newbase"
+  fi
+done
+```
+
+## Updating References After Rename
+
+When renaming images, update all references in HTML, CSS, and JavaScript.
+
+```bash
+# Find all references to a renamed file across the project
+grep -r "old-filename.jpg" ./src ./public --include="*.{html,css,js,ts,tsx,jsx,vue}"
+
+# Then replace (macOS/Linux with sed)
+find ./src ./public -type f \( -name "*.html" -o -name "*.css" -o -name "*.tsx" \) \
+  -exec sed -i '' 's/old-filename\.jpg/new-descriptive-name\.jpg/g' {} +
+```
+
+## CMS and Dynamic Image Names
+
+For user-uploaded images in a CMS, implement server-side sanitisation at upload time.
+
+```typescript
+// Sanitise uploaded filenames on the server
+function sanitiseFilename(original: string): string {
+  const ext = original.split('.').pop()?.toLowerCase() ?? ''
+  const name = original
+    .replace(/\.[^/.]+$/, '')   // remove extension
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-') // replace non-alphanumeric with hyphens
+    .replace(/^-+|-+$/g, '')     // trim leading/trailing hyphens
+
+  return `${name}.${ext}`
+}
+
+// Examples:
+sanitiseFilename('My Photo (1).JPG')     // → 'my-photo-1.jpg'
+sanitiseFilename('IMG_4532.jpg')         // → 'img-4532.jpg' (still generic—prompt users for better names)
+sanitiseFilename('product shot FINAL.png') // → 'product-shot-final.png'
+```
+
+<Tip>
+For user-uploaded product images in e-commerce, consider appending a product slug or ID to the filename automatically: `${product-slug}-${uuid}.jpg`. This keeps filenames meaningful and unique without requiring users to rename files manually.
+</Tip>
+
+## Standards
+
+- Use these references as the standard for the final image format, delivery, accessibility, and rendering behavior.
+- Check the implementation against MDN: Responsive images before treating the rule as satisfied.
+- Check the implementation against web.dev: Image performance before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Verify transfer size, intrinsic size, and loading strategy in DevTools.
+
+### Manual Checks
+
+- Inspect rendered markup and network requests to confirm the correct image variant is served.
+- Re-check LCP or CLS if the changed image is above the fold.
+- Compare visual output on mobile and retina displays before shipping.

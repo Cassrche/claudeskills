@@ -1,0 +1,141 @@
+---
+title: Ensure identical links have consistent destinations
+description: >-
+  Links with the same text must point to the same destination or be
+  distinguishable.
+categories:
+  - accessibility
+subcategory: visual
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - Links with the same text should point to the same URL
+  - Differentiate links that lead to different places
+  - Reduces confusion for screen reader users navigating by link list
+whyItMatters: >-
+  When links with identical text lead to different destinations, it creates
+  confusion and unpredictability, especially for users who rely on a list of
+  links to navigate.
+prompts:
+  check: >-
+    Identify any links on the page that have identical link text but point to
+    different URLs.
+  fix: >-
+    Change the link text to be unique for each destination, or ensure that
+    identical text always leads to the same resource.
+  explain: >-
+    Explain how identical link text for different destinations can mislead
+    users, particularly those using screen readers to scan a list of links.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Ensure
+    identical links have consistent destinations. Flag exact elements, roles,
+    labels, focus behavior, or keyboard interactions that violate the rule, and
+    note how to verify the fix with browser accessibility tooling or assistive
+    tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Ensure identical links have consistent destinations. Check
+  native semantics first, then inspect keyboard behavior, focus flow, accessible
+  names, and screen-reader output where relevant.
+sources:
+  - title: 'WCAG 2.1 SC 2.4.4: Link Purpose (In Context)'
+    url: 'https://www.w3.org/TR/WCAG21/#link-purpose-in-context'
+    type: wcag
+    id: wcag-2-1-sc-2-4-4-link-purpose-in-context
+    role: standard
+    authority: primary
+  - title: 'W3C: Understanding SC 2.4.4 Link Purpose (In Context)'
+    url: 'https://www.w3.org/WAI/WCAG21/Understanding/link-purpose-in-context'
+    type: wcag
+    id: w3c-understanding-sc-2-4-4-link-purpose-in-context
+    role: standard
+    authority: primary
+  - title: 'WebAIM: Links and Hypertext'
+    url: 'https://webaim.org/techniques/hypertext/'
+    type: guide
+    id: webaim-links-and-hypertext
+    role: implementation
+    authority: secondary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: link-in-text-block
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+  - slug: frame-title
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+  - slug: touch-targets
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+  - slug: color-contrast
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+---
+Links that have the same text but different destinations can be confusing for all users, but especially for those using assistive technology. [WCAG's link purpose guidance](https://www.w3.org/WAI/WCAG21/Understanding/link-purpose-in-context) and [WebAIM's link-text guidance](https://webaim.org/techniques/hypertext/) both depend on that label-to-destination consistency.
+## Code Examples
+
+### Incorrect Implementation
+```html
+<!-- Confusing: Same text, different pages -->
+<a href="/report-2022">Download Report</a>
+<a href="/report-2023">Download Report</a>
+```
+
+### Correct Implementation (Unique Text)
+```html
+<a href="/report-2022">Download 2022 Report</a>
+<a href="/report-2023">Download 2023 Report</a>
+```
+
+### Correct Implementation (Same Destination)
+```html
+<!-- Consistent: Same text, same page -->
+<a href="/contact">Contact Us</a>
+...
+<a href="/contact">Contact Us</a>
+```
+
+## Why It Matters
+
+This is ultimately a [link purpose](https://www.w3.org/TR/WCAG21/#link-purpose-in-context) problem: when the same words point to different places, users cannot predict what each link will do from the text alone.
+
+- **Predictability**: Users expect the same text to lead to the same place.
+- **Link Lists**: Screen reader users often pull up a list of all links on a page. If they see "Click here" or "Read more" multiple times pointing to different things, they have no context for which is which.
+- **Cognitive Load**: Distinct labels reduce the mental effort required to navigate a site.
+
+## Best Practices
+
+✅ **Be Specific**: Include keywords in the link text that describe the destination.
+
+✅ **Use ARIA when necessary**: If the visual design requires short text, use `aria-label` or `aria-describedby` to provide extra context to screen readers.
+```html
+<a href="/products/1" aria-label="Read more about Product Alpha">Read more</a>
+```
+
+❌ **Avoid "Click Here"**: Generic link text is a major accessibility barrier.
+
+## Exceptions
+
+- Evaluate the rendered experience before treating a static-code smell as a blocker; interaction timing, browser behavior, and assistive technology output often determine severity.
+- Not every secondary accessibility issue deserves equal weight; prioritize the issue that most directly blocks perception, operation, or understanding.
+- Avoid adding redundant markup or ARIA solely to satisfy a rule when a simpler semantic implementation would eliminate the issue entirely.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

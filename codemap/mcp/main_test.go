@@ -1,0 +1,605 @@
+package codemapmcp
+
+import (
+	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+	"time"
+
+	"codemap/handoff"
+	"codemap/internal/projectpath"
+	"codemap/scanner"
+	"codemap/watch"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+func TestTextResultAndErrorResult(t *testing.T) {
+	ok := textResult("ready")
+	if ok.IsError {
+		t.Fatal("textResult should not mark errors")
+	}
+	if got := resultText(t, ok); got != "ready" {
+		t.Fatalf("textResult text = %q, want ready", got)
+	}
+
+	bad := errorResult("boom")
+	if !bad.IsError {
+		t.Fatal("errorResult should mark IsError")
+	}
+	if got := resultText(t, bad); got != "boom" {
+		t.Fatalf("errorResult text = %q, want boom", got)
+	}
+}
+
+func TestStripANSI(t *testing.T) {
+	in := "\x1b[31mred\x1b[0m plain"
+	if got := stripANSI(in); got != "red plain" {
+		t.Fatalf("stripANSI(%q) = %q", in, got)
+	}
+}
+
+func TestGetProjectStatsAndHandleListProjects(t *testing.T) {
+	parent := t.TempDir()
+	alpha := filepath.Join(parent, "alpha")
+	beta := filepath.Join(parent, "beta")
+	if err := os.MkdirAll(filepath.Join(alpha, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(beta, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(alpha, "main.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(beta, "app.py"), []byte("print('ok')\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	stats := getProjectStats(alpha)
+	if !strings.Contains(stats, "1 files") || !strings.Contains(stats, "Go") || !strings.Contains(stats, "[git]") {
+		t.Fatalf("unexpected project stats: %s", stats)
+	}
+
+	res, _, err := handleListProjects(context.Background(), nil, ListProjectsInput{Path: parent, Pattern: "alp"})
+	if err != nil {
+		t.Fatalf("handleListProjects error: %v", err)
+	}
+	out := resultText(t, res)
+	if !strings.Contains(out, "Projects matching 'alp'") || !strings.Contains(out, "alpha/") || strings.Contains(out, "beta/") {
+		t.Fatalf("unexpected list_projects output:\n%s", out)
+	}
+}
+
+func TestHandleFindFileAndStatus(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "nested"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "nested", "helper.go"), []byte("package nested\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	findRes, _, err := handleFindFile(context.Background(), nil, FindInput{Path: root, Pattern: "main"})
+	if err != nil {
+		t.Fatalf("handleFindFile error: %v", err)
+	}
+	findOut := resultText(t, findRes)
+	if !strings.Contains(findOut, "Found 1 files") || !strings.Contains(findOut, "main.go") {
+		t.Fatalf("unexpected find output:\n%s", findOut)
+	}
+
+	missingRes, _, err := handleFindFile(context.Background(), nil, FindInput{Path: root, Pattern: "absent"})
+	if err != nil {
+		t.Fatalf("handleFindFile missing error: %v", err)
+	}
+	if !strings.Contains(resultText(t, missingRes), "No files found matching 'absent'") {
+		t.Fatalf("unexpected missing-file output:\n%s", resultText(t, missingRes))
+	}
+
+	watchersMu.Lock()
+	watchers = map[string]*watch.Daemon{"/tmp/demo": nil}
+	watchersMu.Unlock()
+	t.Cleanup(func() {
+		watchersMu.Lock()
+		watchers = make(map[string]*watch.Daemon)
+		watchersMu.Unlock()
+	})
+
+	statusRes, _, err := handleStatus(context.Background(), nil, EmptyInput{})
+	if err != nil {
+		t.Fatalf("handleStatus error: %v", err)
+	}
+	statusOut := resultText(t, statusRes)
+	if !strings.Contains(statusOut, "codemap MCP server") || !strings.Contains(statusOut, "Active watchers: 1 active: /tmp/demo") {
+		t.Fatalf("unexpected status output:\n%s", statusOut)
+	}
+}
+
+func TestHandleFindFileExplainsOnlyFilteredMatches(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   string
+		wantHint bool
+		wantPath bool
+	}{
+		{
+			name:     "default guidance",
+			config:   `{"only":["go"]}`,
+			wantHint: true,
+			wantPath: true,
+		},
+		{
+			name:   "guidance disabled",
+			config: `{"only":["go"],"guidance":{"missing_extension_hints":false}}`,
+		},
+		{
+			name:   "extension ignored",
+			config: `{"only":["go"],"guidance":{"ignored_extensions":["proto"]}}`,
+		},
+		{
+			name:   "explicitly excluded",
+			config: `{"only":["go"],"exclude":["schema.proto"]}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(root, ".codemap"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			configPath := filepath.Join(root, ".codemap", "config.json")
+			if err := os.WriteFile(configPath, []byte(tt.config), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(root, "schema.proto"), []byte("syntax = \"proto3\";\n"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			res, _, err := handleFindFile(context.Background(), nil, FindInput{Path: root, Pattern: "schema"})
+			if err != nil {
+				t.Fatalf("handleFindFile error: %v", err)
+			}
+			out := resultText(t, res)
+			hasHint := strings.Contains(out, "by `only` config:")
+			if hasHint != tt.wantHint {
+				t.Fatalf("hint presence = %v, want %v:\n%s", hasHint, tt.wantHint, out)
+			}
+			if strings.Contains(out, "schema.proto") != tt.wantPath {
+				t.Fatalf("path presence = %v, want %v:\n%s", strings.Contains(out, "schema.proto"), tt.wantPath, out)
+			}
+			if !tt.wantHint && out != "No files found matching 'schema'" {
+				t.Fatalf("unexpected plain miss output: %s", out)
+			}
+			gotConfig, err := os.ReadFile(configPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(gotConfig) != tt.config {
+				t.Fatalf("config changed: got %q, want %q", gotConfig, tt.config)
+			}
+		})
+	}
+}
+
+func TestFormatOnlyFilterHintOffersDirectConfigActionsForExtensions(t *testing.T) {
+	matches := []scanner.FileInfo{
+		{Path: "schema.sum", Ext: ".sum"},
+		{Path: "schema.proto", Ext: ".proto"},
+	}
+
+	out := formatOnlyFilterHint("schema", matches)
+	for _, want := range []string{
+		"Update `.codemap/config.json`:",
+		"Add \"proto\", \"sum\" to `only`",
+		"Add \"proto\", \"sum\" to `guidance.ignored_extensions`",
+		"Set `guidance.missing_extension_hints` to false",
+		"No config changed.",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing direct config action %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "Tell your agent") {
+		t.Fatalf("response retains indirect agent language:\n%s", out)
+	}
+}
+
+func TestFormatOnlyFilterHintUsesJSONCompatibleExtensionQuoting(t *testing.T) {
+	out := formatOnlyFilterHint("schema", []scanner.FileInfo{{Path: "schema.proto\a", Ext: ".proto\a"}})
+	for _, want := range []string{
+		"Add \"proto\\u0007\" to `only`",
+		"Add \"proto\\u0007\" to `guidance.ignored_extensions`",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing JSON-compatible extension quoting %q:\n%s", want, out)
+		}
+	}
+	for _, unwanted := range []string{"\\a", "\\x"} {
+		if strings.Contains(out, unwanted) {
+			t.Fatalf("response contains Go-only escape %q:\n%s", unwanted, out)
+		}
+	}
+}
+
+func TestFindConfiguredMatchesSeparatesVisibleAndHintableFiles(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".codemap"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	configJSON := `{"only":["go"],"exclude":["schema-excluded.proto"],"guidance":{"ignored_extensions":["sum"]}}`
+	if err := os.WriteFile(filepath.Join(root, ".codemap", "config.json"), []byte(configJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	files := []scanner.FileInfo{
+		{Path: "notes.txt", Ext: ".txt"},
+		{Path: "schema.go", Ext: ".go"},
+		{Path: "schema.proto", Ext: ".proto"},
+		{Path: "schema-excluded.proto", Ext: ".proto"},
+		{Path: "schema.sum", Ext: ".sum"},
+	}
+	visible, filtered, hintsEnabled := findConfiguredMatches(root, "SCHEMA", files)
+	if strings.Join(visible, ",") != "schema.go" {
+		t.Fatalf("visible matches = %v, want [schema.go]", visible)
+	}
+	if len(filtered) != 1 || filtered[0].Path != "schema.proto" {
+		t.Fatalf("filtered matches = %+v, want only schema.proto", filtered)
+	}
+	if !hintsEnabled {
+		t.Fatal("expected hints to remain enabled by default")
+	}
+}
+
+func TestFormatOnlyFilterHintOffersDirectConfigActionForExtensionlessMatches(t *testing.T) {
+	matches := []scanner.FileInfo{
+		{Path: "schema-1"},
+		{Path: "schema-2"},
+		{Path: "schema-3"},
+		{Path: "schema-4"},
+		{Path: "schema-5"},
+		{Path: "schema-6"},
+	}
+	out := formatOnlyFilterHint("schema", matches)
+	for _, want := range []string{"schema-1", "schema-5", "... and 1 more", "Update `.codemap/config.json`:", "Set `guidance.missing_extension_hints` to false", "No config changed."} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("missing %q from bounded hint:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "schema-6") {
+		t.Fatalf("bounded hint exposed sixth path:\n%s", out)
+	}
+	if strings.Contains(out, "Tell your agent") {
+		t.Fatalf("response retains indirect agent language:\n%s", out)
+	}
+}
+
+func TestHandleListSkillsRejectsMalformedWorktreeSetup(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, ".git"), []byte("not a gitdir\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	res, _, err := handleListSkills(context.Background(), nil, PathInput{Path: root})
+	if err != nil {
+		t.Fatalf("handleListSkills() error: %v", err)
+	}
+	if !res.IsError || !strings.Contains(resultText(t, res), "resolve linked worktree setup") {
+		t.Fatalf("expected bounded root-resolution error, got:\n%s", resultText(t, res))
+	}
+}
+
+func TestProjectToolsRejectInvalidWorktreeMetadataBeforeAccess(t *testing.T) {
+	type toolCall func(string) (*mcp.CallToolResult, error)
+	tools := map[string]toolCall{
+		"analysis": func(path string) (*mcp.CallToolResult, error) {
+			result, _, err := handleGetStructure(context.Background(), nil, StructureInput{Path: path})
+			return result, err
+		},
+		"file context": func(path string) (*mcp.CallToolResult, error) {
+			result, _, err := handleGetFileContext(context.Background(), nil, ImportersInput{Path: path, File: "main.go"})
+			return result, err
+		},
+		"handoff read": func(path string) (*mcp.CallToolResult, error) {
+			result, _, err := handleGetHandoff(context.Background(), nil, HandoffInput{Path: path, Latest: true})
+			return result, err
+		},
+		"handoff save": func(path string) (*mcp.CallToolResult, error) {
+			result, _, err := handleGetHandoff(context.Background(), nil, HandoffInput{Path: path, Save: true})
+			return result, err
+		},
+		"watch state": func(path string) (*mcp.CallToolResult, error) {
+			result, _, err := handleGetWorkingSet(context.Background(), nil, WatchInput{Path: path})
+			return result, err
+		},
+	}
+
+	fixtures := map[string]func(string) error{
+		"malformed gitfile": func(root string) error {
+			return os.WriteFile(filepath.Join(root, ".git"), []byte("not a gitdir\n"), 0o644)
+		},
+		"inaccessible gitdir": func(root string) error {
+			return os.WriteFile(filepath.Join(root, ".git"), []byte("gitdir: missing-admin-dir\n"), 0o644)
+		},
+	}
+
+	for fixtureName, makeFixture := range fixtures {
+		for toolName, call := range tools {
+			t.Run(fixtureName+"/"+toolName, func(t *testing.T) {
+				root := t.TempDir()
+				if err := makeFixture(root); err != nil {
+					t.Fatal(err)
+				}
+
+				result, err := call(root)
+				if err != nil {
+					t.Fatalf("tool returned transport error: %v", err)
+				}
+				if !result.IsError || !strings.Contains(resultText(t, result), "resolve linked worktree setup") {
+					t.Fatalf("expected bounded root-resolution error, got:\n%s", resultText(t, result))
+				}
+				if _, err := os.Lstat(filepath.Join(root, ".codemap")); !os.IsNotExist(err) {
+					t.Fatalf("tool accessed mutable storage before root validation: %v", err)
+				}
+			})
+		}
+	}
+}
+
+func TestHandoffSaveRejectsSymlinkedLinkedRuntimeBeforeWrite(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks may require elevated privileges")
+	}
+	for name, withPrimarySetup := range map[string]bool{
+		"with primary setup":    true,
+		"without primary setup": false,
+	} {
+		t.Run(name, func(t *testing.T) {
+			assertHandoffSaveRejectsSymlinkedLinkedRuntime(t, withPrimarySetup)
+		})
+	}
+}
+
+func assertHandoffSaveRejectsSymlinkedLinkedRuntime(t *testing.T, withPrimarySetup bool) {
+	t.Helper()
+	primary := t.TempDir()
+	gitDir := filepath.Join(primary, ".git", "worktrees", "linked")
+	if err := os.MkdirAll(gitDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if withPrimarySetup {
+		if err := os.MkdirAll(filepath.Join(primary, ".codemap"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(gitDir, "commondir"), []byte("../..\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	linked := t.TempDir()
+	if err := os.WriteFile(filepath.Join(linked, ".git"), []byte("gitdir: "+gitDir+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	target := t.TempDir()
+	sentinel := filepath.Join(target, "sentinel")
+	if err := os.WriteFile(sentinel, []byte("unchanged"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, filepath.Join(linked, ".codemap")); err != nil {
+		t.Fatal(err)
+	}
+
+	result, _, err := handleGetHandoff(context.Background(), nil, HandoffInput{Path: linked, Save: true})
+	if err != nil {
+		t.Fatalf("handleGetHandoff() error: %v", err)
+	}
+	if !result.IsError || !strings.Contains(resultText(t, result), "unsafe Codemap storage") {
+		t.Fatalf("expected unsafe runtime-storage error, got:\n%s", resultText(t, result))
+	}
+	data, err := os.ReadFile(sentinel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "unchanged" {
+		t.Fatalf("sentinel changed through runtime symlink: %q", data)
+	}
+	entries, err := os.ReadDir(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name() != "sentinel" {
+		t.Fatalf("runtime symlink target was modified: %#v", entries)
+	}
+}
+
+func TestHandleListSkillsResolvesWorktreeSetupPerInputPath(t *testing.T) {
+	makeFixture := func(name string) string {
+		primary := filepath.Join(t.TempDir(), "primary")
+		gitDir := filepath.Join(primary, ".git", "worktrees", name)
+		skillsDir := filepath.Join(primary, ".codemap", "skills")
+		if err := os.MkdirAll(gitDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.MkdirAll(skillsDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(gitDir, "commondir"), []byte("../..\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		skill := "---\nname: " + name + "\ndescription: per-path fixture\n---\n\n# Fixture\n"
+		if err := os.WriteFile(filepath.Join(skillsDir, name+".md"), []byte(skill), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		linked := filepath.Join(t.TempDir(), "linked")
+		if err := os.MkdirAll(linked, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(linked, ".git"), []byte("gitdir: "+gitDir+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return linked
+	}
+
+	linkedA := makeFixture("primary-a")
+	linkedB := makeFixture("primary-b")
+	resA, _, err := handleListSkills(context.Background(), nil, PathInput{Path: linkedA})
+	if err != nil {
+		t.Fatalf("handleListSkills(A) error: %v", err)
+	}
+	resB, _, err := handleListSkills(context.Background(), nil, PathInput{Path: linkedB})
+	if err != nil {
+		t.Fatalf("handleListSkills(B) error: %v", err)
+	}
+	outA := resultText(t, resA)
+	outB := resultText(t, resB)
+	if !strings.Contains(outA, "primary-a") || strings.Contains(outA, "primary-b") || !strings.Contains(outB, "primary-b") || strings.Contains(outB, "primary-a") {
+		t.Fatalf("per-path skill selection failed:\nA:\n%s\nB:\n%s", outA, outB)
+	}
+}
+
+func TestHandleGetStructureUsesStateHubs(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".codemap"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(root, "pkg"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "pkg", "main.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	state := watch.State{
+		UpdatedAt: time.Now(),
+		Hubs:      []string{"pkg/main.go"},
+		Importers: map[string][]string{"pkg/main.go": {"a.go", "b.go", "c.go"}},
+	}
+	data, err := json.Marshal(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(projectpath.ProjectRuntimeDir(root), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(projectpath.ProjectRuntimeDir(root), "state.json"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	res, _, err := handleGetStructure(context.Background(), nil, StructureInput{Path: root})
+	if err != nil {
+		t.Fatalf("handleGetStructure error: %v", err)
+	}
+	out := resultText(t, res)
+	checks := []string{"HUB FILES", "pkg/main.go", "3 importers"}
+	for _, check := range checks {
+		if !strings.Contains(out, check) {
+			t.Fatalf("expected output to contain %q, got:\n%s", check, out)
+		}
+	}
+}
+
+func TestHandleGetHandoffValidationAndLatest(t *testing.T) {
+	root := t.TempDir()
+
+	res, _, err := handleGetHandoff(context.Background(), nil, HandoffInput{Path: root, Prefix: true, Delta: true})
+	if err != nil {
+		t.Fatalf("handleGetHandoff validation error: %v", err)
+	}
+	if !strings.Contains(resultText(t, res), "mutually exclusive") {
+		t.Fatalf("expected mutual exclusion error, got:\n%s", resultText(t, res))
+	}
+
+	missing, _, err := handleGetHandoff(context.Background(), nil, HandoffInput{Path: root, Latest: true})
+	if err != nil {
+		t.Fatalf("handleGetHandoff latest error: %v", err)
+	}
+	if !strings.Contains(resultText(t, missing), "No saved handoff found") {
+		t.Fatalf("expected missing latest message, got:\n%s", resultText(t, missing))
+	}
+
+	artifact := &handoff.Artifact{
+		SchemaVersion: handoff.SchemaVersion,
+		Branch:        "feature/test",
+		BaseRef:       "main",
+		Prefix:        handoff.PrefixSnapshot{FileCount: 7},
+		Delta:         handoff.DeltaSnapshot{Changed: []handoff.FileStub{{Path: "main.go"}}},
+	}
+	if err := handoff.WriteLatest(root, artifact); err != nil {
+		t.Fatalf("WriteLatest error: %v", err)
+	}
+
+	jsonRes, _, err := handleGetHandoff(context.Background(), nil, HandoffInput{Path: root, Latest: true, JSON: true, Prefix: true})
+	if err != nil {
+		t.Fatalf("handleGetHandoff latest json error: %v", err)
+	}
+	jsonOut := resultText(t, jsonRes)
+	if !strings.Contains(jsonOut, "\"file_count\": 7") {
+		t.Fatalf("expected prefix JSON payload, got:\n%s", jsonOut)
+	}
+}
+
+func TestHandleGetHandoffRejectsInvalidSince(t *testing.T) {
+	root := t.TempDir()
+
+	invalid, _, err := handleGetHandoff(context.Background(), nil, HandoffInput{Path: root, Since: "later"})
+	if err != nil {
+		t.Fatalf("unexpected error for invalid since result: %v", err)
+	}
+	if !strings.Contains(resultText(t, invalid), "Invalid since duration") {
+		t.Fatalf("expected invalid duration message, got:\n%s", resultText(t, invalid))
+	}
+
+	zero, _, err := handleGetHandoff(context.Background(), nil, HandoffInput{Path: root, Since: "0s"})
+	if err != nil {
+		t.Fatalf("unexpected error for zero since result: %v", err)
+	}
+	if !strings.Contains(resultText(t, zero), "must be > 0") {
+		t.Fatalf("expected non-positive duration message, got:\n%s", resultText(t, zero))
+	}
+}
+
+func resultText(t *testing.T, res *mcp.CallToolResult) string {
+	t.Helper()
+	if res == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if len(res.Content) != 1 {
+		t.Fatalf("expected exactly one content item, got %d", len(res.Content))
+	}
+	text, ok := res.Content[0].(*mcp.TextContent)
+	if !ok {
+		t.Fatalf("expected text content, got %T", res.Content[0])
+	}
+	return text.Text
+}
+
+func TestValidateProjectPathExpandsHomeAndRejectsInvalidRoots(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	proj := filepath.Join(home, "proj")
+	if err := os.MkdirAll(filepath.Join(proj, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	abs, invalid := validateProjectPath("~/proj")
+	if invalid != nil || abs != proj {
+		t.Fatalf("validateProjectPath(~/) = %q, %v; want %q", abs, invalid, proj)
+	}
+	// A malformed linked-worktree marker is rejected via projectpath.Select.
+	bad := filepath.Join(t.TempDir(), "bad")
+	if err := os.MkdirAll(bad, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(bad, ".git"), []byte("not a gitdir\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, invalid = validateProjectPath(bad)
+	if invalid == nil || !invalid.IsError {
+		t.Fatalf("validateProjectPath(malformed) not rejected: %v", invalid)
+	}
+}

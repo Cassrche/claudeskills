@@ -1,0 +1,87 @@
+---
+title: Core Web Vitals
+description: Optimize for Google's Core Web Vitals metrics. Improve LCP, CLS, and INP to boost both user experience and search rankings.
+icon: gauge
+rules:
+  - performance/largest-contentful-paint
+  - performance/cumulative-layout-shift
+  - performance/interaction-to-next-paint
+  - performance/first-contentful-paint
+  - performance/page-load-time
+  - images/dimensions
+  - css/css-critical
+  - performance/lazy-loading
+  - performance/resource-hints
+estimatedTime: "35 minutes"
+difficulty: intermediate
+order: 7
+featured: true
+---
+
+Core Web Vitals are Google's metrics for measuring real-world user experience. They directly impact search rankings and represent the quality of experience users have on your site.
+
+## When To Use It
+
+Use this checklist when you already know performance matters enough to investigate metric quality directly, especially after lab or field data points to LCP, CLS, or INP problems.
+
+## Who It's For
+
+- Performance-focused reviewers
+- Teams using Core Web Vitals as a release or optimization KPI
+- Audits where synthetic and real-user performance data need to be reconciled
+
+## Done Looks Like
+
+You should be able to explain which assets, rendering decisions, and interaction costs are most likely affecting LCP, CLS, and INP on the target pages.
+
+## The Three Core Metrics
+
+### Largest Contentful Paint (LCP)
+Measures loading performance. Target: **under 2.5 seconds**.
+
+LCP marks when the largest content element becomes visible. Usually a hero image, heading, or video poster.
+
+### Cumulative Layout Shift (CLS)
+Measures visual stability. Target: **under 0.1**.
+
+CLS tracks unexpected layout shifts. Caused by images without dimensions, dynamic content, or late-loading fonts.
+
+### Interaction to Next Paint (INP)
+Measures responsiveness. Target: **under 200ms**.
+
+INP measures the time from user interaction to visual feedback. Replaces First Input Delay (FID) as of March 2024.
+
+## Why This Matters
+
+- **SEO Rankings** - Core Web Vitals are a confirmed ranking signal
+- **User Experience** - These metrics correlate with user satisfaction
+- **Conversion Rates** - Better vitals = higher conversions
+- **Bounce Rate** - Slow sites lose visitors quickly
+
+## Quick Optimization Tips
+
+### For LCP
+- Preload hero images with `<link rel="preload">`
+- Use critical CSS to render above-the-fold content fast
+- Optimize server response time (TTFB)
+- Use a CDN for static assets
+
+### For CLS
+- Always include `width` and `height` on images
+- Reserve space for ads and embeds
+- Avoid inserting content above existing content
+- Use `font-display: optional` for web fonts
+
+### For INP
+- Minimize JavaScript execution time
+- Break up long tasks
+- Use `requestIdleCallback` for non-urgent work
+- Optimize event handlers
+
+## Measuring Core Web Vitals
+
+- **Chrome DevTools** - Performance panel
+- **Lighthouse** - Lab data in DevTools or CI
+- **PageSpeed Insights** - Field + lab data
+- **Chrome UX Report** - Real user data
+- **web-vitals.js** - Measure in production

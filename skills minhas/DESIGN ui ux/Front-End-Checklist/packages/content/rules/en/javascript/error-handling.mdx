@@ -1,0 +1,239 @@
+---
+title: Implement proper error handling
+description: >-
+  Use try-catch blocks and error boundaries to gracefully handle errors in async
+  operations and UI components.
+categories:
+  - javascript
+subcategory: best-practices
+priority: high
+difficulty: intermediate
+estimatedTime: 20
+tldr:
+  - Wrap async operations in try-catch blocks
+  - Use Error Boundaries in React for UI-level error handling
+  - Log errors with context for debugging
+  - Always re-throw or handle—never silently swallow errors
+whyItMatters: >-
+  Unhandled errors crash applications, create poor user experiences, and make
+  debugging impossible without proper context.
+prompts:
+  check: >-
+    Review error handling in this code, ensuring async operations use try-catch
+    and errors are properly logged.
+  fix: >-
+    Add try-catch blocks to async operations and implement error boundaries for
+    React components.
+  explain: >-
+    Explain JavaScript error handling best practices including try-catch,
+    Promise rejection, and error boundaries.
+  codeReview: >-
+    Review scripts, client components, and browser execution paths related to
+    Implement proper error handling. Flag exact imports, event handlers, runtime
+    side effects, or blocking operations that violate the rule, and state how
+    the change should be verified in the browser.
+aiContext: >-
+  Use when reviewing scripts, client components, bundles, or runtime behavior
+  related to Implement proper error handling. Inspect both source code and the
+  browser execution path so fixes target the real bottleneck or bug.
+sources:
+  - title: 'MDN: JavaScript Guide'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide'
+    type: mdn
+    id: mdn-javascript-guide
+    role: reference
+    authority: primary
+  - title: 'web.dev: Learn JavaScript'
+    url: 'https://web.dev/learn/javascript'
+    type: guide
+    id: web-dev-learn-javascript
+    role: implementation
+    authority: primary
+resources:
+  - name: Chrome DevTools
+    url: 'https://developer.chrome.com/docs/devtools/'
+    type: tool
+relatedRules:
+  - slug: web-storage
+    reason: >-
+      Both rules affect javascript quality and can fail in the same
+      implementation.
+  - slug: translation-strings
+    reason: >-
+      Both rules sit in the `javascript/best-practices` area and are commonly
+      reviewed together.
+  - slug: console-cleanup
+    reason: >-
+      Both rules sit in the `javascript/best-practices` area and are commonly
+      reviewed together.
+---
+Proper error handling prevents crashes, improves debugging, and creates better user experiences.
+
+## Code Examples
+
+#
+
+## Basic Pattern
+```javascript
+// ❌ No error handling
+async function fetchUser(id) {
+  const response = await fetch(`/api/users/${id}`)
+  return response.json()
+}
+
+// ✅ With error handling
+async function fetchUser(id) {
+  try {
+    const response = await fetch(`/api/users/${id}`)
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error('Failed to fetch user:', error)
+    throw error // Re-throw for caller to handle
+  }
+}
+```
+
+### With Error Recovery
+```javascript
+async function fetchUserWithFallback(id) {
+  try {
+    const response = await fetch(`/api/users/${id}`)
+    return await response.json()
+  } catch (error) {
+    console.error('API failed, using cache:', error)
+
+    // Fallback to cached data
+    const cached = localStorage.getItem(`user_${id}`)
+    if (cached) {
+      return JSON.parse(cached)
+    }
+
+    // If no cache, show user-friendly error
+    throw new Error('Unable to load user data. Please try again.')
+  }
+}
+```
+
+## Why It Matters
+
+Unhandled errors crash applications, create poor user experiences, and make debugging impossible without proper context.
+
+## Promise Error Handling
+
+```javascript
+// ❌ Unhandled promise rejection
+fetch('/api/data')
+  .then(response => response.json())
+  .then(data => processData(data))
+
+// ✅ With error handling
+fetch('/api/data')
+  .then(response => {
+    if (!response.ok) throw new Error('Network response was not ok')
+    return response.json()
+  })
+  .then(data => processData(data))
+  .catch(error => {
+    console.error('Fetch failed:', error)
+    showErrorMessage('Failed to load data')
+  })
+```
+
+## React Error Boundaries
+
+```tsx
+import { Component, ErrorInfo, ReactNode } from 'react'
+
+interface Props {
+  children: ReactNode
+  fallback?: ReactNode
+}
+
+interface State {
+  hasError: boolean
+  error?: Error
+}
+
+class ErrorBoundary extends Component<Props, State> {
+  state: State = { hasError: false }
+
+  static getDerivedStateFromError(error: Error): State {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('Error caught by boundary:', error, errorInfo)
+    // Report to error tracking service
+    reportError(error, errorInfo)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || (
+        <div role="alert">
+          <h2>Something went wrong</h2>
+          <button onClick={() => this.setState({ hasError: false })}>
+            Try again
+          </button>
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}
+
+// Usage
+function App() {
+  return (
+    <ErrorBoundary fallback={<ErrorPage />}>
+      <MyComponent />
+    </ErrorBoundary>
+  )
+}
+```
+
+## Global Error Handling
+
+```javascript
+// Catch unhandled promise rejections
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason)
+  // Report to error tracking
+  reportError(event.reason)
+  // Optionally prevent default browser behavior
+  event.preventDefault()
+})
+
+// Catch global errors
+window.addEventListener('error', (event) => {
+  console.error('Global error:', event.error)
+  reportError(event.error)
+})
+```
+
+## Best Practices
+
+1. **Always handle async errors** - Use try-catch or .catch()
+2. **Don't swallow errors** - Log and report them
+3. **Provide user feedback** - Show meaningful error messages
+4. **Implement recovery** - Offer retry or fallback options
+5. **Use error boundaries** - Prevent entire app crashes
+6. **Track errors** - Use services like Sentry or LogRocket
+
+## Standards
+
+- Use MDN: JavaScript Guide as the standard for how this JavaScript pattern should behave in production, not just in a small local example.
+- Use web.dev: Learn JavaScript as the standard for how this JavaScript pattern should behave in production, not just in a small local example.
+
+## Verification
+
+1. Verify the behavior in the browser after the code change, not only in static analysis.
+2. Inspect DevTools Network or Performance panels when the rule affects loading or execution order.
+3. Test the primary user flow and one edge case triggered by the changed script path.
+4. Confirm the code still behaves correctly when the feature is delayed, lazy-loaded, or fails.

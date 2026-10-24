@@ -1,0 +1,73 @@
+---
+title: Comprehensive Web Audit Checklist
+description: A cross-discipline audit covering structure, accessibility, SEO, performance, security, and test readiness.
+icon: 'list-checks'
+difficulty: advanced
+estimatedTime: '90 minutes'
+rules:
+  - html/doctype
+  - html/charset
+  - html/viewport
+  - html/lang-attribute
+  - accessibility/keyboard-navigation
+  - accessibility/skip-link
+  - accessibility/color-contrast
+  - accessibility/form-labels
+  - accessibility/heading-order
+  - seo/meta-title
+  - seo/meta-description
+  - seo/h1
+  - seo/canonical-url
+  - seo/robots-txt
+  - seo/sitemap
+  - seo/structured-data
+  - performance/largest-contentful-paint
+  - performance/cumulative-layout-shift
+  - performance/interaction-to-next-paint
+  - performance/compression
+  - performance/browser-caching
+  - images/dimensions
+  - images/optimized
+  - security/https
+  - security/content-security-policy
+  - security/referrer-policy
+  - security/x-content-type
+  - testing/accessibility-testing
+---
+
+Use this checklist when you need a broad site-quality pass instead of a single-theme review. It pulls together the baseline checks that most teams revisit before launch, after major redesigns, and during scheduled audits.
+
+## When To Use It
+
+Use this checklist when the goal is to understand the overall quality state of a site or app, not just one area such as SEO or accessibility.
+
+## Who It's For
+
+- Senior reviewers and leads running scheduled audits
+- Teams preparing for launch after a major redesign
+- AI-assisted review workflows that need a broad first pass
+
+## Done Looks Like
+
+You should finish this checklist with a prioritized cross-discipline action list, not just a vague sense that the site is "mostly okay."
+
+## Audit Areas
+
+- **Structure**: validate the document shell, metadata, and crawl signals
+- **Accessibility**: verify keyboard access, form semantics, contrast, and heading order
+- **Performance**: cover rendering speed, caching, compression, and layout stability
+- **Security**: confirm transport security and baseline response headers
+- **Verification**: include at least one accessibility-focused testing pass before sign-off
+
+## How To Run It
+
+1. Start with HTML and SEO checks so the page shell is correct before deeper auditing.
+2. Review accessibility issues next because they often expose structural problems quickly.
+3. Measure performance in the browser and compare lab results with production telemetry if available.
+4. Finish with security headers and testing evidence so the audit ends with concrete pass or fail outcomes.
+
+## Best Practices
+
+- Run this checklist on the homepage, a core content page, and a conversion-critical page.
+- Log findings with severity so the audit produces a real action list instead of a generic score.
+- Pair this broad pass with deeper themed checklists when one area needs concentrated follow-up.

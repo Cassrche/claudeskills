@@ -1,0 +1,121 @@
+---
+title: Avoid meta refresh redirects
+description: >-
+  Meta refresh redirects can disorient users and cause accessibility issues by
+  refreshing the page unexpectedly.
+categories:
+  - accessibility
+subcategory: visual
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - Avoid using `<meta http-equiv="refresh">` for page redirects
+  - Use server-side redirects (301 or 302) instead of client-side meta refreshes
+  - Ensure users have control over page refreshes and redirects
+whyItMatters: >-
+  Unexpected page refreshes or redirects can be extremely confusing for users
+  with cognitive disabilities and can cause screen readers to restart reading
+  from the beginning.
+prompts:
+  check: >-
+    Check the HTML for any meta tags that use `http-equiv="refresh"` for
+    automatic page redirection.
+  fix: >-
+    Replace meta refresh redirects with server-side redirects or clear,
+    user-initiated links.
+  explain: >-
+    Explain why automatic page refreshes can be a major barrier for
+    accessibility and user experience.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Avoid meta
+    refresh redirects. Flag exact elements, roles, labels, focus behavior, or
+    keyboard interactions that violate the rule, and note how to verify the fix
+    with browser accessibility tooling or assistive tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Avoid meta refresh redirects. Check native semantics
+  first, then inspect keyboard behavior, focus flow, accessible names, and
+  screen-reader output where relevant.
+sources:
+  - title: 'WCAG Quick Reference: Timing Adjustable'
+    url: 'https://www.w3.org/WAI/WCAG22/quickref/#timing-adjustable'
+    type: wcag
+    id: wcag-quickref-timing-adjustable
+    role: standard
+    authority: primary
+  - title: 'W3C: Understanding SC 2.2.1 Timing Adjustable'
+    url: 'https://www.w3.org/WAI/WCAG22/Understanding/timing-adjustable.html'
+    type: wcag
+    id: w3c-understanding-sc-2-2-1-timing-adjustable
+    role: implementation
+    authority: primary
+  - title: 'MDN: <meta> element'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/meta'
+    type: mdn
+    id: mdn-meta-element
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: touch-targets
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+  - slug: accesskeys
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+  - slug: color-contrast
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+  - slug: focus-styles
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+---
+The [`http-equiv="refresh"`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/meta) pattern on a `<meta>` tag is often used to refresh a page or redirect a user to a new location. [WCAG timing guidance](https://www.w3.org/WAI/WCAG22/Understanding/timing-adjustable.html) discourages this because the user loses control over when context changes.
+## Code Example
+
+```html
+<!-- Incorrect: Automatic redirect after 5 seconds -->
+<head>
+  <meta http-equiv="refresh" content="5; url=https://example.com/new-page">
+</head>
+
+<!-- Better: Provide a clear link instead -->
+<body>
+  <p>This page has moved. Please <a href="https://example.com/new-page">visit the new location</a>.</p>
+</body>
+
+<!-- Best: Use server-side redirect (e.g., via .htaccess or Next.js config) -->
+```
+
+## Why It Matters
+
+- **User Control**: Users should always be in control of when their context changes. Unexpected redirects take that control away.
+- **Screen Reader Disruption**: When a page refreshes, a screen reader starts reading from the top, which is very disruptive if the user was in the middle of a paragraph.
+- **Time Constraints**: Some users need more time to read a page before they are redirected. Meta refresh doesn't account for individual reading speeds.
+- **SEO & Performance**: Server-side redirects are faster and better for search engine optimization than client-side meta refreshes.
+
+## Exceptions
+
+- Some exact legal, product, or brand wording cannot be simplified freely, but the surrounding content should still reduce ambiguity and cognitive load where possible.
+- A content rule should be judged on the final user-facing wording, not just on individual banned phrases taken out of context.
+- If a page has both structural accessibility failures and content clarity issues, fix the failure that prevents users from reaching or perceiving the content first.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

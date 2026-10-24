@@ -1,0 +1,1092 @@
+package cmd
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"codemap/config"
+	"codemap/handoff"
+	"codemap/internal/projectpath"
+	"codemap/limits"
+	"codemap/watch"
+)
+
+func withHookRuntimeStubs(
+	t *testing.T,
+	exePath func() (string, error),
+	cmdFactory func(name string, args ...string) *exec.Cmd,
+	isRunning func(string) bool,
+	sleep func(time.Duration),
+) {
+	t.Helper()
+
+	prevExePath := hookExecutablePath
+	prevCmdFactory := hookExecCommand
+	prevIsRunning := hookWatchIsRunning
+	prevSleep := daemonStartupPause
+
+	if exePath != nil {
+		hookExecutablePath = exePath
+	}
+	if cmdFactory != nil {
+		hookExecCommand = cmdFactory
+	}
+	if isRunning != nil {
+		hookWatchIsRunning = isRunning
+	}
+	if sleep != nil {
+		daemonStartupPause = sleep
+	}
+
+	t.Cleanup(func() {
+		hookExecutablePath = prevExePath
+		hookExecCommand = prevCmdFactory
+		hookWatchIsRunning = prevIsRunning
+		daemonStartupPause = prevSleep
+	})
+}
+
+func TestHookMutableStateFailsClosedOnRuntimeIdentityMismatch(t *testing.T) {
+	root, setup := t.TempDir(), t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	projectpath.SetSetupRoot(setup)
+	t.Cleanup(projectpath.ResetSetupRoot)
+	selection, err := projectpath.SelectRuntime(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(selection.RuntimeDir, "project.json"), []byte(`{"canonical_root":"/other"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := updateSessionLease(root, "session-a", true, time.Now(), nil); err == nil {
+		t.Fatal("session lease accepted mismatched runtime identity")
+	}
+	writeStatuslineState(root, TaskIntent{Category: "test", RiskLevel: "low"})
+	if _, err := os.Stat(filepath.Join(root, ".codemap")); !os.IsNotExist(err) {
+		t.Fatalf("unsafe project-local state exists: %v", err)
+	}
+}
+
+func captureOutputAndError(t *testing.T, fn func()) (string, string) {
+	t.Helper()
+
+	oldOut := os.Stdout
+	oldErr := os.Stderr
+	outFile, err := os.CreateTemp("", "codemap-cmd-stdout-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	errFile, err := os.CreateTemp("", "codemap-cmd-stderr-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		_ = os.Remove(outFile.Name())
+		_ = os.Remove(errFile.Name())
+	}()
+
+	func() {
+		defer func() {
+			_ = outFile.Close()
+			_ = errFile.Close()
+			os.Stdout = oldOut
+			os.Stderr = oldErr
+		}()
+		os.Stdout = outFile
+		os.Stderr = errFile
+		fn()
+	}()
+
+	stdout, err := os.ReadFile(outFile.Name())
+	if err != nil {
+		t.Fatalf("read stdout capture: %v", err)
+	}
+	stderr, err := os.ReadFile(errFile.Name())
+	if err != nil {
+		t.Fatalf("read stderr capture: %v", err)
+	}
+	return string(stdout), string(stderr)
+}
+
+func withStdinInput(t *testing.T, input string, fn func()) {
+	t.Helper()
+
+	old := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.WriteString(w, input); err != nil {
+		t.Fatal(err)
+	}
+	_ = w.Close()
+	os.Stdin = r
+	defer func() {
+		os.Stdin = old
+		_ = r.Close()
+	}()
+
+	fn()
+}
+
+func mustJSONInput(t *testing.T, v any) string {
+	t.Helper()
+
+	data, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
+
+func writeProjectConfig(t *testing.T, root string, cfg config.ProjectConfig) {
+	t.Helper()
+
+	if err := os.MkdirAll(projectpath.ProjectRuntimeDir(root), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(config.ConfigPath(root), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeStateOnly(t *testing.T, root string, state watch.State) {
+	t.Helper()
+
+	if err := os.MkdirAll(projectpath.ProjectRuntimeDir(root), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data, err := json.Marshal(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(projectpath.ProjectRuntimeDir(root), "state.json"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHookTimeoutHelpers(t *testing.T) {
+	timeoutErr := &HookTimeoutError{Hook: "prompt-submit", Timeout: 25 * time.Millisecond}
+	if got := timeoutErr.Error(); got != `hook "prompt-submit" timed out after 25ms` {
+		t.Fatalf("HookTimeoutError.Error() = %q", got)
+	}
+	if !IsHookTimeoutError(timeoutErr) {
+		t.Fatal("expected IsHookTimeoutError to detect timeout error")
+	}
+	if IsHookTimeoutError(errors.New("plain error")) {
+		t.Fatal("did not expect plain error to match timeout error")
+	}
+
+	err := RunHookWithTimeout("unknown-hook", t.TempDir(), 0)
+	if err == nil || !strings.Contains(err.Error(), "unknown hook") {
+		t.Fatalf("expected unknown hook error, got %v", err)
+	}
+}
+
+func TestWaitForDaemonState(t *testing.T) {
+	root := t.TempDir()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		time.Sleep(150 * time.Millisecond)
+		_ = os.MkdirAll(projectpath.ProjectRuntimeDir(root), 0o755)
+		data, _ := json.Marshal(watch.State{
+			UpdatedAt: time.Now(),
+			FileCount: 7,
+		})
+		_ = os.WriteFile(filepath.Join(projectpath.ProjectRuntimeDir(root), "state.json"), data, 0o644)
+	}()
+
+	state := waitForDaemonState(root, time.Second)
+	<-done
+	if state == nil {
+		t.Fatal("expected state before timeout")
+	}
+	if state.FileCount != 7 {
+		t.Fatalf("expected file count 7, got %d", state.FileCount)
+	}
+}
+
+func TestGetRecentHandoffAndBranchDetection(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	root := t.TempDir()
+	if got := getRecentHandoff(root); got != nil {
+		t.Fatalf("expected nil without handoff, got %+v", got)
+	}
+
+	oldArtifact := &handoff.Artifact{
+		SchemaVersion: handoff.SchemaVersion,
+		GeneratedAt:   time.Now().Add(-25 * time.Hour),
+		Branch:        "feature/old",
+	}
+	if err := handoff.WriteLatest(root, oldArtifact); err != nil {
+		t.Fatalf("WriteLatest old artifact: %v", err)
+	}
+	if got := getRecentHandoff(root); got != nil {
+		t.Fatalf("expected stale handoff to be ignored, got %+v", got)
+	}
+
+	freshArtifact := &handoff.Artifact{
+		SchemaVersion: handoff.SchemaVersion,
+		GeneratedAt:   time.Now(),
+		Branch:        "feature/fresh",
+		Delta: handoff.DeltaSnapshot{
+			Changed: []handoff.FileStub{{Path: "main.go", Status: "modified"}},
+		},
+	}
+	if err := handoff.WriteLatest(root, freshArtifact); err != nil {
+		t.Fatalf("WriteLatest fresh artifact: %v", err)
+	}
+	if got := getRecentHandoff(root); got == nil || got.Branch != "feature/fresh" {
+		t.Fatalf("expected fresh handoff, got %+v", got)
+	}
+
+	repo := makeRepoOnBranch(t, "feature/current")
+	branch, ok := gitCurrentBranch(repo)
+	if !ok || branch != "feature/current" {
+		t.Fatalf("gitCurrentBranch() = %q, %v", branch, ok)
+	}
+	if branch, ok := gitCurrentBranch(t.TempDir()); ok || branch != "" {
+		t.Fatalf("expected non-git root to have unknown branch, got %q, %v", branch, ok)
+	}
+}
+
+func TestShowDiffVsMainUsesLightweightPath(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	root := makeRepoOnBranch(t, "main")
+	runGitTestCmd(t, root, "checkout", "-b", "feature/lightweight-diff")
+	for i := 0; i < 22; i++ {
+		name := filepath.Join(root, fmt.Sprintf("pkg/file%02d.go", i))
+		if err := os.MkdirAll(filepath.Dir(name), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(name, []byte("package pkg\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	runGitTestCmd(t, root, "add", ".")
+	runGitTestCmd(t, root, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "feature changes")
+
+	stdout, _ := captureOutputAndError(t, func() {
+		showDiffVsMain(root, limits.LargeRepoFileCount+1, true, config.ProjectConfig{})
+	})
+
+	if !strings.Contains(stdout, "Changes on branch 'feature/lightweight-diff' vs main") {
+		t.Fatalf("expected branch diff header, got:\n%s", stdout)
+	}
+	if !strings.Contains(stdout, "pkg/file00.go") {
+		t.Fatalf("expected first changed file in output, got:\n%s", stdout)
+	}
+	if !strings.Contains(stdout, "... and 2 more files") {
+		t.Fatalf("expected truncation indicator, got:\n%s", stdout)
+	}
+}
+
+func TestConfiguredStateFileCountDrivesSessionStartGates(t *testing.T) {
+	root := t.TempDir()
+	writeProjectConfig(t, root, config.ProjectConfig{Only: []string{"go"}})
+	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "notes.txt"), []byte("not source\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	configuredCount := 1
+	state := &watch.State{
+		FileCount:           limits.LargeRepoFileCount + 1,
+		ConfiguredFileCount: &configuredCount,
+	}
+	fileCount, known := configuredStateFileCount(root, state)
+
+	if !known || fileCount != configuredCount {
+		t.Fatalf("configuredStateFileCount() = %d, %v; want %d, true", fileCount, known, configuredCount)
+	}
+	if got, want := limits.AdaptiveDepth(fileCount), limits.AdaptiveDepth(configuredCount); got != want {
+		t.Fatalf("adaptive depth = %d, want %d", got, want)
+	}
+	if shouldSkipHubAnalysis(fileCount, known) {
+		t.Fatal("expected configured small repo to keep hub analysis enabled")
+	}
+	if shouldUseLightweightDiff(fileCount, known) {
+		t.Fatal("expected configured small repo to keep rich diff analysis enabled")
+	}
+}
+
+func TestExtractFilePathAndEditHooks(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "pkg", "types.go")
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("package pkg\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	writeWatchState(t, root, watch.State{
+		UpdatedAt: time.Now(),
+		FileCount: 3,
+		Importers: map[string][]string{
+			"pkg/types.go": {"cmd/a.go", "cmd/b.go", "cmd/c.go"},
+		},
+		Imports: map[string][]string{
+			"pkg/types.go":  {"shared/hub.go"},
+			"cmd/a.go":      {"pkg/types.go"},
+			"cmd/b.go":      {"pkg/types.go"},
+			"cmd/c.go":      {"pkg/types.go"},
+			"shared/hub.go": {"x.go", "y.go", "z.go"},
+		},
+	})
+
+	withStdinInput(t, mustJSONInput(t, map[string]string{"file_path": target}), func() {
+		got, err := extractFilePathFromStdin()
+		if err != nil {
+			t.Fatalf("extractFilePathFromStdin() error: %v", err)
+		}
+		if got != target {
+			t.Fatalf("extractFilePathFromStdin() = %q, want %q", got, target)
+		}
+	})
+
+	withStdinInput(t, `garbage "file_path": "`+target+`"`, func() {
+		got, err := extractFilePathFromStdin()
+		if err != nil {
+			t.Fatalf("expected regex fallback, got error %v", err)
+		}
+		if got != target {
+			t.Fatalf("fallback extracted %q, want %q", got, target)
+		}
+	})
+
+	withStdinInput(t, mustJSONInput(t, map[string]string{"file_path": target}), func() {
+		var hookErr error
+		out := captureOutput(func() { hookErr = hookPreEdit(root) })
+		if hookErr != nil {
+			t.Fatalf("hookPreEdit() error: %v", hookErr)
+		}
+		checks := []string{
+			"Before editing: pkg/types.go is a hub with 3 importers.",
+			"Run now:",
+			"codemap --importers pkg/types.go",
+			"codemap --deps",
+		}
+		for _, check := range checks {
+			if !strings.Contains(out, check) {
+				t.Fatalf("expected %q in output, got:\n%s", check, out)
+			}
+		}
+	})
+
+	withStdinInput(t, mustJSONInput(t, map[string]string{"file_path": target}), func() {
+		var hookErr error
+		out := captureOutput(func() { hookErr = hookPostEdit(root) })
+		if hookErr != nil {
+			t.Fatalf("hookPostEdit() error: %v", hookErr)
+		}
+		checks := []string{
+			"After editing: pkg/types.go still fans out to 3 importers.",
+			"Re-check with:",
+			"codemap --importers pkg/types.go",
+			"codemap --deps",
+		}
+		for _, check := range checks {
+			if !strings.Contains(out, check) {
+				t.Fatalf("expected %q in output, got:\n%s", check, out)
+			}
+		}
+	})
+}
+
+func TestCheckFileImportersAndRouteSuggestions(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(root, "pkg", "types.go")
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target, []byte("package pkg\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	writeWatchState(t, root, watch.State{
+		UpdatedAt: time.Now(),
+		FileCount: 4,
+		Importers: map[string][]string{
+			"pkg/types.go":  {"a.go", "b.go", "c.go"},
+			"shared/hub.go": {"d.go", "e.go", "f.go"},
+		},
+		Imports: map[string][]string{
+			"pkg/types.go": {"shared/hub.go"},
+		},
+	})
+
+	var checkErr error
+	out := captureOutput(func() { checkErr = checkFileImporters(root, target) })
+	if checkErr != nil {
+		t.Fatalf("checkFileImporters() error: %v", checkErr)
+	}
+	if !strings.Contains(out, "HUB FILE: pkg/types.go") {
+		t.Fatalf("expected hub warning, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Imports 1 hub(s): shared/hub.go") {
+		t.Fatalf("expected hub import summary, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Next codemap:") || !strings.Contains(out, "codemap --importers pkg/types.go") {
+		t.Fatalf("expected actionable codemap guidance, got:\n%s", out)
+	}
+	if !strings.Contains(out, "codemap --deps") {
+		t.Fatalf("expected dependency guidance, got:\n%s", out)
+	}
+
+	cfg := config.ProjectConfig{
+		Routing: config.RoutingConfig{
+			Retrieval: config.RetrievalConfig{Strategy: "keyword", TopK: 2},
+			Subsystems: []config.Subsystem{
+				{
+					ID:       "watching",
+					Keywords: []string{"hook", "daemon", "events"},
+					Docs:     []string{"docs/HOOKS.md"},
+					Agents:   []string{"codemap-hook-triage"},
+				},
+			},
+		},
+	}
+	out = captureOutput(func() {
+		showRouteSuggestions("hook daemon events need triage", cfg, 2)
+	})
+	if !strings.Contains(out, "Suggested context routes") || !strings.Contains(out, "docs/HOOKS.md") {
+		t.Fatalf("expected route suggestions, got:\n%s", out)
+	}
+}
+
+func TestHookPromptSubmitShowsContextAndProgress(t *testing.T) {
+	root := t.TempDir()
+	cfg := config.ProjectConfig{
+		Routing: config.RoutingConfig{
+			Retrieval: config.RetrievalConfig{Strategy: "keyword", TopK: 2},
+			Subsystems: []config.Subsystem{
+				{
+					ID:       "watching",
+					Keywords: []string{"hook", "daemon", "events"},
+					Docs:     []string{"docs/HOOKS.md"},
+				},
+			},
+		},
+	}
+	writeProjectConfig(t, root, cfg)
+	mustWriteFile(t, filepath.Join(root, "pkg", "types.go"), "package pkg\n")
+	graphState := watch.NewGraphState(root, cfg, watch.GraphLifecycleAvailable, time.Now(), []string{"pkg/types.go"})
+	configuredCount := 1
+	writeWatchState(t, root, watch.State{
+		UpdatedAt:           time.Now(),
+		FileCount:           5,
+		Graph:               &graphState,
+		ConfiguredFileCount: &configuredCount,
+		Importers: map[string][]string{
+			"pkg/types.go": {"a.go", "b.go", "c.go"},
+		},
+		RecentEvents: []watch.Event{
+			{Path: "pkg/types.go", Op: "WRITE", IsHub: true},
+			{Path: "cmd/run.go", Op: "WRITE"},
+		},
+	})
+
+	if err := recordAgentEdit(root, "prompt-session", "pkg/types.go", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := recordAgentEdit(root, "prompt-session", "cmd/run.go", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+
+	withStdinInput(t, mustJSONInput(t, map[string]string{
+		"prompt":     "please inspect pkg/types.go because hook daemon events are noisy",
+		"session_id": "prompt-session",
+	}), func() {
+		var hookErr error
+		out := captureOutput(func() { hookErr = hookPromptSubmit(root) })
+		if hookErr != nil {
+			t.Fatalf("hookPromptSubmit() error: %v", hookErr)
+		}
+		checks := []string{
+			"Context for mentioned files",
+			"pkg/types.go is a HUB",
+			"Next codemap:",
+			"codemap --importers pkg/types.go",
+			"codemap --deps",
+			"Suggested context routes",
+			"watching",
+			"Session so far: 2 files edited, 1 hub edits",
+		}
+		for _, check := range checks {
+			if !strings.Contains(out, check) {
+				t.Fatalf("expected %q in output, got:\n%s", check, out)
+			}
+		}
+	})
+}
+
+func TestHookPromptSubmitInjectsConfigSetupSkillWhenConfigMissing(t *testing.T) {
+	root := t.TempDir()
+
+	withStdinInput(t, mustJSONInput(t, map[string]string{
+		"prompt": "help me understand this repo structure",
+	}), func() {
+		var hookErr error
+		out := captureOutput(func() { hookErr = hookPromptSubmit(root) })
+		if hookErr != nil {
+			t.Fatalf("hookPromptSubmit() error: %v", hookErr)
+		}
+		if !strings.Contains(out, `"name":"config-setup"`) {
+			t.Fatalf("expected config-setup skill marker, got:\n%s", out)
+		}
+		if !strings.Contains(out, "Skills matched: config-setup") {
+			t.Fatalf("expected config-setup skill hint, got:\n%s", out)
+		}
+	})
+}
+
+func TestShowConfigSetupHint(t *testing.T) {
+	t.Run("missing config emits setup hint", func(t *testing.T) {
+		out := captureOutput(func() { showConfigSetupHint(t.TempDir()) })
+		if !strings.Contains(out, "codemap:config") {
+			t.Fatalf("expected config marker, got:\n%s", out)
+		}
+		if !strings.Contains(out, "🛑 Codemap setup is not finished. Before continuing the user's task") {
+			t.Fatalf("expected escalated setup heading, got:\n%s", out)
+		}
+		if !strings.Contains(out, "Run now: codemap skill show config-setup") {
+			t.Fatalf("expected run-now line, got:\n%s", out)
+		}
+		if !strings.Contains(out, "config-setup") {
+			t.Fatalf("expected config-setup guidance, got:\n%s", out)
+		}
+	})
+
+	t.Run("ready config stays quiet", func(t *testing.T) {
+		root := t.TempDir()
+		writeProjectConfig(t, root, config.ProjectConfig{
+			Only:    []string{"go"},
+			Exclude: []string{"fixtures"},
+			Depth:   4,
+		})
+
+		out := captureOutput(func() { showConfigSetupHint(root) })
+		if strings.TrimSpace(out) != "" {
+			t.Fatalf("expected no output for ready config, got:\n%s", out)
+		}
+	})
+
+	t.Run("boilerplate config escalates", func(t *testing.T) {
+		root := t.TempDir()
+		writeProjectConfig(t, root, config.ProjectConfig{Only: []string{"go"}})
+		out := captureOutput(func() { showConfigSetupHint(root) })
+		if !strings.Contains(out, "🛑 Codemap setup is not finished. Before continuing the user's task") {
+			t.Fatalf("expected escalated line for boilerplate config, got:\n%s", out)
+		}
+		if !strings.Contains(out, `"state":"boilerplate"`) {
+			t.Fatalf("expected boilerplate marker, got:\n%s", out)
+		}
+	})
+}
+
+func TestFindChildReposAndSessionStartVariants(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	t.Run("non git repo exits early", func(t *testing.T) {
+		var hookErr error
+		out := captureOutput(func() { hookErr = hookSessionStart(t.TempDir()) })
+		if hookErr != nil {
+			t.Fatalf("hookSessionStart() error: %v", hookErr)
+		}
+		if !strings.Contains(out, "Not a git repository") {
+			t.Fatalf("expected non-git notice, got:\n%s", out)
+		}
+	})
+
+	t.Run("multi repo parent honors gitignore", func(t *testing.T) {
+		root := t.TempDir()
+		runGitTestCmd(t, root, "init")
+		if err := os.WriteFile(filepath.Join(root, ".gitignore"), []byte("ignored-child\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		for _, name := range []string{"svc-a", "svc-b", "ignored-child"} {
+			child := filepath.Join(root, name)
+			if err := os.MkdirAll(child, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			runGitTestCmd(t, child, "init")
+		}
+
+		repos := findChildRepos(root)
+		got := strings.Join(repos, ",")
+		if len(repos) != 2 || !strings.Contains(got, "svc-a") || !strings.Contains(got, "svc-b") || strings.Contains(got, "ignored-child") {
+			t.Fatalf("unexpected child repos: %v", repos)
+		}
+	})
+
+	t.Run("git repo shows hubs and recent handoff", func(t *testing.T) {
+		root := makeRepoOnBranch(t, "feature/session-start")
+		writeWatchState(t, root, watch.State{
+			UpdatedAt: time.Now(),
+			FileCount: 5,
+			Hubs:      []string{"pkg/types.go"},
+			Importers: map[string][]string{
+				"pkg/types.go": {"a.go", "b.go", "c.go"},
+			},
+		})
+		writeOwnedWatchPID(t, root)
+
+		if err := handoff.WriteLatest(root, &handoff.Artifact{
+			SchemaVersion: handoff.SchemaVersion,
+			GeneratedAt:   time.Now(),
+			Branch:        "feature/session-start",
+			BaseRef:       "main",
+			Delta: handoff.DeltaSnapshot{
+				Changed: []handoff.FileStub{{Path: "main.go", Status: "modified"}},
+			},
+		}); err != nil {
+			t.Fatal(err)
+		}
+
+		var hookErr error
+		stdout, _ := captureOutputAndError(t, func() { hookErr = hookSessionStart(root) })
+		if hookErr != nil {
+			t.Fatalf("hookSessionStart() error: %v", hookErr)
+		}
+
+		checks := []string{
+			"Project Context",
+			"High-impact files",
+			"pkg/types.go",
+			"Recent handoff",
+			"feature/session-start",
+		}
+		for _, check := range checks {
+			if !strings.Contains(stdout, check) {
+				t.Fatalf("expected %q in output, got:\n%s", check, stdout)
+			}
+		}
+		if strings.Contains(stdout, "Changes on branch") {
+			t.Fatalf("expected recent handoff to suppress diff output, got:\n%s", stdout)
+		}
+	})
+}
+
+func TestRunHookUsesNearestGitRootFromNestedDirectory(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	nested := filepath.Join(root, "pkg", "feature")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	var hookErr error
+	out := captureOutput(func() { hookErr = RunHook("session-start", nested) })
+	if hookErr != nil {
+		t.Fatalf("RunHook() error: %v", hookErr)
+	}
+	if !strings.Contains(out, "Project Context") {
+		t.Fatalf("expected hook output to include project context, got:\n%s", out)
+	}
+	if strings.Contains(out, "Not a git repository") {
+		t.Fatalf("expected hook output to avoid nested non-git fallback, got:\n%s", out)
+	}
+}
+
+func TestHookSessionStopSummaryBranches(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+
+	t.Run("event timeline branch writes handoff", func(t *testing.T) {
+		root := makeRepoOnBranch(t, "feature/session-stop")
+		writeStateOnly(t, root, watch.State{
+			UpdatedAt: time.Now(),
+			FileCount: 8,
+			RecentEvents: []watch.Event{
+				{Time: time.Now().Add(-2 * time.Minute), Op: "WRITE", Path: "main.go", Delta: 4},
+				{Time: time.Now().Add(-time.Minute), Op: "WRITE", Path: "pkg/types.go", Delta: -1, IsHub: true},
+			},
+		})
+
+		var hookErr error
+		out := captureOutput(func() { hookErr = hookSessionStop(root) })
+		if hookErr != nil {
+			t.Fatalf("hookSessionStop() error: %v", hookErr)
+		}
+
+		for _, check := range []string{"Session Summary", "Edit Timeline:", "Stats:", "Saved handoff"} {
+			if !strings.Contains(out, check) {
+				t.Fatalf("expected %q in output, got:\n%s", check, out)
+			}
+		}
+		if _, err := os.Stat(handoff.LatestPath(root)); err != nil {
+			t.Fatalf("expected handoff artifact to exist: %v", err)
+		}
+	})
+
+	t.Run("fallback git diff branch lists modified files", func(t *testing.T) {
+		root := makeRepoOnBranch(t, "main")
+		if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n\nfunc main() {}\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+
+		var hookErr error
+		out := captureOutput(func() { hookErr = hookSessionStop(root) })
+		if hookErr != nil {
+			t.Fatalf("hookSessionStop() error: %v", hookErr)
+		}
+
+		if !strings.Contains(out, "Files modified:") || !strings.Contains(out, "main.go") {
+			t.Fatalf("expected modified file list, got:\n%s", out)
+		}
+	})
+}
+
+func TestHookSessionStopContextReturnsWithoutPostDeadlineOutput(t *testing.T) {
+	root := t.TempDir()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var out bytes.Buffer
+	if err := hookSessionStopContext(ctx, root, &out); err == nil {
+		t.Fatal("hookSessionStopContext succeeded after cancellation")
+	}
+	before := out.String()
+	time.Sleep(20 * time.Millisecond)
+	if got := out.String(); got != before {
+		t.Fatalf("output changed after return: before %q after %q", before, got)
+	}
+}
+
+func TestFinishSessionDaemonContextPropagatesStopFailure(t *testing.T) {
+	root := t.TempDir()
+	withHookRuntimeStubs(t,
+		func() (string, error) { return "codemap", nil },
+		func(string, ...string) *exec.Cmd { return exec.Command(filepath.Join(root, "missing-codemap")) },
+		func(string) bool { return true },
+		nil,
+	)
+	if err := finishSessionDaemonContext(context.Background(), root, "session-a"); err == nil {
+		t.Fatal("finishSessionDaemonContext discarded stop failure")
+	}
+}
+
+func TestHookSessionStopContextPropagatesHandoffFailure(t *testing.T) {
+	root := makeRepoOnBranch(t, "feature/handoff-failure")
+	writeStateOnly(t, root, watch.State{UpdatedAt: time.Now(), RecentEvents: []watch.Event{{Time: time.Now(), Op: "WRITE", Path: "main.go"}}})
+	if err := os.MkdirAll(handoff.LatestPath(root), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := hookSessionStopContext(context.Background(), root, io.Discard); err == nil {
+		t.Fatal("hookSessionStopContext discarded handoff failure")
+	}
+}
+
+type cancelOnWrite struct {
+	cancel context.CancelFunc
+	match  string
+}
+
+func (w cancelOnWrite) Write(p []byte) (int, error) {
+	if strings.Contains(string(p), w.match) {
+		w.cancel()
+	}
+	return len(p), nil
+}
+
+func TestHookSessionStopContextChecksDeadlineAfterHandoff(t *testing.T) {
+	root := makeRepoOnBranch(t, "feature/handoff-deadline")
+	writeStateOnly(t, root, watch.State{UpdatedAt: time.Now(), RecentEvents: []watch.Event{{Time: time.Now(), Op: "WRITE", Path: "main.go"}}})
+	ctx, cancel := context.WithCancel(context.Background())
+	err := hookSessionStopContext(ctx, root, cancelOnWrite{cancel: cancel, match: "Saved handoff"})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("hookSessionStopContext error = %v, want context.Canceled", err)
+	}
+}
+
+func TestHookSessionIDFromStdinContextBoundsOpenPipe(t *testing.T) {
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	defer writer.Close()
+	original := os.Stdin
+	os.Stdin = reader
+	defer func() { os.Stdin = original }()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	_, err = hookSessionIDFromStdinContext(ctx)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("error = %v, want deadline exceeded", err)
+	}
+}
+
+func TestDaemonCommandHelpersAndMultiRepoShellout(t *testing.T) {
+	t.Run("start daemon shells out to watch start", func(t *testing.T) {
+		var gotName string
+		var gotArgs []string
+		withHookRuntimeStubs(
+			t,
+			func() (string, error) { return "/tmp/codemap-hook", nil },
+			func(name string, args ...string) *exec.Cmd {
+				gotName = name
+				gotArgs = append([]string(nil), args...)
+				return exec.Command("sh", "-c", "exit 0")
+			},
+			nil,
+			func(time.Duration) {},
+		)
+
+		startDaemon("/repo")
+		if gotName != "/tmp/codemap-hook" {
+			t.Fatalf("startDaemon executable = %q, want /tmp/codemap-hook", gotName)
+		}
+		wantArgs := []string{"watch", "start", "/repo"}
+		if strings.Join(gotArgs, "|") != strings.Join(wantArgs, "|") {
+			t.Fatalf("startDaemon args = %v, want %v", gotArgs, wantArgs)
+		}
+	})
+
+	t.Run("stop daemon shells out only when running", func(t *testing.T) {
+		var callCount int
+		var gotArgs []string
+		withHookRuntimeStubs(
+			t,
+			func() (string, error) { return "/tmp/codemap-hook", nil },
+			func(name string, args ...string) *exec.Cmd {
+				callCount++
+				gotArgs = append([]string(nil), args...)
+				return exec.Command("sh", "-c", "exit 0")
+			},
+			func(string) bool { return true },
+			nil,
+		)
+
+		stopDaemon("/repo")
+		if callCount != 1 {
+			t.Fatalf("expected stopDaemon to shell out once, got %d", callCount)
+		}
+		wantArgs := []string{"watch", "stop", "/repo"}
+		if strings.Join(gotArgs, "|") != strings.Join(wantArgs, "|") {
+			t.Fatalf("stopDaemon args = %v, want %v", gotArgs, wantArgs)
+		}
+	})
+
+	t.Run("daemon shellouts preserve configured setup root", func(t *testing.T) {
+		projectpath.SetSetupRoot("/setup/repo")
+		t.Cleanup(projectpath.ResetSetupRoot)
+		var calls [][]string
+		withHookRuntimeStubs(
+			t,
+			func() (string, error) { return "/tmp/codemap-hook", nil },
+			func(_ string, args ...string) *exec.Cmd {
+				calls = append(calls, append([]string(nil), args...))
+				return exec.Command("sh", "-c", "exit 0")
+			},
+			func(string) bool { return true },
+			func(time.Duration) {},
+		)
+
+		startDaemon("/project")
+		stopDaemon("/project")
+		want := []string{"--setup-root", "/setup/repo", "watch", "start", "/project"}
+		if len(calls) != 2 || strings.Join(calls[0], "|") != strings.Join(want, "|") {
+			t.Fatalf("start daemon args = %v, want %v", calls, want)
+		}
+		want[3] = "stop"
+		if strings.Join(calls[1], "|") != strings.Join(want, "|") {
+			t.Fatalf("stop daemon args = %v, want %v", calls[1], want)
+		}
+	})
+
+	t.Run("multi repo start shells out for each child repo", func(t *testing.T) {
+		root := t.TempDir()
+		for _, repo := range []string{"svc-a", "svc-b"} {
+			repoPath := filepath.Join(root, repo)
+			if err := os.MkdirAll(repoPath, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			writeProjectConfig(t, repoPath, config.ProjectConfig{
+				Depth:   3,
+				Only:    []string{"go"},
+				Exclude: []string{"vendor"},
+			})
+		}
+
+		var calls [][]string
+		withHookRuntimeStubs(
+			t,
+			func() (string, error) { return "/tmp/codemap-hook", nil },
+			func(name string, args ...string) *exec.Cmd {
+				calls = append(calls, append([]string{name}, args...))
+				return exec.Command("sh", "-c", "exit 0")
+			},
+			nil,
+			nil,
+		)
+
+		out := captureOutput(func() {
+			if err := hookSessionStartMultiRepo(root, []string{"svc-a", "svc-b"}); err != nil {
+				t.Fatalf("hookSessionStartMultiRepo() error: %v", err)
+			}
+		})
+		if !strings.Contains(out, "Multi-Repo Project Context") || !strings.Contains(out, "2 repositories") {
+			t.Fatalf("expected multi-repo header output, got:\n%s", out)
+		}
+		if len(calls) != 2 {
+			t.Fatalf("expected 2 shell-outs, got %d", len(calls))
+		}
+		for i, repo := range []string{"svc-a", "svc-b"} {
+			repoPath := filepath.Join(root, repo)
+			want := []string{"/tmp/codemap-hook", "--depth", "3", "--only", "go", "--exclude", "vendor", repoPath}
+			if strings.Join(calls[i], "|") != strings.Join(want, "|") {
+				t.Fatalf("call %d = %v, want %v", i, calls[i], want)
+			}
+		}
+	})
+
+	t.Run("multi repo start emits setup hints for child repos needing config", func(t *testing.T) {
+		root := t.TempDir()
+		for _, repo := range []string{"svc-a", "svc-b"} {
+			repoPath := filepath.Join(root, repo)
+			if err := os.MkdirAll(repoPath, 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		withHookRuntimeStubs(
+			t,
+			func() (string, error) { return "/tmp/codemap-hook", nil },
+			func(name string, args ...string) *exec.Cmd {
+				return exec.Command("sh", "-c", "exit 0")
+			},
+			nil,
+			nil,
+		)
+
+		out := captureOutput(func() {
+			if err := hookSessionStartMultiRepo(root, []string{"svc-a", "svc-b"}); err != nil {
+				t.Fatalf("hookSessionStartMultiRepo() error: %v", err)
+			}
+		})
+		if !strings.Contains(out, "codemap:config") {
+			t.Fatalf("expected config marker in multi-repo output, got:\n%s", out)
+		}
+		if !strings.Contains(out, "config-setup") {
+			t.Fatalf("expected config-setup guidance in multi-repo output, got:\n%s", out)
+		}
+	})
+}
+
+func TestHookFilesUseSetupRoot(t *testing.T) {
+	projectRoot := t.TempDir()
+	setupRoot := t.TempDir()
+	projectpath.SetSetupRoot(setupRoot)
+	t.Cleanup(projectpath.ResetSetupRoot)
+	codemapDir := projectpath.ProjectRuntimeDir(projectRoot)
+	if err := os.MkdirAll(codemapDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(codemapDir, "events.log"), []byte("setup event\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	events := getLastSessionEvents(projectRoot)
+	if len(events) != 1 || events[0] != "setup event" {
+		t.Fatalf("getLastSessionEvents() = %#v, want setup event", events)
+	}
+
+	writeStatuslineState(projectRoot, TaskIntent{Category: "feature", RiskLevel: "low"})
+	data, err := os.ReadFile(filepath.Join(codemapDir, "status"))
+	if err != nil {
+		t.Fatalf("read setup-root status: %v", err)
+	}
+	if string(data) != "feature" {
+		t.Fatalf("status = %q, want feature", data)
+	}
+}
+
+func TestAutomaticLinkedWorktreeUsesLocalHookState(t *testing.T) {
+	projectpath.ResetSetupRoot()
+	t.Cleanup(projectpath.ResetSetupRoot)
+	primary := t.TempDir()
+	gitDir := filepath.Join(primary, ".git", "worktrees", "agent")
+	if err := os.MkdirAll(gitDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(projectpath.ProjectRuntimeDir(primary), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(projectpath.ProjectRuntimeDir(primary), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(projectpath.ProjectRuntimeDir(primary), "events.log"), []byte("primary event\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(gitDir, "commondir"), []byte("../..\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	linked := filepath.Join(t.TempDir(), "linked")
+	if err := os.MkdirAll(projectpath.ProjectRuntimeDir(linked), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(linked, ".git"), []byte("gitdir: "+gitDir+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(projectpath.ProjectRuntimeDir(linked), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(projectpath.ProjectRuntimeDir(linked), "events.log"), []byte("linked event\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	linked, _ = filepath.EvalSymlinks(linked)
+
+	events := getLastSessionEvents(linked)
+	if len(events) != 1 || events[0] != "linked event" {
+		t.Fatalf("getLastSessionEvents() = %#v, want linked event", events)
+	}
+	writeStatuslineState(linked, TaskIntent{Category: "feature", RiskLevel: "low"})
+	if _, err := os.Stat(filepath.Join(projectpath.ProjectRuntimeDir(linked), "status")); err != nil {
+		t.Fatalf("linked status missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(primary, ".codemap", "status")); !os.IsNotExist(err) {
+		t.Fatalf("primary status unexpectedly created: %v", err)
+	}
+	if err := updateSessionLease(linked, "session-1", true, time.Now(), nil); err != nil {
+		t.Fatalf("updateSessionLease() error: %v", err)
+	}
+	entries, err := os.ReadDir(filepath.Join(projectpath.ProjectRuntimeDir(linked), "sessions"))
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("linked session lease entries = %d, err = %v", len(entries), err)
+	}
+}

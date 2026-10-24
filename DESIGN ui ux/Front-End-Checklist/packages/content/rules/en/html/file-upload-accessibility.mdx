@@ -1,0 +1,469 @@
+---
+title: Make file uploads accessible
+description: >-
+  File upload components are accessible with proper labels, file type
+  restrictions, and progress feedback.
+categories:
+  - html
+  - accessibility
+subcategory: forms
+priority: medium
+difficulty: intermediate
+estimatedTime: 25
+tldr:
+  - Always associate labels with file inputs
+  - Clearly communicate accepted file types and size limits
+  - Provide accessible progress feedback during uploads
+  - Make drag-and-drop zones keyboard accessible
+whyItMatters: >-
+  Unlabeled file inputs and inaccessible drag zones exclude screen reader and
+  keyboard users from completing file upload tasks.
+prompts:
+  check: >-
+    Verify file inputs have proper labels, accept attributes for file types, and
+    accessible feedback for upload progress and errors.
+  fix: >-
+    Implement file uploads with visible labels, accept attribute restrictions,
+    drag-and-drop alternatives, and ARIA live region feedback.
+  explain: >-
+    Explain how accessible file uploads provide clear instructions, feedback,
+    and work for users relying on assistive technologies.
+  codeReview: >-
+    Review templates, server-rendered HTML, and shared components that output
+    markup related to Make file uploads accessible. Flag exact elements,
+    attributes, and routes where the rendered HTML violates the rule.
+aiContext: >-
+  Use when reviewing templates, rendered HTML, or shared components related to
+  Make file uploads accessible. Validate the final browser-facing markup, not
+  just the source framework abstraction.
+sources:
+  - title: 'MDN: HTML'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML'
+    type: mdn
+    id: mdn-html
+    role: reference
+    authority: primary
+  - title: WHATWG HTML Living Standard
+    url: 'https://html.spec.whatwg.org/'
+    type: spec
+    id: whatwg-html-living-standard
+    role: standard
+    authority: primary
+resources:
+  - name: Nu Html Checker
+    url: 'https://validator.w3.org/nu/'
+    type: tool
+relatedRules:
+  - slug: search-input
+    reason: >-
+      Both rules sit in the `html/forms` area and are commonly reviewed
+      together.
+  - slug: form-validation
+    reason: >-
+      Both rules sit in the `html/forms` area and are commonly reviewed
+      together.
+  - slug: input-types
+    reason: >-
+      Both rules sit in the `html/forms` area and are commonly reviewed
+      together.
+  - slug: draggable-accessibility
+    reason: Both rules affect html quality and are commonly reviewed together.
+---
+Accessible file uploads require proper labeling, clear instructions, and feedback that works for all users.
+
+## Code Example
+
+```html
+<div class="file-upload">
+  <label for="document-upload">
+    Upload document
+    <span class="file-upload__hint">
+      Accepted formats: PDF, DOC, DOCX. Max size: 10MB.
+    </span>
+  </label>
+  <input
+    type="file"
+    id="document-upload"
+    name="document"
+    accept=".pdf,.doc,.docx,application/pdf,application/msword"
+    aria-describedby="document-help document-error"
+  />
+  <span id="document-help" class="file-upload__help">
+    Select a file from your computer
+  </span>
+  <span id="document-error" class="file-upload__error" role="alert" hidden>
+    <!-- Error message appears here -->
+  </span>
+</div>
+```
+
+## Why It Matters
+
+Unlabeled file inputs and inaccessible drag zones exclude screen reader and keyboard users from completing file upload tasks.
+
+## Accessibility Requirements
+
+| Requirement | Implementation |
+|-------------|----------------|
+| Label association | `<label>` linked to input |
+| File restrictions | `accept` attribute + visible text |
+| Size limits | Clear messaging |
+| Progress feedback | ARIA live regions |
+| Error messages | Associated with input |
+
+## React File Upload Component
+
+```tsx
+import { useState, useRef, useId, ChangeEvent, DragEvent } from 'react'
+
+interface FileUploadProps {
+  label: string
+  accept?: string
+  maxSize?: number // in bytes
+  multiple?: boolean
+  onUpload: (files: File[]) => Promise<void>
+  hint?: string
+}
+
+export function FileUpload({
+  label,
+  accept,
+  maxSize = 10 * 1024 * 1024, // 10MB default
+  multiple = false,
+  onUpload,
+  hint
+}: FileUploadProps) {
+  const [files, setFiles] = useState<File[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [isDragOver, setIsDragOver] = useState(false)
+
+  const inputRef = useRef<HTMLInputElement>(null)
+  const inputId = useId()
+  const errorId = useId()
+  const helpId = useId()
+  const progressId = useId()
+
+  const validateFile = (file: File): string | null => {
+    if (maxSize && file.size > maxSize) {
+      return `File "${file.name}" exceeds maximum size of ${formatBytes(maxSize)}`
+    }
+
+    if (accept) {
+      const acceptedTypes = accept.split(',').map(t => t.trim())
+      const isValid = acceptedTypes.some(type => {
+        if (type.startsWith('.')) {
+          return file.name.toLowerCase().endsWith(type)
+        }
+        return file.type === type || file.type.startsWith(type.replace('*', ''))
+      })
+      if (!isValid) {
+        return `File "${file.name}" is not an accepted file type`
+      }
+    }
+
+    return null
+  }
+
+  const handleFiles = async (fileList: FileList | null) => {
+    if (!fileList) return
+
+    setError(null)
+    const newFiles = Array.from(fileList)
+
+    // Validate all files
+    for (const file of newFiles) {
+      const validationError = validateFile(file)
+      if (validationError) {
+        setError(validationError)
+        return
+      }
+    }
+
+    setFiles(newFiles)
+    setUploading(true)
+    setProgress(0)
+
+    try {
+      await onUpload(newFiles)
+      setProgress(100)
+    } catch (err) {
+      setError('Upload failed. Please try again.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    handleFiles(e.target.files)
+  }
+
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    handleFiles(e.dataTransfer.files)
+  }
+
+  const handleDragOver = (e: DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = () => {
+    setIsDragOver(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      inputRef.current?.click()
+    }
+  }
+
+  return (
+    <div className="file-upload">
+      <label htmlFor={inputId} className="file-upload__label">
+        {label}
+        {hint && (
+          <span className="file-upload__hint">{hint}</span>
+        )}
+      </label>
+
+      {/* Drag and drop zone */}
+      <div
+        className={`file-upload__dropzone ${isDragOver ? 'file-upload__dropzone--active' : ''}`}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
+        role="button"
+        aria-describedby={`${helpId} ${error ? errorId : ''}`}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          id={inputId}
+          accept={accept}
+          multiple={multiple}
+          onChange={handleChange}
+          aria-invalid={!!error}
+          aria-describedby={`${helpId} ${error ? errorId : ''}`}
+          className="file-upload__input"
+        />
+
+        <div className="file-upload__content">
+          <span className="file-upload__icon" aria-hidden="true">📁</span>
+          <span>
+            Drag and drop files here, or{' '}
+            <span className="file-upload__browse">browse</span>
+          </span>
+        </div>
+      </div>
+
+      <span id={helpId} className="file-upload__help">
+        {accept && `Accepted formats: ${accept}`}
+        {maxSize && ` Max size: ${formatBytes(maxSize)}`}
+      </span>
+
+      {/* Error message */}
+      {error && (
+        <span id={errorId} className="file-upload__error" role="alert">
+          {error}
+        </span>
+      )}
+
+      {/* Progress */}
+      {uploading && (
+        <div
+          id={progressId}
+          className="file-upload__progress"
+          role="progressbar"
+          aria-valuenow={progress}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Upload progress"
+        >
+          <div
+            className="file-upload__progress-bar"
+            style={{ width: `${progress}%` }}
+          />
+          <span className="sr-only">{progress}% uploaded</span>
+        </div>
+      )}
+
+      {/* File list */}
+      {files.length > 0 && !uploading && (
+        <ul className="file-upload__files" aria-label="Selected files">
+          {files.map((file, index) => (
+            <li key={index}>
+              {file.name} ({formatBytes(file.size)})
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Live region for announcements */}
+      <div aria-live="polite" className="sr-only">
+        {uploading && `Uploading ${files.length} file(s)... ${progress}% complete`}
+        {progress === 100 && 'Upload complete'}
+      </div>
+    </div>
+  )
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+```
+
+## Usage
+
+```tsx
+<FileUpload
+  label="Upload resume"
+  accept=".pdf,.doc,.docx"
+  maxSize={5 * 1024 * 1024}
+  hint="PDF or Word document, max 5MB"
+  onUpload={async (files) => {
+    const formData = new FormData()
+    files.forEach(file => formData.append('files', file))
+    await fetch('/api/upload', { method: 'POST', body: formData })
+  }}
+/>
+```
+
+## Custom Styled File Input
+
+```tsx
+function CustomFileInput({ label, ...props }: FileUploadProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const inputId = useId()
+
+  return (
+    <div className="custom-file-input">
+      <input
+        ref={inputRef}
+        type="file"
+        id={inputId}
+        className="sr-only"
+        {...props}
+      />
+      <label htmlFor={inputId} className="custom-file-input__label">
+        {label}
+      </label>
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="custom-file-input__button"
+      >
+        Choose File
+      </button>
+    </div>
+  )
+}
+```
+
+## Styling
+
+```css
+.file-upload__dropzone {
+  padding: 2rem;
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.file-upload__dropzone:hover,
+.file-upload__dropzone:focus-visible {
+  border-color: #0066cc;
+  background: #f0f7ff;
+}
+
+.file-upload__dropzone--active {
+  border-color: #0066cc;
+  background: #e3f2fd;
+}
+
+.file-upload__dropzone:focus-visible {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
+}
+
+.file-upload__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.file-upload__browse {
+  color: #0066cc;
+  text-decoration: underline;
+}
+
+.file-upload__hint {
+  display: block;
+  font-size: 0.875rem;
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+.file-upload__help {
+  display: block;
+  font-size: 0.875rem;
+  color: #666;
+  margin-top: 0.5rem;
+}
+
+.file-upload__error {
+  display: block;
+  color: #dc3545;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
+.file-upload__progress {
+  height: 8px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 1rem;
+}
+
+.file-upload__progress-bar {
+  height: 100%;
+  background: #0066cc;
+  transition: width 0.2s;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+```
+
+## Verification
+
+1. Navigate to file input with keyboard
+2. Press Enter/Space to open file picker
+3. Verify label is announced by screen reader
+4. Test drag and drop with mouse
+5. Verify error messages are announced
+6. Check progress updates are announced
+7. Test with invalid file types and oversized files
+
+<Warning title="Don't Hide the Native Input">
+While you can visually hide the native file input, it must remain in the DOM and focusable for keyboard users. Use `sr-only` styles, not `display: none`.
+</Warning>

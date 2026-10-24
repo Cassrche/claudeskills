@@ -1,0 +1,198 @@
+---
+title: Declare UTF-8 character encoding
+description: The charset (UTF-8) is declared correctly as the first element in the head.
+categories:
+  - html
+  - seo
+subcategory: meta
+priority: critical
+difficulty: beginner
+estimatedTime: 5
+tldr:
+  - Add `<meta charset="UTF-8">` as the first element in <head>
+  - Must appear within the first 1024 bytes of the document
+  - UTF-8 supports all languages and special characters
+whyItMatters: >-
+  Missing or incorrect charset causes mojibake (garbled text), broken special
+  characters, and security vulnerabilities from character encoding attacks.
+prompts:
+  check: >-
+    Verify that this HTML document declares UTF-8 character encoding in the head
+    section and that it's positioned early in the document.
+  fix: >-
+    Add <meta charset="UTF-8"> as the first meta tag in the head section of the
+    HTML document.
+  explain: >-
+    Explain why UTF-8 character encoding is essential for international content
+    support and preventing character display issues.
+  codeReview: >-
+    Review templates, server-rendered HTML, and shared components that output
+    markup related to Declare UTF-8 character encoding. Flag exact elements,
+    attributes, and routes where the rendered HTML violates the rule.
+aiContext: >-
+  Use when reviewing templates, rendered HTML, or shared components related to
+  Declare UTF-8 character encoding. Validate the final browser-facing markup,
+  not just the source framework abstraction.
+sources:
+  - title: 'MDN: HTML'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML'
+    type: mdn
+    id: mdn-html
+    role: reference
+    authority: primary
+  - title: WHATWG HTML Living Standard
+    url: 'https://html.spec.whatwg.org/'
+    type: spec
+    id: whatwg-html-living-standard
+    role: standard
+    authority: primary
+resources:
+  - name: Nu Html Checker
+    url: 'https://validator.w3.org/nu/'
+    type: tool
+relatedRules:
+  - slug: viewport
+    reason: Both rules sit in the `html/meta` area and are commonly reviewed together.
+  - slug: lang-attribute
+    reason: Both rules sit in the `html/meta` area and are commonly reviewed together.
+  - slug: lang-attribute
+    reason: Both rules sit in the `html/meta` area and are commonly reviewed together.
+  - slug: favicons
+    reason: Both rules sit in the `html/meta` area and are commonly reviewed together.
+---
+The UTF-8 character set must be declared early in the HTML head to ensure proper character rendering across all languages and symbols.
+
+## Code Example
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Page Title</title>
+</head>
+<body>
+    <!-- Content with international characters: Café, 北京, العربية -->
+</body>
+</html>
+```
+
+## Why It Matters
+
+- **International Support**: Enables proper display of all Unicode characters
+- **Security**: Prevents character encoding attacks
+- **Early Declaration**: Must be within first 1024 bytes of document
+- **Consistency**: Ensures same rendering across all browsers and platforms
+
+## Framework Examples
+
+<CodeTabs defaultTab="vite">
+  <Tab value="generic" label="HTML">
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Front-End Checklist</title>
+  </head>
+</html>
+```
+  </Tab>
+  <Tab value="vite" label="Vite">
+```html
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vite App</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+```
+  </Tab>
+  <Tab value="nextjs" label="Next.js">
+```tsx
+// app/layout.tsx
+import type { ReactNode } from 'react'
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  )
+}
+```
+```
+// Next.js emits UTF-8 automatically in the document head.
+// Verify the rendered HTML rather than adding a duplicate meta charset tag.
+```
+  </Tab>
+  <Tab value="react" label="React">
+```tsx
+import { Helmet } from 'react-helmet'
+
+function App() {
+  return (
+    <>
+      <Helmet>
+        <meta charSet="UTF-8" />
+      </Helmet>
+      <div>Your app content</div>
+    </>
+  )
+}
+```
+  </Tab>
+</CodeTabs>
+
+## Best Practices
+
+✅ **Position Early**: Place as first meta tag
+```html
+<head>
+    <meta charset="UTF-8">
+    <!-- Other meta tags follow -->
+</head>
+```
+
+✅ **Use UTF-8**: Universal character support
+```html
+<meta charset="UTF-8">
+```
+
+❌ **Avoid Old Syntax**: Don't use verbose XHTML syntax
+```html
+<!-- Don't use this -->
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+```
+
+## Tools & Validation
+
+- [W3C Markup Validator](https://validator.w3.org/)
+- [HTML5 Validator](https://html5.validator.nu/)
+- Browser DevTools Network tab to check response headers
+
+## Standards
+
+- Use MDN: HTML as the standard for the final rendered HTML and browser-facing behavior.
+- Use WHATWG HTML Living Standard as the standard for the final rendered HTML and browser-facing behavior.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the final rendered HTML in the browser or page source to confirm the rule is satisfied.
+- Validate the affected markup with browser tooling or an HTML validator where appropriate.
+- Test one representative route or template that uses the pattern.
+- Re-check shared components that emit the same markup so the fix is consistent.
+
+### Manual Checks
+
+- Verify the rendered browser behavior manually on representative routes and supported browsers so the user-facing outcome matches the rule.

@@ -1,0 +1,182 @@
+---
+title: 'Match lang and xml:lang attributes'
+description: >-
+  The lang and xml:lang attributes on the html element must have identical
+  values to avoid conflicting language signals across HTML and XML parsers.
+categories:
+  - accessibility
+subcategory: visual
+priority: medium
+difficulty: beginner
+estimatedTime: 5
+tldr:
+  - >-
+    If both `lang` and `xml:lang` are present on `<html>`, their values must be
+    identical
+  - >-
+    `xml:lang` is only needed for XHTML or polyglot documents (valid as both
+    HTML and XML)
+  - >-
+    For standard HTML5 documents, only `lang` is required — `xml:lang` is
+    redundant
+  - >-
+    The primary language tag must be a valid BCP 47 language code (e.g., `en`,
+    `en-US`, `fr`, `zh-Hant`)
+  - Relates to WCAG 2.1 SC 3.1.1 (Language of Page)
+whyItMatters: >-
+  Screen readers use the `lang` attribute to select the correct voice profile
+  and pronunciation engine. If `lang` and `xml:lang` disagree, XML-based
+  processors (including some EPUB readers and older assistive technologies) may
+  use `xml:lang` and get a different language than intended — causing text to be
+  read aloud in the wrong language. For example, French text read with an
+  English voice profile produces unintelligible output for French-speaking blind
+  users.
+aiContext: >-
+  Applies to XHTML documents and polyglot HTML documents that must parse
+  correctly as both HTML5 and XML. For modern HTML5-only documents, only `lang`
+  is needed and `xml:lang` is not required. Check when auditing documents served
+  as application/xhtml+xml or documents that include both attributes.
+prompts:
+  check: >-
+    Inspect the `<html>` element for both `lang` and `xml:lang` attributes. If
+    both are present, verify their values are identical (including subtags —
+    `en` vs `en-US` is a mismatch). Also verify that the value is a valid BCP 47
+    language tag. Flag if the values differ in any way.
+  fix: >-
+    If `lang` and `xml:lang` are present but differ: update both to the same
+    valid BCP 47 language code matching the primary language of the document
+    content. If this is a standard HTML5 document (served as text/html), remove
+    `xml:lang` — it is unnecessary. If this is XHTML or a polyglot document,
+    keep both and ensure they are identical.
+  explain: >-
+    WCAG 2.1 SC 3.1.1 requires that the default human language of each web page
+    can be programmatically determined. The `lang` attribute on `<html>` serves
+    this purpose for HTML parsers. The `xml:lang` attribute serves the same
+    purpose for XML parsers. When a document must be valid as both HTML and XML
+    (polyglot), both attributes must be present and identical. A mismatch means
+    the document claims different languages depending on which parser reads it,
+    which can cause screen readers, translation tools, and spell checkers to use
+    wrong language rules.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Match lang and
+    xml:lang attributes. Flag exact elements, roles, labels, focus behavior, or
+    keyboard interactions that violate the rule, and note how to verify the fix
+    with browser accessibility tooling or assistive tech.
+sources:
+  - title: 'WCAG 2.1 SC 3.1.1: Language of Page'
+    url: 'https://www.w3.org/TR/WCAG21/#language-of-page'
+    type: wcag
+    id: wcag-2-1-sc-3-1-1-language-of-page
+    role: standard
+    authority: primary
+  - title: 'HTML Living Standard: The lang and xml:lang attributes'
+    url: 'https://html.spec.whatwg.org/multipage/dom.html#attr-lang'
+    type: spec
+    id: html-living-standard-the-lang-and-xml-lang-attributes
+    role: standard
+    authority: primary
+  - title: 'W3C: Declaring language in HTML'
+    url: 'https://www.w3.org/International/questions/qa-html-language-declarations'
+    type: guide
+    id: w3c-declaring-language-in-html
+    role: implementation
+    authority: primary
+  - title: 'MDN: lang attribute'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/lang'
+    type: mdn
+    id: mdn-lang-attribute
+    role: reference
+    authority: primary
+  - title: 'BCP 47: Tags for Identifying Languages'
+    url: 'https://www.rfc-editor.org/info/rfc5646/'
+    type: spec
+    id: bcp-47-tags-for-identifying-languages
+    role: standard
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: color-contrast
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+  - slug: landmark-one-main
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+  - slug: touch-targets
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+  - slug: accesskeys
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+---
+When using both `lang` and `xml:lang` on the same element, they must have the exact same value. The [HTML Living Standard](https://html.spec.whatwg.org/multipage/dom.html#attr-lang) and [W3C language declaration guidance](https://www.w3.org/International/questions/qa-html-language-declarations) both treat mismatches as contradictory language signals to parsers and user agents.
+## Code Example
+
+```html
+<!-- ✅ Correct HTML5 document: only lang needed -->
+<!DOCTYPE html>
+<html lang="en">
+
+<!-- ✅ Correct polyglot/XHTML document: both present and identical -->
+<html lang="fr" xml:lang="fr">
+
+<!-- ❌ Incorrect: values differ -->
+<html lang="en" xml:lang="fr">
+
+<!-- ❌ Incorrect: dialect mismatch — en vs en-US -->
+<html lang="en" xml:lang="en-US">
+
+<!-- ❌ Incorrect: invalid language tag -->
+<html lang="english">
+```
+
+## Why It Matters
+
+- **Parser Compatibility**: HTML parsers use `lang`; XML parsers use `xml:lang`. Polyglot documents must satisfy both.
+- **Screen Readers**: Conflicting attributes can cause the wrong speech synthesis language profile to be selected.
+- **Translation Tools**: Browser auto-translate features rely on `lang` to detect the source language.
+- **WCAG Compliance**: [SC 3.1.1 Language of Page](https://www.w3.org/TR/WCAG21/#language-of-page) requires the page language to be programmatically determinable, and [BCP 47](https://www.rfc-editor.org/info/rfc5646/) defines the language tags that make that possible.
+
+## When to Use Each Attribute
+
+| Document Type | `lang` | `xml:lang` |
+|---|---|---|
+| Standard HTML5 (`text/html`) | Required | Not needed |
+| XHTML (`application/xhtml+xml`) | Recommended | Required |
+| Polyglot HTML (valid as both) | Required | Required (same value) |
+
+## Best Practices
+
+- For new HTML5 projects, use only `lang` on `<html>` and omit `xml:lang`.
+- If you add `xml:lang` for compatibility reasons, always keep it in sync with `lang`.
+- Use subtags consistently — if one attribute has `en-GB`, the other must also have `en-GB`, not just `en`.
+
+## Exceptions
+
+- Evaluate the rendered experience before treating a static-code smell as a blocker; interaction timing, browser behavior, and assistive technology output often determine severity.
+- Not every secondary accessibility issue deserves equal weight; prioritize the issue that most directly blocks perception, operation, or understanding.
+- Avoid adding redundant markup or ARIA solely to satisfy a rule when a simpler semantic implementation would eliminate the issue entirely.
+
+## Standards
+
+- Align the implementation with WCAG 2.1 SC 3.1.1: Language of Page and verify the rendered experience, not only the source code.
+- Align the implementation with HTML Living Standard: The lang and xml:lang attributes and verify the rendered experience, not only the source code.
+- Align the implementation with W3C: Declaring language in HTML and verify the rendered experience, not only the source code.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

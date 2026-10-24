@@ -1,0 +1,258 @@
+---
+title: Set a Permissions-Policy header
+description: >-
+  The Permissions-Policy header lets servers restrict which browser features
+  (camera, microphone, geolocation, etc.) can be used in a page or its embedded
+  iframes.
+categories:
+  - security
+subcategory: headers
+priority: medium
+difficulty: intermediate
+estimatedTime: 15
+tldr:
+  - >-
+    Use `Permissions-Policy` to disable browser features your site does not use
+    (camera, microphone, geolocation, payment)
+  - >-
+    Syntax: `Permissions-Policy: camera=(), microphone=(), geolocation=()` —
+    empty `()` means denied to all
+  - >-
+    Previously called `Feature-Policy` — the old syntax is deprecated and only
+    supported in older browsers
+  - >-
+    Restricting unused features limits the blast radius if your site is
+    compromised by XSS
+  - >-
+    Third-party iframes inherit page restrictions unless you explicitly grant
+    them permissions
+whyItMatters: >-
+  A site compromised by XSS that has unrestricted camera and microphone access
+  can silently record the user. Permissions-Policy limits which browser APIs are
+  available, reducing attacker capabilities even after a successful injection.
+aiContext: >-
+  Use when reviewing HTTP response headers for defense-in-depth security
+  hardening on any web application.
+prompts:
+  check: >-
+    Check whether the server sends a Permissions-Policy header and review which
+    browser features are allowed or denied. Identify any powerful features
+    (camera, microphone, geolocation, payment, USB) that are enabled but not
+    required by the application.
+  fix: >-
+    Add a Permissions-Policy header that disables all browser features your site
+    does not use. Start with camera=(), microphone=(), geolocation=() and expand
+    the list based on what the application actually needs.
+  explain: >-
+    Explain what the Permissions-Policy header does, how it restricts browser
+    APIs like camera and geolocation, and why disabling unused features improves
+    security.
+  codeReview: >-
+    Review server config, headers, forms, and integration points related to Set
+    a Permissions-Policy header. Flag exact responses, cookies, or browser
+    behaviors that violate the rule, and verify them against the effective
+    production-like response.
+sources:
+  - title: 'MDN: Permissions-Policy'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Permissions-Policy
+    type: mdn
+    id: mdn-permissions-policy
+    role: reference
+    authority: primary
+  - title: 'W3C: Permissions Policy specification'
+    url: 'https://w3c.github.io/webappsec-permissions-policy/'
+    type: spec
+    id: w3c-permissions-policy-specification
+    role: standard
+    authority: primary
+  - title: 'OWASP: Security Headers Cheat Sheet'
+    url: >-
+      https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html
+    type: owasp
+    id: owasp-security-headers-cheat-sheet
+    role: regulation
+    authority: primary
+resources:
+  - name: Mozilla Observatory
+    url: 'https://observatory.mozilla.org/'
+    type: tool
+relatedRules:
+  - slug: x-frame-options
+    reason: >-
+      Both rules sit in the `security/headers` area and are commonly reviewed
+      together.
+  - slug: content-security-policy
+    reason: >-
+      Both rules sit in the `security/headers` area and are commonly reviewed
+      together.
+  - slug: content-security-policy
+    reason: >-
+      Both rules sit in the `security/headers` area and are commonly reviewed
+      together.
+  - slug: new-tab
+    reason: >-
+      Both rules sit in the `security/headers` area and are commonly reviewed
+      together.
+---
+[`Permissions-Policy`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Permissions-Policy) (formerly `Feature-Policy`) is an HTTP response header that controls access to browser features and APIs. It applies to the page itself and any iframes it embeds, and the [specification](https://w3c.github.io/webappsec-permissions-policy/) defines exactly how those inherited restrictions work.
+## Code Example
+
+```http
+Permissions-Policy: <feature>=(<allowlist>), <feature>=(<allowlist>)
+```
+
+| Allowlist syntax | Meaning |
+|-----------------|---------|
+| `()` | Feature denied for all origins |
+| `(self)` | Feature allowed only for same-origin |
+| `("https://trusted.com")` | Feature allowed for this specific origin |
+| `(self "https://trusted.com")` | Feature allowed for same-origin and trusted.com |
+| `*` | Feature allowed for all origins (permissive — avoid) |
+
+## Why It Matters
+
+A site compromised by XSS that has unrestricted camera and microphone access can silently record the user. Permissions-Policy limits which browser APIs are available, reducing attacker capabilities even after a successful injection.
+
+## Commonly Restricted Features
+
+| Feature | Description | Deny if... |
+|---------|-------------|------------|
+| `camera` | `getUserMedia({ video: true })` | Site does not do video calls |
+| `microphone` | `getUserMedia({ audio: true })` | Site does not record audio |
+| `geolocation` | `navigator.geolocation` | Site does not need location |
+| `payment` | Payment Request API | Site does not accept payments in-browser |
+| `usb` | WebUSB API | No hardware interaction needed |
+| `fullscreen` | Element.requestFullscreen() | No video player |
+| `autoplay` | Media autoplay | No autoplay needed |
+| `accelerometer` | Device orientation | No motion detection |
+| `gyroscope` | Gyroscope sensor | No motion detection |
+
+## Recommended Baseline Header
+
+```http
+Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
+```
+
+The `interest-cohort=()` directive opts your site out of Google's deprecated FLoC tracking API, and [OWASP's security headers guidance](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html) is a good cross-check for the rest of your baseline header set.
+
+## Server Configuration
+
+#
+
+## Nginx
+
+```nginx
+add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+```
+
+### Apache
+
+```apache
+<IfModule mod_headers.c>
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+</IfModule>
+```
+
+### Next.js
+
+```javascript
+// next.config.js
+const nextConfig = {
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+          },
+        ],
+      },
+    ]
+  },
+}
+```
+
+### Express.js (using Helmet)
+
+```javascript
+import helmet from 'helmet'
+
+app.use(
+  helmet.permittedCrossDomainPolicies()
+  // Or configure manually:
+)
+
+// For granular control, set the header directly:
+app.use((req, res, next) => {
+  res.setHeader(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), payment=(), usb=()'
+  )
+  next()
+})
+```
+
+## Controlling iframe Permissions
+
+When embedding a third-party iframe, use the HTML `allow` attribute to grant specific permissions:
+
+```html
+<!-- Deny all features to this iframe (default with Permissions-Policy: camera=()) -->
+<iframe src="https://example.com/widget"></iframe>
+
+<!-- Explicitly allow camera for a video call widget -->
+<iframe
+  src="https://video.example.com"
+  allow="camera 'self' https://video.example.com; microphone 'self' https://video.example.com"
+></iframe>
+
+<!-- Allow fullscreen for a video player -->
+<iframe
+  src="https://player.example.com/embed/123"
+  allow="fullscreen"
+  allowfullscreen
+></iframe>
+```
+
+## Legacy Feature-Policy (Deprecated)
+
+The old `Feature-Policy` header used a different syntax and is deprecated. Do not use it for new sites:
+
+```http
+❌ Deprecated
+Feature-Policy: camera 'none'; microphone 'none'; geolocation 'none'
+
+✅ Current
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+```
+
+## Exceptions
+
+- A missing or weak header should be evaluated against the live production response path, not only the framework or server config in isolation.
+- Legacy integrations or embedded third-party content may require narrowly scoped exceptions, but they should be documented explicitly instead of left permissive by default.
+- When multiple security headers are missing, prioritize the header that removes the highest exploitability or browser capability first.
+
+## Standards
+
+- Align the implementation with MDN: Permissions-Policy and verify the effective response or browser behavior, not only the configuration file.
+- Align the implementation with W3C: Permissions Policy specification and verify the effective response or browser behavior, not only the configuration file.
+- Align the implementation with OWASP: Security Headers Cheat Sheet and verify the effective response or browser behavior, not only the configuration file.
+
+## Support Notes
+
+- Current project targets outside the feature support range: and_ff 147, firefox 148, firefox 147, firefox 140, ios_saf 26.3, ios_saf 26.2, ios_saf 18.5-18.7, safari 26.3, safari 26.2.
+- Baseline-compatible minimums: chrome 115, edge 115, firefox 116, safari 16.4, safari_ios 16.4.
+- Add a fallback or a narrower policy note when a required project target falls outside that support range.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the effective response headers with curl, a security header scanner, or equivalent tooling against representative live responses.
+
+### Manual Checks
+
+- Verify the browser or user-facing behavior manually in a production-like flow and confirm there is no stronger conflicting security signal.

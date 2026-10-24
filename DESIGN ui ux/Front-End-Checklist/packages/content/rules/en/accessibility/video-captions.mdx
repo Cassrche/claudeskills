@@ -1,0 +1,219 @@
+---
+title: Provide captions for video content
+description: >-
+  Prerecorded video with audio must have synchronized captions. Live video must
+  have real-time captions. This is required by WCAG 2.1 SC 1.2.2 and SC 1.2.4.
+categories:
+  - accessibility
+subcategory: media
+priority: high
+difficulty: intermediate
+estimatedTime: 30
+tldr:
+  - >-
+    Prerecorded video with audio: synchronized captions required — WCAG 2.1 SC
+    1.2.2 (Level AA)
+  - >-
+    Live video with audio: real-time captions required — WCAG 2.1 SC 1.2.4
+    (Level AA)
+  - >-
+    Use `<track kind='captions'>` with a `.vtt` (WebVTT) file for HTML5
+    `<video>` elements
+  - >-
+    Captions must include all spoken dialogue, speaker identification, and
+    relevant non-speech audio (music, sound effects)
+  - >-
+    Subtitles and captions are different: captions include non-speech audio;
+    subtitles translate dialogue only
+whyItMatters: >-
+  Approximately 15% of adults have some degree of hearing loss. Captions are
+  essential for deaf and hard-of-hearing users who cannot access audio content.
+  They also benefit users in sound-sensitive environments (libraries, open
+  offices), users watching without headphones in public, non-native speakers,
+  and users with auditory processing disorders. WCAG SC 1.2.2 is a Level AA
+  requirement — its absence is a legal compliance failure under the ADA, EN 301
+  549, and similar regulations worldwide.
+aiContext: >-
+  Applies to all `<video>` elements and third-party video embeds (YouTube,
+  Vimeo) where the page owner controls the content. Prerecorded videos require
+  `.vtt` caption files via `<track>`. For videos embedded via `<iframe>`, check
+  that the video platform captions are enabled. Audio-only content requires
+  transcripts instead (SC 1.2.1). Video-only content (no audio) requires a text
+  alternative or audio description instead (SC 1.2.3).
+prompts:
+  check: >-
+    Find all `<video>` elements and video embeds (`<iframe>` from YouTube,
+    Vimeo, etc.). For each `<video>` with audio: check for a `<track>` child
+    element with `kind='captions'` and a valid `src` pointing to a `.vtt` file.
+    Verify the `default` attribute is present on at least one track so captions
+    are on by default (or document the UX reason they are off by default). For
+    YouTube/Vimeo embeds: check that the platform's caption toggle is
+    accessible. Also check that the `.vtt` file exists and is valid (not empty,
+    not just music notes).
+  fix: >-
+    For `<video>` elements without captions: (1) Create a WebVTT (`.vtt`) file
+    containing synchronized caption text — include all spoken words, speaker IDs
+    for multi-speaker content, and descriptions of relevant sounds (e.g.,
+    '[applause]', '[upbeat music]'). (2) Add `<track kind='captions'
+    srclang='en' label='English' src='captions-en.vtt' default>` inside the
+    `<video>` element. (3) For auto-generated captions (YouTube, AI tools):
+    review and correct errors — auto-captions average 80% accuracy and often
+    fail on proper nouns, technical terms, and accented speech. (4) For live
+    streams: implement real-time captioning via a third-party captioning service
+    or CART (Communication Access Realtime Translation).
+  explain: >-
+    WCAG 2.1 SC 1.2.2 (Captions — Prerecorded, Level AA) requires synchronized
+    text alternatives for all audio in prerecorded video content. Captions
+    differ from subtitles: captions are intended for deaf/hard-of-hearing
+    viewers and must include non-speech information (sound effects, music),
+    while subtitles translate dialogue for viewers who can hear but do not
+    understand the language. The HTML `<track>` element with `kind='captions'`
+    delivers WebVTT files that browsers render as synchronized on-screen text.
+    The `kind='subtitles'` value is for translation only and does not satisfy SC
+    1.2.2 because browsers may omit non-speech annotations.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Provide
+    captions for video content. Flag exact elements, roles, labels, focus
+    behavior, or keyboard interactions that violate the rule, and note how to
+    verify the fix with browser accessibility tooling or assistive tech.
+sources:
+  - title: 'WCAG 2.1 SC 1.2.2: Captions (Prerecorded)'
+    url: 'https://www.w3.org/TR/WCAG21/#captions-prerecorded'
+    type: wcag
+    id: wcag-2-1-sc-1-2-2-captions-prerecorded
+    role: standard
+    authority: primary
+  - title: 'WCAG 2.1 SC 1.2.4: Captions (Live)'
+    url: 'https://www.w3.org/TR/WCAG21/#captions-live'
+    type: wcag
+    id: wcag-2-1-sc-1-2-4-captions-live
+    role: standard
+    authority: primary
+  - title: 'MDN: <track> element'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/track'
+    type: mdn
+    id: mdn-track-element
+    role: reference
+    authority: primary
+  - title: 'MDN: WebVTT format'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/API/WebVTT_API'
+    type: mdn
+    id: mdn-webvtt-format
+    role: reference
+    authority: primary
+  - title: 'WebAIM: Captions, Transcripts, and Audio Descriptions'
+    url: 'https://webaim.org/techniques/captions/'
+    type: guide
+    id: webaim-captions-transcripts-and-audio-descriptions
+    role: implementation
+    authority: secondary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: audio-descriptions
+    reason: >-
+      Both rules sit in the `accessibility/media` area and are commonly reviewed
+      together.
+  - slug: autoplay-media
+    reason: >-
+      Both rules sit in the `accessibility/media` area and are commonly reviewed
+      together.
+  - slug: video-accessibility
+    reason: >-
+      Both rules sit in the `accessibility/media` area and are commonly reviewed
+      together.
+  - slug: video-accessibility
+    reason: >-
+      Both rules sit in the `accessibility/media` area and are commonly reviewed
+      together.
+---
+Captions provide a synchronized text-based representation of all audio content in a video. [WCAG 1.2.2 Captions (Prerecorded)](https://www.w3.org/TR/WCAG21/#captions-prerecorded), [WCAG 1.2.4 Captions (Live)](https://www.w3.org/TR/WCAG21/#captions-live), and the [`<track>` element reference](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/track) all treat captions as a first-class part of the video experience.
+## Code Examples
+
+```html
+<!-- ✅ Correct: <track kind="captions"> with WebVTT file -->
+<video controls width="800">
+  <source src="presentation.mp4" type="video/mp4">
+  <source src="presentation.webm" type="video/webm">
+
+  <!-- Captions for deaf/hard-of-hearing (includes non-speech audio) -->
+  <track
+    kind="captions"
+    srclang="en"
+    label="English captions"
+    src="captions-en.vtt"
+    default>
+
+  <!-- Subtitles are for translation only — do NOT substitute for captions -->
+  <track
+    kind="subtitles"
+    srclang="fr"
+    label="Français"
+    src="subtitles-fr.vtt">
+
+  <p>Your browser does not support HTML video. <a href="presentation.mp4">Download the video</a>.</p>
+</video>
+```
+
+### WebVTT File Format
+
+```vtt
+WEBVTT
+
+00:00:01.000 --> 00:00:04.000
+Welcome to the Front-End Checklist workshop.
+
+00:00:04.500 --> 00:00:08.000
+Today we'll cover accessibility fundamentals.
+
+00:00:08.500 --> 00:00:10.000
+[upbeat music playing]
+
+00:00:10.500 --> 00:00:14.000
+[Speaker 2] Let's start with color contrast requirements.
+```
+
+## Why It Matters
+
+The distinction between captions, subtitles, and transcripts matters because [WebVTT](https://developer.mozilla.org/en-US/docs/Web/API/WebVTT_API) and [WebAIM's media guidance](https://webaim.org/techniques/captions/) expect captions to include meaningful non-speech audio, not just dialogue.
+
+- **Hearing Loss**: 15% of adults have some hearing loss; deaf users cannot access audio content without captions.
+- **Situational Limitations**: Users in noisy environments, offices, or public transit often watch with sound off.
+- **Non-native Speakers**: Reading captions simultaneously improves comprehension for second-language viewers.
+- **Cognitive and Learning Disabilities**: Captions help users with attention disorders or dyslexia who process text more easily than audio.
+- **SEO and Searchability**: Caption text is indexable by search engines, improving video discoverability.
+
+## Captions vs Subtitles vs Transcripts
+
+| Type | Purpose | Non-speech audio | Synchronized | WCAG SC |
+|---|---|---|---|---|
+| Captions | Deaf/hard-of-hearing | Yes (required) | Yes | 1.2.2, 1.2.4 |
+| Subtitles | Translation | No | Yes | Not required |
+| Transcript | All users, search | Yes (recommended) | No | 1.2.1 (audio-only) |
+
+## Auto-Generated Captions
+
+Auto-generated captions (YouTube, Whisper, AWS Transcribe) must be reviewed before publishing:
+- Average accuracy is ~80% — insufficient for formal or technical content
+- Proper nouns, technical terms, and accented speech are most error-prone
+- Review and correct all auto-captions before the video goes live
+
+## Exceptions
+
+- Logos, purely decorative text treatments, and screenshots used as documentation can be valid exceptions when their accessible alternative is still provided appropriately.
+- An image or media rule should not force redundant alt text, captions, or transcripts when another nearby mechanism already provides the equivalent information clearly.
+- If the media asset fails more than one rule, prioritize the issue that most directly blocks understanding for assistive technology users.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

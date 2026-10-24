@@ -1,0 +1,129 @@
+---
+title: Avoid redundant image alternative text
+description: Alternative text should not contain redundant words like 'image' or 'photo'.
+categories:
+  - accessibility
+subcategory: visual
+priority: low
+difficulty: beginner
+estimatedTime: 5
+tldr:
+  - Do not repeat 'image of' or 'picture of' in alt text
+  - Avoid alt text that exactly matches adjacent text
+  - Keep alt text concise and focused on the image's meaning
+whyItMatters: >-
+  Redundant alt text increases the verbosity for screen reader users without
+  adding value, leading to a poorer user experience and slower navigation.
+prompts:
+  check: >-
+    Scan image alt attributes for redundant phrases like 'image of', 'photo of',
+    or text that duplicates surrounding content.
+  fix: >-
+    Remove redundant phrases from the alt attribute and ensure the text provides
+    unique, descriptive information.
+  explain: >-
+    Explain why screen readers already announce 'graphic' or 'image', making
+    phrases like 'image of' unnecessary and repetitive.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Avoid
+    redundant image alternative text. Flag exact elements, roles, labels, focus
+    behavior, or keyboard interactions that violate the rule, and note how to
+    verify the fix with browser accessibility tooling or assistive tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Avoid redundant image alternative text. Check native
+  semantics first, then inspect keyboard behavior, focus flow, accessible names,
+  and screen-reader output where relevant.
+sources:
+  - title: 'WCAG 2.1 SC 1.1.1: Non-text Content'
+    url: 'https://www.w3.org/TR/WCAG21/#non-text-content'
+    type: wcag
+    id: wcag-2-1-sc-1-1-1-non-text-content
+    role: standard
+    authority: primary
+  - title: 'W3C WAI Images Tutorial: Alternative Text'
+    url: 'https://www.w3.org/WAI/tutorials/images/decision-tree/'
+    type: guide
+    id: w3c-wai-images-tutorial-alternative-text
+    role: implementation
+    authority: primary
+  - title: 'MDN: <img> element'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/img'
+    type: mdn
+    id: mdn-img-element
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: object-alt
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+  - slug: color-contrast
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+  - slug: identical-links-same-purpose
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+  - slug: link-in-text-block
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+---
+Alt text should be concise and descriptive. The [WAI images tutorial](https://www.w3.org/WAI/tutorials/images/decision-tree/) and the [`<img>` element reference](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/img) both assume assistive technology already knows it is dealing with an image, so adding words like "image" or "photo" just repeats information.
+## Code Examples
+
+### Incorrect Implementation
+```html
+<img src="dog.jpg" alt="A photo of a Golden Retriever playing in the park">
+
+<!-- Redundant with caption -->
+<p>A Golden Retriever playing in the park</p>
+<img src="dog.jpg" alt="A Golden Retriever playing in the park">
+```
+
+### Correct Implementation
+```html
+<img src="dog.jpg" alt="Golden Retriever playing in the park">
+
+<!-- Decorative image or described by caption -->
+<p>A Golden Retriever playing in the park</p>
+<img src="dog.jpg" alt="">
+```
+
+## Why It Matters
+
+- **Verbosity**: Screen readers say "Graphic" or "Image" before reading the alt text. If your alt text is "Image of a dog", the user hears "Graphic, image of a dog".
+- **Efficiency**: Users can consume content faster when it's not cluttered with unnecessary words.
+- **Cognitive Clarity**: Focuses the user's attention on the *content* and *meaning* of the image rather than the fact that it is an image.
+
+## Best Practices
+
+✅ **Focus on Information**: Describe what the image conveys, not what it is.
+
+✅ **Use Null Alt for Decorative Images**: If an image is purely for decoration or is already described by text, use `alt=""`.
+
+❌ **Don't repeat the filename**: `alt="IMG_001.jpg"` is never helpful.
+
+## Exceptions
+
+- Logos, purely decorative text treatments, and screenshots used as documentation can be valid exceptions when their accessible alternative is still provided appropriately.
+- An image or media rule should not force redundant alt text, captions, or transcripts when another nearby mechanism already provides the equivalent information clearly.
+- If the media asset fails more than one rule, prioritize the issue that most directly blocks understanding for assistive technology users.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

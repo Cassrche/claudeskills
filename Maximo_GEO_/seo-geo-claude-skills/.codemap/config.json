@@ -1,0 +1,16 @@
+{
+  "only": [
+    "py",
+    "yml",
+    "sh",
+    "mailmap",
+    "gitkeep"
+  ],
+  "mode": "auto",
+  "budgets": {},
+  "routing": {
+    "retrieval": {}
+  },
+  "drift": {},
+  "guidance": {}
+}

@@ -1,0 +1,226 @@
+package cmd
+
+import (
+	"encoding/json"
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"codemap/config"
+)
+
+func TestInitProjectConfigCreatesAutoDetectedConfig(t *testing.T) {
+	root := t.TempDir()
+	mustWriteConfigFixture(t, filepath.Join(root, "pkg", "main.go"), "package main\n")
+	mustWriteConfigFixture(t, filepath.Join(root, "pkg", "worker.go"), "package main\n")
+	mustWriteConfigFixture(t, filepath.Join(root, "pkg", "extra.go"), "package main\n")
+	mustWriteConfigFixture(t, filepath.Join(root, "web", "app.ts"), "export const app = 1\n")
+	mustWriteConfigFixture(t, filepath.Join(root, "web", "view.ts"), "export const view = 1\n")
+	mustWriteConfigFixture(t, filepath.Join(root, "scripts", "seed.py"), "print('ok')\n")
+	mustWriteConfigFixture(t, filepath.Join(root, "README.md"), "docs\n")
+	mustWriteConfigFixture(t, filepath.Join(root, "assets", "logo.png"), "png\n")
+
+	result, err := initProjectConfig(root)
+	if err != nil {
+		t.Fatalf("initProjectConfig returned error: %v", err)
+	}
+
+	if got, want := strings.Join(result.TopExts, ","), "go,ts,py"; got != want {
+		t.Fatalf("TopExts = %q, want %q", got, want)
+	}
+	if result.TotalFiles != 8 {
+		t.Fatalf("TotalFiles = %d, want 8", result.TotalFiles)
+	}
+	if result.MatchedFiles != 6 {
+		t.Fatalf("MatchedFiles = %d, want 6", result.MatchedFiles)
+	}
+
+	data, err := os.ReadFile(result.Path)
+	if err != nil {
+		t.Fatalf("read config: %v", err)
+	}
+	var cfg config.ProjectConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("unmarshal config: %v", err)
+	}
+	if got, want := strings.Join(cfg.Only, ","), "go,ts,py"; got != want {
+		t.Fatalf("config only = %q, want %q", got, want)
+	}
+}
+
+func TestInitProjectConfigReturnsErrConfigExists(t *testing.T) {
+	root := t.TempDir()
+	cfgPath := config.ConfigPath(root)
+	if err := os.MkdirAll(filepath.Dir(cfgPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cfgPath, []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := initProjectConfig(root)
+	if !errors.Is(err, errConfigExists) {
+		t.Fatalf("expected errConfigExists, got %v", err)
+	}
+}
+
+func TestRunConfigInitAndShow(t *testing.T) {
+	root := t.TempDir()
+	mustWriteConfigFixture(t, filepath.Join(root, "cmd", "main.go"), "package main\n")
+	mustWriteConfigFixture(t, filepath.Join(root, "cmd", "worker.go"), "package main\n")
+
+	initOut := captureOutput(func() { RunConfig("init", root) })
+	if !strings.Contains(initOut, "Created ") || !strings.Contains(initOut, "only: go") {
+		t.Fatalf("unexpected init output:\n%s", initOut)
+	}
+
+	showOut := captureOutput(func() { RunConfig("show", root) })
+	checks := []string{"Config:", "only:", "go"}
+	for _, check := range checks {
+		if !strings.Contains(showOut, check) {
+			t.Fatalf("expected show output to contain %q, got:\n%s", check, showOut)
+		}
+	}
+}
+
+func TestConfigShowNoConfigFile(t *testing.T) {
+	out := captureOutput(func() { configShow(t.TempDir()) })
+	if !strings.Contains(out, "No config file found.") {
+		t.Fatalf("expected missing-config guidance, got:\n%s", out)
+	}
+}
+
+func TestConfigShowMalformedConfig(t *testing.T) {
+	root := t.TempDir()
+	cfgPath := config.ConfigPath(root)
+	if err := os.MkdirAll(filepath.Dir(cfgPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cfgPath, []byte("{broken"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out := captureOutput(func() { configShow(root) })
+	if !strings.Contains(out, "malformed or unreadable") {
+		t.Fatalf("expected malformed guidance, got:\n%s", out)
+	}
+	if !strings.Contains(out, "rerun 'codemap config init'") {
+		t.Fatalf("expected recreate guidance, got:\n%s", out)
+	}
+}
+
+func TestConfigShowBoilerplateConfigSuggestsTuning(t *testing.T) {
+	root := t.TempDir()
+	cfgPath := config.ConfigPath(root)
+	if err := os.MkdirAll(filepath.Dir(cfgPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cfgPath, []byte(`{"only":["rs","toml"],"depth":4}`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out := captureOutput(func() { configShow(root) })
+	if !strings.Contains(out, "looks like a bootstrap") {
+		t.Fatalf("expected bootstrap note, got:\n%s", out)
+	}
+	if !strings.Contains(out, "config-setup") {
+		t.Fatalf("expected config-setup guidance, got:\n%s", out)
+	}
+}
+
+func mustWriteConfigFixture(t *testing.T, path string, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", path, err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("write %s: %v", path, err)
+	}
+}
+
+func TestInitProjectConfigSkipsNoiseExtensions(t *testing.T) {
+	root := t.TempDir()
+	files := map[string]string{
+		"main.go":       "package main\n",
+		"util.go":       "package main\n",
+		"a/one.log":     "log line\n",
+		"a/two.log":     "log line\n",
+		"a/three.log":   "log line\n",
+		"b/daemon.pid":  "123\n",
+		"b/backup.bak":  "old\n",
+		"b/scratch.tmp": "x\n",
+		"b/build.out":   "x\n",
+	}
+	for path, content := range files {
+		full := filepath.Join(root, path)
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	result, err := initProjectConfig(root)
+	if err != nil {
+		t.Fatalf("initProjectConfig: %v", err)
+	}
+	for _, ext := range result.TopExts {
+		switch ext {
+		case "log", "pid", "bak", "tmp", "out":
+			t.Fatalf("noise extension %q auto-included in config: %v", ext, result.TopExts)
+		}
+	}
+	if len(result.TopExts) != 1 || result.TopExts[0] != "go" {
+		t.Fatalf("TopExts = %v, want [go]", result.TopExts)
+	}
+}
+
+func TestInitProjectConfigExcludesPresentNoise(t *testing.T) {
+	root := t.TempDir()
+	mustWriteConfigFixture(t, filepath.Join(root, "App", "main.swift"), "import UIKit\n")
+	mustWriteConfigFixture(t, filepath.Join(root, "App", "view.swift"), "import UIKit\n")
+	mustWriteConfigFixture(t, filepath.Join(root, "Carthage", "Build", "Alamofire.swift"), "import Foundation\n")
+	for i := 0; i < 20; i++ {
+		mustWriteConfigFixture(t, filepath.Join(root, "App", "Assets.xcassets", "icon"+strings.Repeat("x", i)+".png"), "png\n")
+	}
+
+	result, err := initProjectConfig(root)
+	if err != nil {
+		t.Fatalf("initProjectConfig: %v", err)
+	}
+	if got, want := strings.Join(result.Exclude, ","), "Carthage,.xcassets,.png"; got != want {
+		t.Fatalf("Exclude = %q, want %q", got, want)
+	}
+	if got := config.AssessSetup(root).State; got != config.SetupStateReady {
+		t.Fatalf("state after init = %q, want ready", got)
+	}
+}
+
+func TestEnsureProjectConfigWritesOnlyInsideRepos(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repo, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mustWriteConfigFixture(t, filepath.Join(repo, "main.go"), "package main\n")
+	if !EnsureProjectConfig(repo) {
+		t.Fatal("expected config to be written in a repo")
+	}
+	if _, err := os.Stat(config.ConfigPath(repo)); err != nil {
+		t.Fatalf("config not written: %v", err)
+	}
+	if EnsureProjectConfig(repo) {
+		t.Fatal("second call must not rewrite an existing config")
+	}
+
+	plain := t.TempDir()
+	mustWriteConfigFixture(t, filepath.Join(plain, "main.go"), "package main\n")
+	if EnsureProjectConfig(plain) {
+		t.Fatal("must not write config outside a repo")
+	}
+	if _, err := os.Stat(config.ConfigPath(plain)); !os.IsNotExist(err) {
+		t.Fatalf("config unexpectedly present in non-repo: %v", err)
+	}
+}

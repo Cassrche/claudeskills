@@ -1,0 +1,4 @@
+google-analytics-data>=0.18.0
+google-analytics-admin>=0.22.0
+google-auth-oauthlib>=1.2.0
+pytest>=8.0.0

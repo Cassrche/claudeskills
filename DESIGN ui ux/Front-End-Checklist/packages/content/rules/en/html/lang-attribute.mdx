@@ -1,0 +1,255 @@
+---
+title: Set the page lang attribute
+description: >-
+  The <html> element must have a lang attribute with a valid BCP 47 language
+  code so screen readers, translation tools, and search engines know the primary
+  language of the page.
+categories:
+  - html
+subcategory: meta
+priority: high
+difficulty: beginner
+estimatedTime: 5
+tldr:
+  - >-
+    The `<html>` element must have a `lang` attribute — WCAG 2.1 SC 3.1.1
+    (Language of Page, Level A)
+  - >-
+    The value must be a valid BCP 47 language tag: `en`, `en-US`, `fr`,
+    `zh-Hant`, `ar`, etc.
+  - >-
+    Use `lang` on individual elements to indicate language changes within the
+    page — WCAG 2.1 SC 3.1.2 (Level AA)
+  - >-
+    The `lang` attribute affects screen reader pronunciation, spell checking,
+    hyphenation, and browser translation
+  - >-
+    An empty `lang=''` is treated as unknown language — equivalent to having no
+    `lang` attribute
+whyItMatters: >-
+  Screen readers select the correct text-to-speech voice and pronunciation
+  engine based on the `lang` attribute. Without it, VoiceOver defaults to the
+  user's system language, and NVDA uses its default voice — both may
+  mispronounce words in other languages, making content unintelligible. French
+  text read with an English voice profile is incomprehensible. The `lang`
+  attribute also enables browser translation features (Chrome's Translate),
+  hyphenation algorithms (CSS `hyphens: auto`), and correct spell checking. This
+  is a WCAG Level A requirement — the most fundamental accessibility baseline.
+aiContext: >-
+  Applies to all HTML documents. Check the `<html>` opening tag for a `lang`
+  attribute with a non-empty, valid BCP 47 language code. Also check for `lang`
+  attribute changes on individual elements when the document contains content in
+  multiple languages (inline quotes, foreign terms, multilingual sections). The
+  `lang` attribute is inherited — child elements inherit the language from their
+  nearest ancestor with `lang`.
+prompts:
+  check: >-
+    Inspect the `<html>` element in the page source. Verify: (1) a `lang`
+    attribute is present; (2) its value is non-empty; (3) its value is a valid
+    BCP 47 language code matching the primary language of the page content
+    (e.g., `en` for English, `fr` for French, `zh-Hant` for Traditional
+    Chinese). Flag: missing `lang`, empty `lang=''`, language codes using full
+    names instead of codes (e.g., `lang='english'` is invalid), and mismatches
+    where the declared language does not match the actual content language. For
+    multilingual pages, also check for `lang` changes on block-level elements
+    containing content in a different language.
+  fix: >-
+    Add or correct the `lang` attribute on the `<html>` element: `<html
+    lang='en'>` for English, `<html lang='fr'>` for French, `<html lang='es'>`
+    for Spanish, `<html lang='de'>` for German, `<html lang='ja'>` for Japanese,
+    `<html lang='zh-Hans'>` for Simplified Chinese, `<html lang='zh-Hant'>` for
+    Traditional Chinese, `<html lang='ar'>` for Arabic. For content sections in
+    different languages, add `lang` to the containing block element. Validate
+    language codes against the IANA Language Subtag Registry.
+  explain: >-
+    WCAG 2.1 SC 3.1.1 (Language of Page, Level A) requires that the default
+    human language of each web page can be programmatically determined. The
+    `lang` attribute on `<html>` fulfills this requirement. The value must be a
+    BCP 47 language tag — a standardized system of subtags that identifies
+    language, script, and region. The primary language subtag (e.g., `en`, `fr`)
+    is required; region subtags (e.g., `en-US`, `fr-CA`) are optional but useful
+    for dialect-specific pronunciation and spell checking. SC 3.1.2 (Language of
+    Parts, Level AA) extends this to inline language changes within a page.
+  codeReview: >-
+    Review templates, server-rendered HTML, and shared components that output
+    markup related to Set the page lang attribute. Flag exact elements,
+    attributes, and routes where the rendered HTML violates the rule.
+sources:
+  - title: 'WCAG 2.1 SC 3.1.1: Language of Page'
+    url: 'https://www.w3.org/TR/WCAG21/#language-of-page'
+    type: wcag
+    id: wcag-2-1-sc-3-1-1-language-of-page
+    role: standard
+    authority: primary
+  - title: 'WCAG 2.1 SC 3.1.2: Language of Parts'
+    url: 'https://www.w3.org/TR/WCAG21/#language-of-parts'
+    type: wcag
+    id: wcag-2-1-sc-3-1-2-language-of-parts
+    role: standard
+    authority: primary
+  - title: 'HTML Living Standard: The lang attribute'
+    url: 'https://html.spec.whatwg.org/multipage/dom.html#attr-lang'
+    type: spec
+    id: html-living-standard-the-lang-attribute
+    role: standard
+    authority: primary
+  - title: 'MDN: lang global attribute'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes/lang'
+    type: mdn
+    id: mdn-lang-global-attribute
+    role: reference
+    authority: primary
+  - title: 'W3C: Declaring language in HTML'
+    url: 'https://www.w3.org/International/questions/qa-html-language-declarations'
+    type: guide
+    id: w3c-declaring-language-in-html
+    role: implementation
+    authority: primary
+  - title: IANA Language Subtag Registry
+    url: >-
+      https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
+    type: spec
+    id: iana-language-subtag-registry
+    role: standard
+    authority: primary
+resources:
+  - name: Nu Html Checker
+    url: 'https://validator.w3.org/nu/'
+    type: tool
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: charset
+    reason: Both rules sit in the `html/meta` area and are commonly reviewed together.
+  - slug: viewport
+    reason: Both rules sit in the `html/meta` area and are commonly reviewed together.
+---
+The `lang` attribute on the `<html>` element identifies the primary language of a web page. It is used by screen readers, browsers, search engines, and translation services to process content correctly.
+## Code Example
+
+```html
+<!-- ✅ Correct: English page -->
+<!DOCTYPE html>
+<html lang="en">
+
+<!-- ✅ Correct: American English -->
+<!DOCTYPE html>
+<html lang="en-US">
+
+<!-- ✅ Correct: French -->
+<!DOCTYPE html>
+<html lang="fr">
+
+<!-- ✅ Correct: Arabic (right-to-left) -->
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<!-- ❌ Incorrect: missing lang attribute -->
+<html>
+
+<!-- ❌ Incorrect: full language name (not a BCP 47 code) -->
+<html lang="english">
+
+<!-- ❌ Incorrect: empty lang attribute -->
+<html lang="">
+```
+
+## Why It Matters
+
+- **Screen Readers**: VoiceOver and NVDA use `lang` to select the speech synthesis engine — wrong language means incomprehensible pronunciation.
+- **Browser Translation**: Chrome's auto-translate uses `lang` to detect the source language and offer translation.
+- **CSS Hyphenation**: `hyphens: auto` in CSS relies on the `lang` attribute to apply correct hyphenation rules.
+- **Spell Checking**: Browser spell check and tools like Grammarly use `lang` to select the dictionary.
+- **Search Engines**: Google uses `lang` to target content to the correct regional audience in search results.
+
+## Language Changes Within a Page
+
+When a page contains content in multiple languages, mark each language change with `lang` on the containing element:
+
+```html
+<html lang="en">
+<body>
+  <p>The French say <span lang="fr">bonjour</span> as a greeting.</p>
+
+  <!-- Block-level language change -->
+  <blockquote lang="de">
+    <p>Ich denke, also bin ich. — René Descartes</p>
+  </blockquote>
+</body>
+</html>
+```
+
+## Common BCP 47 Language Codes
+
+| Language | Code |
+|---|---|
+| English | `en` |
+| English (US) | `en-US` |
+| English (UK) | `en-GB` |
+| French | `fr` |
+| Spanish | `es` |
+| German | `de` |
+| Japanese | `ja` |
+| Korean | `ko` |
+| Simplified Chinese | `zh-Hans` |
+| Traditional Chinese | `zh-Hant` |
+| Arabic | `ar` |
+| Portuguese (Brazil) | `pt-BR` |
+| Hindi | `hi` |
+
+## Framework Examples
+
+```tsx
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  )
+}
+```
+
+```tsx
+const rtlLocales = new Set(['ar', 'fa', 'he', 'ur'])
+
+export function LocaleLayout({
+  locale,
+  children,
+}: {
+  locale: string
+  children: React.ReactNode
+}) {
+  return (
+    <html lang={locale} dir={rtlLocales.has(locale) ? 'rtl' : 'ltr'}>
+      <body>{children}</body>
+    </html>
+  )
+}
+```
+
+## Best Practices
+
+- Set the language on the root `<html>` element even when the whole site uses one locale.
+- Prefer region or script subtags such as `en-GB` or `zh-Hant` when they materially affect pronunciation, spelling, or font selection.
+- Add nested `lang` attributes only where the language actually changes.
+- Validate the final rendered HTML rather than assuming framework metadata APIs emitted the correct root attribute.
+
+## Standards
+
+- Use WCAG 2.1 SC 3.1.1: Language of Page as the standard for the final rendered HTML and browser-facing behavior.
+- Use WCAG 2.1 SC 3.1.2: Language of Parts as the standard for the final rendered HTML and browser-facing behavior.
+- Use HTML Living Standard: The lang attribute as the standard for the final rendered HTML and browser-facing behavior.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the final rendered HTML in the browser or page source to confirm the rule is satisfied.
+- Validate the affected markup with browser tooling or an HTML validator where appropriate.
+- Test one representative route or template that uses the pattern.
+- Re-check shared components that emit the same markup so the fix is consistent.
+
+### Manual Checks
+
+- Verify the rendered browser behavior manually on representative routes and supported browsers so the user-facing outcome matches the rule.

@@ -1,0 +1,5 @@
+Category,Event Label,GA4 Event Name,Description,Parameter Name,Parameter Type,Parameter Description,Example Value,Parameter Scope
+User Action,Button Click,button_click,Fired when a button is clicked,button_name,string,Name of the clicked button,submit_button,event
+Ecommerce,Purchase,purchase,Fired when a purchase completes,value,int,Purchase amount,29000,event
+Ecommerce,Purchase,purchase,Fired when a purchase completes,currency,string,Currency code,USD,event
+Ecommerce,Purchase,purchase,Fired when a purchase completes,items.item_name,string,Product name in the items array,Wireless Mouse,

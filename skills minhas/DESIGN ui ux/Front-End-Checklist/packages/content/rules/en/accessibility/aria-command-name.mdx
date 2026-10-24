@@ -1,0 +1,125 @@
+---
+title: Provide accessible names for ARIA command elements
+description: >-
+  Checks that command elements like buttons and links have accessible names for
+  screen reader support.
+categories:
+  - accessibility
+subcategory: aria
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - 'Elements with command roles (button, link, menuitem) must have a label'
+  - >-
+    Accessible names can be provided via text content, `aria-label`, or
+    `aria-labelledby`
+  - Ensures users know the purpose of the interactive element
+whyItMatters: >-
+  Without an accessible name, screen reader users will only hear the role (e.g.,
+  'button') without knowing what it does, making the interface impossible to
+  navigate.
+prompts:
+  check: >-
+    Identify elements with command roles (like button or link) that lack a clear
+    accessible name.
+  fix: >-
+    Add an accessible name using inner text, `aria-label`, or `aria-labelledby`
+    to all command elements.
+  explain: >-
+    Explain how accessible names for command elements enable screen reader users
+    to understand interactive controls.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Provide
+    accessible names for ARIA command elements. Flag exact elements, roles,
+    labels, focus behavior, or keyboard interactions that violate the rule, and
+    note how to verify the fix with browser accessibility tooling or assistive
+    tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Provide accessible names for ARIA command elements. Check
+  native semantics first, then inspect keyboard behavior, focus flow, accessible
+  names, and screen-reader output where relevant.
+sources:
+  - title: WAI-ARIA 1.2
+    url: 'https://www.w3.org/TR/wai-aria-1.2/'
+    type: spec
+    id: wai-aria-1-2
+    role: standard
+    authority: primary
+  - title: 'MDN: ARIA'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA'
+    type: mdn
+    id: mdn-aria
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: aria-treeitem-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-input-field-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-dialog-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-meter-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+---
+Command elements are interactive controls that perform an action. For these to be usable by everyone, they must have a programmatically determinable name that describes their function.
+
+## Code Example
+
+```html
+<!-- ✅ Correct: Accessible name via text content -->
+<button>Submit Form</button>
+
+<!-- ✅ Correct: Accessible name via aria-label (for icon buttons) -->
+<button aria-label="Close dialog">
+  <svg>...</svg>
+</button>
+
+<!-- ❌ Incorrect: No accessible name (empty or icon-only without label) -->
+<button>
+  <i class="fa fa-trash"></i>
+</button>
+```
+
+## Why It Matters
+
+- **Clarity**: Informs users exactly what action will be performed when the element is activated.
+- **Navigability**: Allows users to find and activate controls via voice commands or by browsing lists of controls in their screen reader.
+- **Inclusion**: Provides a comparable experience for users who cannot see visual icons or cues.
+- **Avoids Confusion**: Prevents the "unlabeled button" experience, which is one of the most common accessibility barriers.
+
+## Exceptions
+
+- Prefer native HTML semantics over ARIA when both are possible; some apparent ARIA failures disappear when the underlying element is corrected.
+- A missing ARIA attribute is not automatically the strongest finding if the control is already semantically broken, unnamed, or keyboard-inaccessible.
+- Do not add ARIA only to satisfy the rule if the feature should instead be implemented with a native element or a simpler interaction pattern.
+
+## Standards
+
+- Align the implementation with WAI-ARIA 1.2 and verify the rendered experience, not only the source code.
+- Align the implementation with MDN: ARIA and verify the rendered experience, not only the source code.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

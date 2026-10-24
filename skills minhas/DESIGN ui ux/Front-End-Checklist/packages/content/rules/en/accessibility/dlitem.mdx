@@ -1,0 +1,138 @@
+---
+title: Wrap definition items in a definition list
+description: >-
+  Description terms (&lt;dt&gt;) and details (&lt;dd&gt;) must be contained
+  within a &lt;dl&gt; element.
+categories:
+  - accessibility
+subcategory: document-structure
+priority: medium
+difficulty: beginner
+estimatedTime: 5
+tldr:
+  - >-
+    Place all &lt;dt&gt; (terms) and &lt;dd&gt; (descriptions) within a
+    &lt;dl&gt;
+  - Avoid using description list items as standalone elements
+  - Ensure proper grouping of related metadata or glossary terms
+whyItMatters: >-
+  Standalone &lt;dt&gt; or &lt;dd&gt; elements lose their semantic meaning and
+  fail to provide the context needed for assistive technologies to link terms
+  with definitions.
+prompts:
+  check: >-
+    Locate any &lt;dt&gt; or &lt;dd&gt; elements that are not children of a
+    &lt;dl&gt; element.
+  fix: >-
+    Wrap orphaned &lt;dt&gt; and &lt;dd&gt; elements in a parent &lt;dl&gt;
+    container.
+  explain: >-
+    Explain why &lt;dt&gt; and &lt;dd&gt; must be contained within a &lt;dl&gt;
+    for correct semantic association.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Wrap
+    definition items in a definition list. Flag exact elements, roles, labels,
+    focus behavior, or keyboard interactions that violate the rule, and note how
+    to verify the fix with browser accessibility tooling or assistive tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Wrap definition items in a definition list. Check native
+  semantics first, then inspect keyboard behavior, focus flow, accessible names,
+  and screen-reader output where relevant.
+sources:
+  - title: 'W3C WAI: WCAG Overview'
+    url: 'https://www.w3.org/WAI/standards-guidelines/wcag/'
+    type: wcag
+    id: w3c-wai-wcag-overview
+    role: standard
+    authority: primary
+  - title: 'MDN: Accessibility'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility'
+    type: mdn
+    id: mdn-accessibility
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: definition-list
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+  - slug: listitem
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+  - slug: list-structure
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+  - slug: semantic-lists
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+---
+The `&lt;dt&gt;` (description term) and `&lt;dd&gt;` (description details) elements are only semantically valid when used as children of a `&lt;dl&gt;` (description list).
+
+## Code Example
+
+```html
+<!-- ✅ Good: Properly wrapped -->
+&lt;dl&gt;
+  &lt;dt&gt;Term</dt>
+  &lt;dd&gt;The definition of the term.</dd>
+</dl>
+
+<!-- ❌ Bad: Orphaned elements -->
+&lt;dt&gt;Orphaned Term</dt>
+&lt;dd&gt;This is not inside a list.</dd>
+
+<!-- ❌ Bad: Using other containers incorrectly -->
+<ul>
+  <li>
+    &lt;dt&gt;Invalid usage</dt> <!-- dt cannot be a child of li or ul -->
+  </li>
+</ul>
+```
+
+## Why It Matters
+
+- **Relationship Mapping**: Browsers use the `&lt;dl&gt;` container to associate specific terms with their corresponding descriptions.
+- **Accessibility Tree**: Assistive technologies expose these elements as a "list" only when wrapped correctly, allowing users to navigate by list items.
+- **Validation**: Improperly nested elements will fail HTML validation, which can lead to unpredictable rendering issues.
+
+## Best Practices
+
+✅ **Always use &lt;dl&gt;**: Never use `&lt;dt&gt;` or `&lt;dd&gt;` on their own for styling purposes.
+✅ **Logical Order**: Typically, `&lt;dt&gt;` comes before its associated `&lt;dd&gt;`.
+✅ **Multiple Details**: It is perfectly valid to have one `&lt;dt&gt;` followed by multiple `&lt;dd&gt;` elements for a single term.
+
+## Tools & Validation
+
+- [W3C HTML Validator](https://validator.w3.org/)
+- [Axe-core Rule: definition-list-item](https://dequeuniversity.com/rules/axe/4.7/dlitem)
+
+## Exceptions
+
+- Simple data tables can sometimes fail more from missing header relationships than from missing enhancements such as captions or mobile wrappers, so prioritize the strongest semantic issue.
+- Do not convert layout structures into data-table markup just to satisfy a rule; the correct fix may be to remove table semantics entirely.
+- When several table-accessibility issues overlap, resolve the header-cell relationship first because downstream announcements depend on it.
+
+## Standards
+
+- Align the implementation with W3C WAI: WCAG Overview and verify the rendered experience, not only the source code.
+- Align the implementation with MDN: Accessibility and verify the rendered experience, not only the source code.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

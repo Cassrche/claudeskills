@@ -1,0 +1,211 @@
+---
+title: Use a single descriptive H1
+description: >-
+  Validates that each page has exactly one H1 tag containing a descriptive,
+  keyword-relevant heading
+categories:
+  - seo
+subcategory: meta-tags
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - >-
+    Each page should have exactly one `<h1>` tag that describes the page's
+    primary topic with relevant keywords
+  - >-
+    The H1 does not need to be identical to the `<title>` tag, but they should
+    be topically consistent
+  - >-
+    Empty `<h1>` tags, multiple `<h1>` tags on one page, or H1s containing only
+    the brand name are all issues to fix
+whyItMatters: >-
+  The H1 is the most prominent heading on a page and a strong on-page ranking
+  signal. Google uses it to understand the page's primary topic. Missing,
+  duplicate, or keyword-free H1 tags reduce topical clarity, hurting rankings
+  for the page's target terms.
+aiContext: >-
+  Use when auditing a page's heading structure, generating H1 text for landing
+  pages or blog posts, or reviewing a CMS template that may produce empty or
+  missing H1 elements.
+prompts:
+  check: >-
+    Parse the rendered DOM of each page. Count all `<h1>` elements. Flag: (1)
+    Pages with zero `<h1>` tags. (2) Pages with more than one `<h1>` tag. (3)
+    `<h1>` elements whose text content is empty or contains only whitespace. (4)
+    `<h1>` elements that contain only the brand name with no page-specific
+    topic. (5) `<h1>` text that does not reflect the page's primary content
+    topic.
+  fix: >
+    1. Ensure every page template outputs exactly one `<h1>`.
+
+    2. The H1 text should describe the page's specific topic, not just the site
+    name.
+
+    3. Include the primary target keyword naturally in the H1 — do not force it
+    awkwardly.
+
+    4. If the page has multiple sections with separate H1 candidates, choose one
+    main topic and demote others to H2.
+
+    5. Verify the H1 is visible in the rendered DOM (not hidden via CSS
+    `display:none` or `visibility:hidden`).
+
+    6. In Next.js/React: ensure the H1 is in the page component, not in the
+    shared layout.
+
+    Before: `<h1>Acme Corp</h1>` (brand only)
+
+    After: `<h1>Project Management Software for Enterprise Teams</h1>`
+  explain: >-
+    Google's John Mueller has confirmed that H1 tags help Google understand page
+    structure. While H1 is not the strongest ranking factor in isolation, it
+    contributes to on-page topical relevance signals. Multiple H1 tags on one
+    page dilute the primary topic signal; a missing H1 leaves a structural gap
+    that reduces confidence in what the page is about.
+  codeReview: >-
+    Query the DOM for all `<h1>` elements. Assert exactly one exists per page.
+    Check that `innerText.trim()` is non-empty. Compare H1 text to the page
+    `<title>` — they should share core topic keywords. Flag if H1 is inside a
+    `<header>` element shared across all pages (often the site logo alt text)
+    rather than specific to the page content.
+relatedRules:
+  - slug: heading-order
+    reason: Heading hierarchy (H1→H2→H3) is part of the same structural concern
+  - slug: meta-title
+    reason: Title tag and H1 should be topically aligned
+  - slug: meta-description
+    reason: >-
+      Search snippets work best when the H1, title, and description align on the
+      same topic.
+  - slug: title-unique
+    reason: >-
+      Both rules sit in the `seo/meta-tags` area and are commonly reviewed
+      together.
+resources:
+  - title: 'Google Search Central: How Google evaluates headings'
+    url: 'https://developers.google.com/search/docs/appearance/title-link'
+    type: guide
+  - title: 'MDN: h1–h6 elements'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/Heading_Elements'
+    type: mdn
+sources:
+  - title: 'Google Search Central: Headings and title tags'
+    url: 'https://developers.google.com/search/docs/appearance/title-link'
+    type: guide
+    id: google-search-central-headings-and-title-tags
+    role: search
+    authority: primary
+  - title: 'MDN: The HTML Section Heading elements'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/Heading_Elements'
+    type: mdn
+    id: mdn-the-html-section-heading-elements
+    role: reference
+    authority: primary
+---
+The `<h1>` element is the primary heading of a page. [Google's heading guidance](https://developers.google.com/search/docs/appearance/title-link) and the page's [title strategy](/en/rules/seo/meta-title) should reinforce the same topic, so each page needs one H1 that clearly names what the page is about.
+
+## Code Examples
+
+#
+
+## ❌ Avoid — no H1 on the page
+
+```html
+<main>
+  <h2>Welcome to Acme Corp</h2>
+  <!-- No H1 — Google has no primary heading to use -->
+  <p>We build enterprise software...</p>
+</main>
+```
+
+### ❌ Avoid — multiple H1 tags
+
+```html
+<main>
+  <h1>Acme Corp</h1>  <!-- Brand name only -->
+  <article>
+    <h1>Project Management Software for Teams</h1>  <!-- Second H1! -->
+  </article>
+</main>
+```
+
+### ❌ Avoid — H1 with only brand name
+
+```html
+<h1>Acme Corp</h1>
+<!-- Does not tell Google or users what this specific page is about -->
+```
+
+### ✅ Correct — single descriptive H1
+
+```html
+<main>
+  <h1>Project Management Software for Enterprise Teams</h1>
+  <p>Acme Corp helps teams of 50+ manage projects with Kanban,
+     time tracking, and automated reporting.</p>
+
+  <h2>Key Features</h2>
+  <!-- H2 and below for sub-topics -->
+</main>
+```
+
+### ✅ H1 and title aligned but not identical
+
+```html
+<head>
+  <!-- Title includes brand; H1 is content-focused -->
+  <title>Project Management Software — Acme Corp</title>
+</head>
+<body>
+  <h1>Project Management Software for Enterprise Teams</h1>
+</body>
+```
+
+## Why It Matters
+
+- **On-page SEO**: Google uses headings to understand page structure and topical relevance. The H1 is weighted most heavily, and [MDN's heading-element reference](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/Heading_Elements) is still a useful baseline for the underlying HTML contract.
+- **Accessibility**: Screen readers announce H1 as the page's main heading, helping users with assistive technology understand page context immediately.
+- **User experience**: A clear H1 anchors the page content, helping readers confirm they found what they searched for and preventing the same ambiguity that appears when titles are reused across multiple pages.
+
+## What to Check
+
+| Issue | Problem |
+|---|---|
+| No `<h1>` | Google has no clear heading signal for the page |
+| Multiple `<h1>` | Dilutes the primary topic signal |
+| Empty `<h1>` | Structural element with no content |
+| Brand-name-only H1 | Not topic-specific; misses ranking opportunity |
+| H1 hidden via CSS | Google may ignore it |
+
+## How to Fix H1 Issues
+
+1. Run a site crawl or use browser DevTools to find pages with 0 or 2+ H1 elements.
+2. For pages with no H1: add one that describes the page topic, demoting the current top heading to H2.
+3. For pages with multiple H1s: choose the most topically specific one, demote the rest, and keep it aligned with the page title strategy.
+4. For brand-name-only H1s: incorporate the page topic alongside or replace the brand name.
+5. Verify the fix by inspecting the rendered DOM (not just source), as JavaScript frameworks may alter heading structure, and compare the final output against [MDN's heading element reference](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/Heading_Elements).
+
+## Exceptions
+
+- Necessary utility or compliance pages can be intentionally brief and should not be judged by the same editorial-depth expectations as ranking-focused content.
+- AI-assisted drafting is not a failure by itself; flag unsupported claims, missing editorial review, or low-originality output instead.
+- When a page has both trust-signal issues and crawl/index problems, make the page eligible to rank first and then improve the content quality signals.
+
+## Standards
+
+- Use these references as the standard for the final search-facing HTML, metadata, and crawl behavior.
+- Check the implementation against Google Search Central: Headings and title tags before treating the rule as satisfied.
+- Check the implementation against MDN: The HTML Section Heading elements before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

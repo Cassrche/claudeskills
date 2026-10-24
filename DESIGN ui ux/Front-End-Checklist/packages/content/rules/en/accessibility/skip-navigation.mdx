@@ -1,0 +1,169 @@
+---
+title: Include a skip navigation link
+description: >-
+  A skip navigation link is provided to allow keyboard users to bypass
+  repetitive content and navigate directly to main content.
+categories:
+  - accessibility
+subcategory: keyboard
+priority: high
+difficulty: beginner
+estimatedTime: 10
+tldr:
+  - Add a 'Skip to main content' link as the first focusable element
+  - Hide visually but show on focus with CSS
+  - Link to main content using id='main-content'
+  - Test by pressing Tab immediately after page load
+whyItMatters: >-
+  Skip links save keyboard and screen reader users from tabbing through 50+
+  navigation items on every page visit—turning a frustrating experience into an
+  efficient one.
+prompts:
+  check: >-
+    Verify that a 'Skip to main content' link is present and functional at the
+    beginning of the page.
+  fix: >-
+    Add a visually hidden skip link that becomes visible on focus and links to
+    the main content area.
+  explain: >-
+    Explain how skip links improve efficiency for keyboard users by allowing
+    them to bypass repeated navigation elements.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Include a skip
+    navigation link. Flag exact elements, roles, labels, focus behavior, or
+    keyboard interactions that violate the rule, and note how to verify the fix
+    with browser accessibility tooling or assistive tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Include a skip navigation link. Check native semantics
+  first, then inspect keyboard behavior, focus flow, accessible names, and
+  screen-reader output where relevant.
+sources:
+  - title: 'W3C WAI: WCAG Overview'
+    url: 'https://www.w3.org/WAI/standards-guidelines/wcag/'
+    type: wcag
+    id: w3c-wai-wcag-overview
+    role: standard
+    authority: primary
+  - title: 'MDN: Accessibility'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility'
+    type: mdn
+    id: mdn-accessibility
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: skip-link
+    reason: >-
+      Both rules sit in the `accessibility/keyboard` area and are commonly
+      reviewed together.
+  - slug: autofocus-avoidance
+    reason: >-
+      Both rules sit in the `accessibility/keyboard` area and are commonly
+      reviewed together.
+  - slug: focus-management
+    reason: >-
+      Both rules sit in the `accessibility/keyboard` area and are commonly
+      reviewed together.
+  - slug: keyboard-navigation
+    reason: >-
+      Both rules sit in the `accessibility/keyboard` area and are commonly
+      reviewed together.
+---
+Skip links allow keyboard users to bypass repetitive navigation and jump directly to the main content.
+
+## Code Example
+
+```html
+<body>
+  <!-- Skip link as first focusable element -->
+  <a href="#main-content" class="skip-link">
+    Skip to main content
+  </a>
+
+  <nav>
+    <!-- Navigation with many links -->
+  </nav>
+
+  <main id="main-content" tabindex="-1">
+    <!-- Main page content -->
+  </main>
+</body>
+```
+
+## Why It Matters
+
+Skip links save keyboard and screen reader users from tabbing through 50+ navigation items on every page visit—turning a frustrating experience into an efficient one.
+
+## CSS for Skip Links
+
+```css
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  padding: 8px 16px;
+  background: #000;
+  color: #fff;
+  z-index: 100;
+  transition: top 0.3s;
+}
+
+/* Show on focus */
+.skip-link:focus {
+  top: 0;
+}
+```
+
+## Framework Examples
+
+### React/Next.js
+
+```tsx
+export function SkipLink() {
+  return (
+    <a
+      href="#main-content"
+      className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-white focus:text-black"
+    >
+      Skip to main content
+    </a>
+  )
+}
+
+// In layout
+export default function Layout({ children }) {
+  return (
+    <>
+      <SkipLink />
+      <Header />
+      <main id="main-content" tabIndex={-1}>
+        {children}
+      </main>
+    </>
+  )
+}
+```
+
+## Exceptions
+
+- Temporary or intentionally inert UI can be removed from the focus order, but only when the same state is also communicated clearly to assistive technology users.
+- A focus-management issue should be evaluated in the rendered interaction, not only from static markup, because route changes, overlays, and JS timing can change the real behavior.
+- If a component is both unlabeled and focus-broken, fix the stronger user-facing orientation problem first rather than reporting multiple secondary symptoms.
+
+## Verification
+
+### Automated Checks
+
+- Use browser accessibility tooling, axe, Lighthouse, or equivalent automated checks against a representative rendered state.
+
+### Manual Checks
+
+- Load the page and press Tab once
+- Skip link should become visible
+- Press Enter to activate
+- Focus should move to main content
+- Screen reader should announce the main content region

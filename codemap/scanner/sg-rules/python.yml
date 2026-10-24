@@ -1,0 +1,11 @@
+id: py-imports
+language: python
+rule:
+  any:
+    - pattern: import $PATH
+    - pattern: from $PATH import $$$_
+---
+id: py-functions
+language: python
+rule:
+  kind: function_definition

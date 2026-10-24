@@ -1,0 +1,216 @@
+---
+title: Test on real mobile devices and viewports
+description: >-
+  Verify your application on real mobile devices and browser DevTools device
+  emulation to catch touch interaction issues, viewport bugs, and
+  mobile-specific rendering problems.
+categories:
+  - testing
+subcategory: mobile
+priority: high
+difficulty: intermediate
+estimatedTime: 20
+tldr:
+  - >-
+    Desktop DevTools device emulation catches layout issues but not real touch
+    behavior
+  - Test on at least one Android (Chrome) and one iOS (Safari) real device
+  - >-
+    Test common viewport breakpoints: 375px (iPhone SE), 390px (iPhone 14),
+    768px (iPad)
+  - Use BrowserStack or similar services for testing on devices you don't own
+whyItMatters: >-
+  More than 55% of global web traffic comes from mobile devices. Mobile browsers
+  have different rendering engines, different font rendering, limited memory,
+  real touch events that differ from mouse events, and system UI (notch, home
+  indicator, keyboard) that intrudes on your layout. Issues like sticky hover
+  states, touch target sizes, and keyboard layout shifts only appear on real
+  devices.
+relatedRules:
+  - slug: touch-targets
+    reason: Tap target minimum sizes are a core mobile testing concern
+  - slug: viewport-zoom
+    reason: Mobile viewport zoom behavior is best verified on a real device
+  - slug: cross-browser-testing
+    reason: >-
+      Mobile testing is a subset of cross-browser testing, with its own specific
+      concerns
+  - slug: mutation-testing
+    reason: Both rules affect testing quality and are commonly reviewed together.
+tools:
+  - name: BrowserStack (real device cloud)
+    url: 'https://www.browserstack.com'
+  - name: Playwright mobile emulation
+    url: 'https://playwright.dev/docs/emulation'
+  - name: Chrome DevTools device toolbar
+    url: 'https://developer.chrome.com/docs/devtools/device-mode'
+prompts:
+  check: >-
+    Does this project have any mobile-specific test configurations? Check for
+    Playwright device emulation, mobile viewport tests, or notes about mobile
+    testing.
+  fix: >-
+    Add Playwright tests using mobile device presets to cover key user flows on
+    mobile viewports.
+  explain: >-
+    Explain the difference between DevTools emulation and real device testing,
+    common mobile-specific issues to test for, and how to use Playwright's
+    device emulation.
+  codeReview: >-
+    Review tests, CI workflows, and enforcement points related to Test on real
+    mobile devices and viewports. Flag exact gaps where the rule is not
+    automatically verified or where failures do not block regressions.
+aiContext: >-
+  Use when reviewing CI coverage, automated checks, or test strategy related to
+  Test on real mobile devices and viewports. Focus on whether the rule is
+  continuously verified, not just documented.
+sources:
+  - title: Playwright Docs
+    url: 'https://playwright.dev/docs/intro'
+    type: guide
+    id: playwright-docs
+    role: reference
+    authority: primary
+  - title: Testing Library Guiding Principles
+    url: 'https://testing-library.com/docs/guiding-principles'
+    type: guide
+    id: testing-library-guiding-principles
+    role: implementation
+    authority: primary
+---
+Mobile testing catches an entire class of issues that are invisible on desktop browsers.
+
+## Code Examples
+
+```javascript
+// playwright.config.js
+import { defineConfig, devices } from '@playwright/test'
+
+export default defineConfig({
+  projects: [
+    // Desktop
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+
+    // Mobile
+    {
+      name: 'Mobile Chrome',
+      use: { ...devices['Pixel 7'] },
+    },
+    {
+      name: 'Mobile Safari',
+      use: { ...devices['iPhone 14'] },
+    },
+    {
+      name: 'Tablet',
+      use: { ...devices['iPad Pro 11'] },
+    }
+  ]
+})
+```
+
+```javascript
+// tests/mobile/navigation.spec.js
+import { test, expect, devices } from '@playwright/test'
+
+test.use({ ...devices['iPhone 14'] })
+
+test('mobile navigation opens and closes', async ({ page }) => {
+  await page.goto('/')
+
+  // Mobile menu should be closed initially
+  await expect(page.locator('[data-mobile-menu]')).not.toBeVisible()
+
+  // Open mobile menu
+  await page.locator('[data-hamburger]').tap() // Use tap, not click
+  await expect(page.locator('[data-mobile-menu]')).toBeVisible()
+
+  // Close with X button
+  await page.locator('[data-menu-close]').tap()
+  await expect(page.locator('[data-mobile-menu]')).not.toBeVisible()
+})
+
+test('checkout form works on mobile keyboard', async ({ page }) => {
+  await page.goto('/checkout')
+
+  // Test that virtual keyboard doesn't cover the active input
+  const emailInput = page.locator('#email')
+  await emailInput.tap()
+
+  // Scroll the page to verify the input is in view when keyboard opens
+  await expect(emailInput).toBeInViewport()
+})
+```
+
+## Why It Matters
+
+More than 55% of global web traffic comes from mobile devices. Mobile browsers have different rendering engines, different font rendering, limited memory, real touch events that differ from mouse events, and system UI (notch, home indicator, keyboard) that intrudes on your layout. Issues like sticky hover states, touch target sizes, and keyboard layout shifts only appear on real devices.
+
+## Mobile-Specific Issues to Test
+
+```
+Layout and viewport:
+✓ No horizontal scroll on any viewport width
+✓ Content doesn't overflow on 375px viewport
+✓ Notch/safe-area-inset doesn't hide content
+✓ Virtual keyboard doesn't cover active inputs
+
+Touch interactions:
+✓ Tap targets are at least 44x44px
+✓ No hover-dependent functionality (hover doesn't persist on touch)
+✓ Swipe gestures work on carousels and drawers
+✓ Pinch-to-zoom works (unless disabled intentionally)
+
+Forms:
+✓ Correct keyboard type appears for each input (numeric, email, etc.)
+✓ Autocomplete suggestions appear
+✓ Form doesn't jump when keyboard opens/closes
+
+Performance:
+✓ App is usable on throttled 3G
+✓ No excessive memory usage during scroll
+✓ Animations run at 60fps
+```
+
+## Chrome DevTools Quick Checks
+
+```javascript
+// Test responsive breakpoints programmatically
+const viewports = [
+  { width: 375, height: 667, name: 'iPhone SE' },
+  { width: 390, height: 844, name: 'iPhone 14' },
+  { width: 430, height: 932, name: 'iPhone 14 Plus' },
+  { width: 768, height: 1024, name: 'iPad Mini' },
+  { width: 1024, height: 1366, name: 'iPad Pro' }
+]
+
+for (const viewport of viewports) {
+  test(`layout correct on ${viewport.name}`, async ({ page }) => {
+    await page.setViewportSize(viewport)
+    await page.goto('/')
+
+    // Check no horizontal scroll
+    const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth)
+    const clientWidth = await page.evaluate(() => document.documentElement.clientWidth)
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth)
+  })
+}
+```
+
+## Real Device Testing Priority
+
+1. **iOS Safari** (unique rendering engine, unique bugs)
+2. **Android Chrome** (most common Android browser)
+3. **Chrome DevTools emulation** (fast, covers layout basics)
+4. **Samsung Internet** (if your audience uses Samsung devices)
+
+## Verification
+
+### Automated Checks
+
+- Run the relevant test or CI step locally and confirm it fails when the rule is violated.
+
+### Manual Checks
+
+- Ensure the automation blocks regressions instead of only printing warnings.
+- Cover at least one representative high-risk flow, component, or route.
+- Keep thresholds or assertions in version control so changes remain reviewable.

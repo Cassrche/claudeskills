@@ -1,0 +1,208 @@
+---
+title: Use hyphens in URLs
+description: >-
+  Checks that URL slugs use hyphens as word separators, not underscores or
+  spaces
+categories:
+  - seo
+subcategory: technical
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - >-
+    Use hyphens (`-`) to separate words in URLs — Google treats hyphens as word
+    separators, underscores as part of the word
+  - >-
+    `/best-seo-practices` is better than `/best_seo_practices` or
+    `/bestseopractices`
+  - >-
+    Changing existing URLs from underscores to hyphens requires 301 redirects to
+    preserve link equity
+whyItMatters: >-
+  Google's search systems interpret hyphens in URLs as word boundaries, enabling
+  it to match the URL against individual keyword queries. Underscores join words
+  into a single token, meaning `/seo_practices` is seen as one word
+  'seopractices' rather than two separate words 'seo' and 'practices'.
+aiContext: >-
+  Use when auditing URL structures for word separator format, generating slugs
+  from titles, or planning a URL migration from underscores or spaces to hyphens
+  with appropriate redirects.
+prompts:
+  check: >-
+    Inspect the URL path segment of each page. Flag any URL that contains: (1)
+    Underscores (`_`) as word separators (e.g., `/best_practices`). (2) Spaces
+    encoded as `%20` or `+` in path segments. (3) Mixed separators in the same
+    URL (e.g., `/best-practices_guide`). Report the count of non-hyphenated URLs
+    by category.
+  fix: >
+    1. Identify all pages with underscores or spaces in URL path segments.
+
+    2. Generate the hyphenated equivalent: replace `_` with `-`, spaces/`%20`
+    with `-`.
+
+    3. Set up 301 permanent redirects from the old URLs to the new hyphenated
+    URLs.
+
+    4. Update internal links throughout the site to point to the new URLs.
+
+    5. Submit the new URLs to Google Search Console for re-indexing.
+
+    6. Update your sitemap.xml to include only the new hyphenated URLs.
+
+    7. In your CMS or slug-generation function, enforce hyphens going forward:
+       - Slug: title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+  explain: >-
+    Google's John Mueller has confirmed that Google interprets hyphens as word
+    separators in URLs, but treats underscores as word joiners. This means a URL
+    with underscores matches fewer individual keyword queries. For example,
+    `/web_design` would match 'web_design' as a single token, while
+    `/web-design` matches both 'web design' and 'webdesign' queries.
+  codeReview: >-
+    Parse all URL paths used in the application's router or CMS slug fields.
+    Flag any path segment containing `_` characters between words or any `%20`
+    space encoding. Verify slug-generation utilities produce lowercase
+    hyphenated output. Check redirect rules to confirm old underscore URLs are
+    permanently (301) redirected to their hyphenated equivalents.
+relatedRules:
+  - slug: lowercase
+    reason: URL lowercase is the same category of URL formatting best practices
+  - slug: length
+    reason: Concise URLs and hyphenated URLs are both URL quality signals
+  - slug: redirect-chains
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: stop-words
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+resources:
+  - title: 'Google Search Central: URL structure best practices'
+    url: 'https://developers.google.com/search/docs/crawling-indexing/url-structure'
+    type: guide
+  - title: 'Google Search Central: Keep a simple URL structure'
+    url: >-
+      https://developers.google.com/search/docs/crawling-indexing/url-structure#simple
+    type: guide
+sources:
+  - title: 'Google Search Central: URL structure'
+    url: 'https://developers.google.com/search/docs/crawling-indexing/url-structure'
+    type: guide
+    id: google-search-central-url-structure
+    role: search
+    authority: primary
+  - title: 'Google for Developers: Hyphens vs underscores (Matt Cutts video summary)'
+    url: 'https://developer.mozilla.org/en-US/docs/Learn/Common_questions/Web_mechanics/What_is_a_URL'
+    type: guide
+    id: google-for-developers-hyphens-vs-underscores-matt-cutts-video-summary
+    role: implementation
+    authority: primary
+---
+Google explicitly recommends hyphens over underscores as word separators in URLs. This is because Google's tokeniser treats hyphens as word breaks and underscores as word joiners.
+
+## Code Examples
+
+#
+
+## ❌ Avoid — underscores in URL slugs
+
+```
+/blog/seo_best_practices
+/products/product_name_here
+/docs/api_reference_guide
+```
+
+### ❌ Avoid — spaces or encoded spaces
+
+```
+/blog/seo best practices        (invalid)
+/blog/seo%20best%20practices    (browsers handle but not ideal)
+/blog/seo+best+practices        (query string convention, not path)
+```
+
+### ✅ Correct — hyphens throughout
+
+```
+/blog/seo-best-practices
+/products/product-name-here
+/docs/api-reference-guide
+```
+
+### ✅ Slug generation function
+
+```js
+function toSlug(title) {
+  return title
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')   // Remove special characters
+    .replace(/[\s_]+/g, '-')    // Replace spaces and underscores with hyphens
+    .replace(/^-+|-+$/g, '')    // Remove leading/trailing hyphens
+}
+
+toSlug('SEO Best Practices (2024)') // → 'seo-best-practices-2024'
+toSlug('API_Reference_Guide')       // → 'api-reference-guide'
+```
+
+### ✅ 301 redirect for underscore to hyphen migration
+
+```nginx
+# Nginx: redirect underscore URLs to hyphenated equivalents
+rewrite ^/blog/(.*)_(.*)$ /blog/$1-$2 permanent;
+
+# Or use a more general map approach
+map $uri $new_uri {
+  ~/blog/seo_best_practices  /blog/seo-best-practices;
+}
+```
+
+```js
+// Next.js: redirects in next.config.js
+module.exports = {
+  async redirects() {
+    return [
+      {
+        source: '/blog/seo_best_practices',
+        destination: '/blog/seo-best-practices',
+        permanent: true,
+      },
+    ]
+  },
+}
+```
+
+## Why It Matters
+
+- **Keyword matching**: `/best-seo-practices` matches queries for "best seo practices", "seo practices", and "best practices". `/best_seo_practices` matches only "best_seo_practices" as a compound token.
+- **Readability**: Hyphenated URLs are easier to read, copy, and share, which affects click-through rates.
+- **Consistency**: Mixing separators (some with hyphens, some with underscores) creates duplicate content risk.
+
+## Migration Checklist
+
+When migrating from underscores to hyphens:
+1. Export all current underscore URLs from your sitemap or crawl
+2. Generate the hyphenated equivalents
+3. Implement 301 redirects for each old URL
+4. Update all internal links to use the new URLs
+5. Update the sitemap.xml
+6. Request re-indexing in Google Search Console
+7. Monitor for 404s in Search Console for 3–4 weeks post-migration
+
+## Exceptions
+
+- Necessary utility or compliance pages can be intentionally brief and should not be judged by the same editorial-depth expectations as ranking-focused content.
+- AI-assisted drafting is not a failure by itself; flag unsupported claims, missing editorial review, or low-originality output instead.
+- When a page has both trust-signal issues and crawl/index problems, make the page eligible to rank first and then improve the content quality signals.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

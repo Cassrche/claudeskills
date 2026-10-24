@@ -1,0 +1,205 @@
+---
+title: Publish high-quality content
+description: LLM-based content quality analysis for SEO
+categories:
+  - seo
+subcategory: content
+priority: high
+difficulty: intermediate
+estimatedTime: 30
+tldr:
+  - >-
+    Content quality is Google's primary ranking differentiator—E-E-A-T applies
+    to every page
+  - >-
+    Thin content (low word count, generic text) is a leading cause of ranking
+    loss
+  - Each page must have a clear primary purpose and fully satisfy user intent
+  - >-
+    First-hand experience, expert authorship, and cited sources raise quality
+    signals
+whyItMatters: >-
+  Google's Search Quality Rater Guidelines and Helpful Content system reward
+  pages that demonstrate genuine expertise and fully satisfy user
+  intent—low-quality pages are algorithmically suppressed site-wide.
+aiContext: >-
+  Use when evaluating content pages for SEO quality. Applies to blog posts,
+  product descriptions, landing pages, or any page expected to receive organic
+  search traffic.
+prompts:
+  check: >-
+    Evaluate this page's content for E-E-A-T signals: Does it demonstrate
+    first-hand experience or expertise? Does it fully answer the apparent search
+    intent? Is the information accurate, specific, and supported by evidence? Is
+    there meaningful depth beyond what competitors cover? Identify specific
+    quality gaps.
+  fix: >-
+    Identify the primary search intent for this page. Rewrite or expand the
+    content to: (1) fully satisfy that intent, (2) add specific details,
+    examples, or data not found on competing pages, (3) attribute claims to
+    authoritative sources, (4) add author byline with relevant credentials, (5)
+    update any outdated information.
+  explain: >-
+    Google's ranking systems are designed to surface content that demonstrates
+    Experience, Expertise, Authoritativeness, and Trustworthiness (E-E-A-T).
+    Content that is generic, lacks depth, or does not fully answer user
+    questions is classified as 'unhelpful' and deprioritised in rankings.
+    High-quality content is the most durable long-term SEO investment.
+  codeReview: >-
+    Analyse the page content for quality signals: (1) Word count — is the topic
+    covered in appropriate depth? (2) Specificity — are claims backed by data or
+    examples? (3) Authorship — is a named author with credentials visible? (4)
+    Freshness — does the page show a publication or updated date? (5) Sources —
+    are external authoritative sources cited? (6) Originality — does the content
+    offer unique insights not found on competing pages?
+relatedRules:
+  - slug: reading-level
+    reason: Readability is part of content quality
+  - slug: llm-parsability
+    reason: Well-structured content improves both quality signals and LLM extraction
+  - slug: author-info
+    reason: Author information is a key E-E-A-T signal
+  - slug: word-count
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+resources:
+  - title: Google Search Quality Rater Guidelines
+    url: >-
+      https://static.googleusercontent.com/media/guidelines.raterhub.com/en//searchqualityevaluatorguidelines.pdf
+    type: guide
+  - title: Hemingway App — readability tool
+    url: 'https://hemingwayapp.com'
+    type: other
+sources:
+  - title: 'Google Search Central: Creating helpful, reliable, people-first content'
+    url: >-
+      https://developers.google.com/search/docs/fundamentals/creating-helpful-content
+    type: guide
+    id: google-search-central-creating-helpful-reliable-people-first-content
+    role: search
+    authority: primary
+  - title: 'Google: Search Quality Rater Guidelines'
+    url: >-
+      https://static.googleusercontent.com/media/guidelines.raterhub.com/en//searchqualityevaluatorguidelines.pdf
+    type: guide
+    id: google-search-quality-rater-guidelines
+    role: implementation
+    authority: primary
+  - title: 'Google Search Central: What is E-E-A-T'
+    url: >-
+      https://developers.google.com/search/blog/2022/12/google-raters-guidelines-e-e-a-t
+    type: guide
+    id: google-search-central-what-is-e-e-a-t
+    role: search
+    authority: primary
+---
+Content quality is the most significant long-term SEO factor. [Google's people-first content guidance](https://developers.google.com/search/docs/fundamentals/creating-helpful-content) evaluates whether pages provide genuine value to users, and low-quality content can suppress an entire site's rankings.
+
+## Code Example
+
+#
+
+## Primary Intent
+- [ ] The page clearly answers the most common search query that would bring a user here
+- [ ] The content goes beyond the question to satisfy related follow-up needs
+- [ ] The page doesn't leave users needing to visit other sites to complete their task
+
+### Depth and Accuracy
+- [ ] Claims are specific, not generic ("Research shows..." without citation = weak)
+- [ ] Data and statistics are cited with sources and dates
+- [ ] Common misconceptions in the topic are addressed
+- [ ] Instructions, if any, are complete and actionable
+
+### Authorship and Trust
+- [ ] A named author with relevant credentials is identified
+- [ ] Publication and last-updated dates are visible
+- [ ] Sources and references are linked
+
+### Thin Content Red Flags
+
+```
+❌ Word count under 300 words for informational pages
+❌ Content that could apply to any business ("We deliver quality service")
+❌ Automatically generated or templated text with variable substitution
+❌ Content copied or paraphrased from a single source
+❌ Multiple pages covering the same topic with slight variations
+```
+
+## Why It Matters
+
+Google's Search Quality Rater Guidelines and Helpful Content system reward pages that demonstrate genuine expertise and fully satisfy user intent—low-quality pages are algorithmically suppressed site-wide.
+
+## E-E-A-T Framework
+
+Google evaluates content quality using four dimensions:
+
+| Dimension | Meaning | Signals |
+|-----------|---------|---------|
+| **Experience** | First-hand, real-world engagement with the topic | Personal stories, original photos, case studies |
+| **Expertise** | Knowledge and skill in the subject matter | Credentials, depth of coverage, accuracy |
+| **Authoritativeness** | Recognition as a go-to source | Backlinks, mentions, author reputation |
+| **Trustworthiness** | Honesty and transparency | Sources cited, corrections policy, accurate claims |
+
+## Improving Low-Quality Content
+
+### Before (thin):
+```
+Sourdough Bread
+
+Sourdough bread is a type of bread made with a fermentation process.
+It has a distinctive sour taste. Many people enjoy sourdough bread.
+```
+
+### After (quality):
+```
+How to Make Sourdough Bread: A Complete Guide
+
+Sourdough is leavened by wild yeast and lactic acid bacteria cultured
+in a starter — a mixture of flour and water you feed daily. The
+fermentation process typically takes 12–18 hours at room temperature,
+producing bread with a tangy flavor, chewy crumb, and blistered crust.
+
+This guide covers building a starter from scratch, hydration ratios,
+bulk fermentation, shaping, and baking in a Dutch oven. I've been
+baking sourdough for six years and tested each of these methods.
+```
+
+## Helpful Content Self-Assessment
+
+Per [Google's people-first content guidance](https://developers.google.com/search/docs/fundamentals/creating-helpful-content), ask:
+1. Does this content provide original information, research, reporting, or analysis?
+2. Does it provide a substantial, complete, or comprehensive description of the topic?
+3. Does it provide insightful analysis or interesting information beyond the obvious?
+4. Would you be comfortable having created this content?
+5. Is the content primarily created to attract search engine visits, or does it genuinely help people?
+
+If the answer to any of questions 1–4 is "no," the content needs improvement.
+
+<Warning title="Site-wide quality signals">
+Google's Helpful Content system applies quality signals at the site level, not just the page level. A large proportion of low-quality content on your site can suppress rankings for your best pages too.
+</Warning>
+
+## Exceptions
+
+- Necessary utility or compliance pages can be intentionally brief and should not be judged by the same editorial-depth expectations as ranking-focused content.
+- AI-assisted drafting is not a failure by itself; flag unsupported claims, missing editorial review, or low-originality output instead.
+- When a page has both trust-signal issues and crawl/index problems, make the page eligible to rank first and then improve the content quality signals.
+
+## Standards
+
+- Use these references as the standard for the final search-facing HTML, metadata, and crawl behavior.
+- Check the implementation against Google Search Central: Creating helpful, reliable, people-first content before treating the rule as satisfied.
+- Check the implementation against Google: Search Quality Rater Guidelines before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

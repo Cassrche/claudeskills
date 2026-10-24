@@ -1,0 +1,213 @@
+---
+title: 'Set X-Content-Type-Options: nosniff'
+description: >-
+  The X-Content-Type-Options: nosniff header prevents browsers from
+  MIME-sniffing a response away from the declared Content-Type, blocking a class
+  of drive-by download and XSS attacks.
+categories:
+  - security
+subcategory: headers
+priority: high
+difficulty: beginner
+estimatedTime: 5
+tldr:
+  - >-
+    Set `X-Content-Type-Options: nosniff` on all responses — the only valid
+    value is `nosniff`
+  - >-
+    Without this header, browsers may execute a JavaScript file disguised as an
+    image if the server serves it with the wrong MIME type
+  - >-
+    This header is required by OWASP's security hardening checklist and the
+    Fetch specification
+  - >-
+    Pair with correct `Content-Type` headers on all responses for defense in
+    depth
+  - Takes 5 minutes to configure and has no compatibility issues
+whyItMatters: >-
+  Browsers that MIME-sniff can be tricked into executing malicious JavaScript
+  uploaded as an image — even if the server sends `Content-Type: image/png`.
+  `nosniff` forces the browser to honor the declared type.
+aiContext: >-
+  Use when auditing HTTP response headers on any web server or CDN for security
+  hardening.
+prompts:
+  check: >-
+    Check whether the server sends an X-Content-Type-Options: nosniff header on
+    responses. Verify the header is present on HTML pages, scripts, stylesheets,
+    and API responses.
+  fix: >-
+    Add X-Content-Type-Options: nosniff to all HTTP responses. Configure it at
+    the web server level (Nginx, Apache) or in your application framework, and
+    verify with curl -I https://example.com.
+  explain: >-
+    Explain what MIME type sniffing is, how it can be exploited to execute
+    malicious files, and how X-Content-Type-Options: nosniff prevents this
+    attack.
+  codeReview: >-
+    Review server config, headers, forms, and integration points related to Set
+    X-Content-Type-Options: nosniff. Flag exact responses, cookies, or browser
+    behaviors that violate the rule, and verify them against the effective
+    production-like response.
+sources:
+  - title: 'MDN: X-Content-Type-Options'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options
+    type: mdn
+    id: mdn-x-content-type-options
+    role: reference
+    authority: primary
+  - title: 'OWASP: Security Headers Cheat Sheet'
+    url: >-
+      https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html
+    type: owasp
+    id: owasp-security-headers-cheat-sheet
+    role: regulation
+    authority: primary
+  - title: 'Fetch Standard: MIME type sniffing'
+    url: >-
+      https://fetch.spec.whatwg.org/#should-response-to-request-be-blocked-due-to-mime-type
+    type: spec
+    id: fetch-standard-mime-type-sniffing
+    role: standard
+    authority: primary
+resources:
+  - name: Mozilla Observatory
+    url: 'https://observatory.mozilla.org/'
+    type: tool
+relatedRules:
+  - slug: content-security-policy
+    reason: >-
+      Both rules sit in the `security/headers` area and are commonly reviewed
+      together.
+  - slug: hsts
+    reason: >-
+      Both rules sit in the `security/headers` area and are commonly reviewed
+      together.
+  - slug: x-frame-options
+    reason: >-
+      Both rules sit in the `security/headers` area and are commonly reviewed
+      together.
+  - slug: content-security-policy
+    reason: >-
+      Both rules sit in the `security/headers` area and are commonly reviewed
+      together.
+---
+[`X-Content-Type-Options: nosniff`](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options) is a simple, one-line security header that prevents browsers from interpreting files differently from the `Content-Type` declared by the server.
+## Code Example
+
+```http
+X-Content-Type-Options: nosniff
+```
+
+The only valid value is `nosniff`. There are no other directives.
+
+#
+
+## Effect on Different Response Types
+
+| Response | Effect of `nosniff` |
+|----------|---------------------|
+| `Content-Type: text/html` | Processed as HTML |
+| `Content-Type: image/png` | Processed as image — never as script |
+| `Content-Type: application/json` | Blocked from being loaded as a script tag |
+| Script with wrong MIME type | Blocked — not executed |
+| Stylesheet with wrong MIME type | Blocked — not applied |
+
+## Why It Matters
+
+Browsers that MIME-sniff can be tricked into executing malicious JavaScript uploaded as an image — even if the server sends `Content-Type: image/png`. `nosniff` forces the browser to honor the declared type.
+
+## The MIME Sniffing Problem
+
+Early browsers implemented MIME sniffing to work around misconfigured servers that served HTML files with incorrect `Content-Type` headers. An attacker can exploit this behavior:
+
+1. User uploads a file named `photo.png` containing `<script>alert(1)</script>`
+2. Server stores it and serves it with `Content-Type: image/png`
+3. Without `nosniff`, Internet Explorer (and older browsers) may sniff the content, identify it as HTML/JavaScript, and execute it
+4. Script runs in the context of your domain — full XSS
+
+With `nosniff`, the browser strictly enforces the declared `Content-Type` and refuses to execute the file as script, which lines up with the [Fetch standard's MIME-type blocking rules](https://fetch.spec.whatwg.org/#should-response-to-request-be-blocked-due-to-mime-type) and [OWASP's security-header baseline](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html).
+
+## Server Configuration
+
+### Nginx
+
+```nginx
+# Add to http {}, server {}, or location {} block
+add_header X-Content-Type-Options "nosniff" always;
+```
+
+### Apache
+
+```apache
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+</IfModule>
+```
+
+### Next.js
+
+```javascript
+// next.config.js
+const nextConfig = {
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+        ],
+      },
+    ]
+  },
+}
+```
+
+### Express.js (using Helmet)
+
+```javascript
+import helmet from 'helmet'
+
+// noSniff is enabled by default in Helmet
+app.use(helmet())
+
+// Or explicitly:
+app.use(helmet.noSniff())
+```
+
+## Complete Security Headers Bundle
+
+`X-Content-Type-Options` is typically deployed alongside other hardening headers:
+
+```nginx
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-Frame-Options "DENY" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+```
+
+## Exceptions
+
+- A missing or weak header should be evaluated against the live production response path, not only the framework or server config in isolation.
+- Legacy integrations or embedded third-party content may require narrowly scoped exceptions, but they should be documented explicitly instead of left permissive by default.
+- When multiple security headers are missing, prioritize the header that removes the highest exploitability or browser capability first.
+
+## Support Notes
+
+- Older browsers may ignore `X-Content-Type-Options`, so correct `Content-Type` headers and safe file handling remain the primary defense.
+- Verify the effective header on the final response path, including static assets and CDN-served files.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the effective response headers with curl, a security header scanner, or equivalent tooling against representative live responses.
+
+### Manual Checks
+
+- Verify the browser or user-facing behavior manually in a production-like flow and confirm there is no stronger conflicting security signal.

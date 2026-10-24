@@ -1,0 +1,27 @@
+{
+  "name": "@frontendchecklist/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone CLI to audit a URL against Front-End Checklist rules",
+  "type": "module",
+  "bin": {
+    "frontendchecklist": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@repo/config": "workspace:*",
+    "@repo/mcp": "workspace:*",
+    "@repo/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@repo/config-typescript": "workspace:^",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

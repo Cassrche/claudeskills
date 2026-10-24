@@ -1,0 +1,190 @@
+---
+title: Display a physical business address
+description: Checks for visible physical address information
+categories:
+  - seo
+subcategory: local-seo
+priority: medium
+difficulty: beginner
+estimatedTime: 10
+tldr:
+  - Display a complete physical address on the contact page and footer
+  - Mark up the address with LocalBusiness schema or HTML microdata
+  - Consistent address format builds trust and supports local SEO
+  - Use <address> HTML element for semantic correctness
+whyItMatters: >-
+  A visible physical address builds user trust (especially for e-commerce and
+  YMYL sites), supports local SEO rankings, and is a requirement for compliance
+  in many jurisdictions.
+aiContext: >-
+  Use when auditing local business websites, e-commerce sites, or any site where
+  a physical presence affects trust or local search visibility.
+prompts:
+  check: >-
+    Check the contact page and footer for a visible physical address. Verify the
+    address is complete (street, city, state/region, postal code, country).
+    Check whether the address uses the <address> HTML element and whether it is
+    backed by LocalBusiness or PostalAddress schema markup.
+  fix: >-
+    Add the complete physical address to the footer and contact page. Wrap it in
+    an <address> HTML element. Ensure the address exactly matches the address in
+    your LocalBusiness JSON-LD schema and your Google Business Profile.
+  explain: >-
+    Displaying a physical address confirms to users and search engines that a
+    business exists at a real location. For local SEO, the on-page address must
+    match the address in Google Business Profile and LocalBusiness schema —
+    inconsistencies reduce Google's confidence in the data and suppress local
+    rankings.
+  codeReview: >-
+    Check the contact page and footer for visible address text. Verify the
+    address includes: street number and name, city, state/region, postal code,
+    and country. Check for <address> HTML element semantic wrapper.
+    Cross-reference the visible address against any LocalBusiness JSON-LD schema
+    address fields — they must match exactly. Flag if no address is found on
+    either contact page or footer.
+relatedRules:
+  - slug: nap-consistency
+    reason: Physical address must be consistent across all site locations
+  - slug: local-business
+    reason: >-
+      LocalBusiness schema is the structured data companion to the visible
+      address
+  - slug: contact-page
+    reason: Contact page is the primary location for physical address display
+  - slug: service-area
+    reason: >-
+      Both rules sit in the `seo/local-seo` area and are commonly reviewed
+      together.
+resources:
+  - title: Google Business Profile
+    url: 'https://developers.google.com/my-business/content/location-data'
+    type: guide
+sources:
+  - title: 'Google Search Central: Local business structured data'
+    url: >-
+      https://developers.google.com/search/docs/appearance/structured-data/local-business
+    type: guide
+    id: google-search-central-local-business-structured-data
+    role: search
+    authority: primary
+  - title: 'MDN: The <address> element'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/address'
+    type: mdn
+    id: mdn-the-address-element
+    role: reference
+    authority: primary
+  - title: 'Schema.org: PostalAddress'
+    url: 'https://schema.org/PostalAddress'
+    type: spec
+    id: schema-org-postaladdress
+    role: standard
+    authority: primary
+---
+A physical address on your website serves multiple purposes: it establishes trust with users, satisfies legal disclosure requirements, and is a key signal for local SEO.
+
+## Code Examples
+
+```html
+<!-- ✅ Good: Complete address in <address> element -->
+<address>
+  <strong>Acme Corporation</strong><br />
+  123 Main Street, Suite 4<br />
+  Springfield, IL 62701<br />
+  United States<br />
+  <a href="tel:+15551234567">(555) 123-4567</a><br />
+  <a href="mailto:info@acme.com">info@acme.com</a>
+</address>
+```
+
+```html
+<!-- ❌ Bad: Address in generic div, no semantic markup -->
+<div class="footer-contact">
+  123 Main St. | Springfield | IL
+</div>
+```
+
+## Why It Matters
+
+A visible physical address builds user trust (especially for e-commerce and YMYL sites), supports local SEO rankings, and is a requirement for compliance in many jurisdictions.
+
+## Where to Display the Address
+
+| Location | Required? |
+|----------|----------|
+| Contact page | Yes |
+| Footer (every page) | Strongly recommended |
+| About page | Recommended |
+| LocalBusiness schema | Yes (structured data) |
+
+## With HTML Microdata
+
+```html
+<div itemscope itemtype="https://schema.org/LocalBusiness">
+  <span itemprop="name">Acme Corporation</span>
+  <address itemprop="address" itemscope itemtype="https://schema.org/PostalAddress">
+    <span itemprop="streetAddress">123 Main Street, Suite 4</span><br />
+    <span itemprop="addressLocality">Springfield</span>,
+    <span itemprop="addressRegion">IL</span>
+    <span itemprop="postalCode">62701</span><br />
+    <span itemprop="addressCountry">US</span>
+  </address>
+  <a itemprop="telephone" href="tel:+15551234567">(555) 123-4567</a>
+</div>
+```
+
+## JSON-LD (Preferred)
+
+```html
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": "Acme Corporation",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "123 Main Street, Suite 4",
+    "addressLocality": "Springfield",
+    "addressRegion": "IL",
+    "postalCode": "62701",
+    "addressCountry": "US"
+  },
+  "telephone": "+1-555-123-4567"
+}
+</script>
+```
+
+## Address Format Consistency
+
+The address displayed on the page must exactly match:
+1. Your Google Business Profile
+2. Your LocalBusiness JSON-LD schema
+3. Any other directory listings (Yelp, Yellow Pages, etc.)
+
+Even minor differences like `St.` vs `Street` reduce local SEO confidence.
+
+## Legal Requirements
+
+Many jurisdictions require websites to display a business address:
+- EU: Required under the e-Commerce Directive and various national laws
+- UK: Required under The Electronic Commerce Regulations 2002
+- US: Required for certain regulated industries and e-commerce
+
+Always display the registered business address, not a PO Box for these purposes.
+
+## Exceptions
+
+- Local SEO guidance only applies when the business actually serves a geographic area or has public location information relevant to searchers.
+- Service-area businesses may need service-area guidance instead of storefront-focused address markup or location-page patterns.
+- Do not invent addresses, business categories, or geographic claims to satisfy local SEO recommendations; accuracy overrides completeness.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

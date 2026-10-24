@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Default",
+  "compilerOptions": {
+    "declaration": true,
+    "declarationMap": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "ignoreDeprecations": "6.0",
+    "incremental": false,
+    "isolatedModules": true,
+    "lib": ["es2022", "DOM", "DOM.Iterable"],
+    "module": "NodeNext",
+    "moduleDetection": "force",
+    "moduleResolution": "NodeNext",
+    "rootDir": "../..",
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "types": ["node"],
+    "target": "ES2022",
+    "strictNullChecks": true,
+    "downlevelIteration": true,
+    "baseUrl": ".",
+    "paths": {
+      "@repo/*": ["../../packages/*/src", "../../configs/*"],
+      "@frontendchecklist/rules": ["../../packages/rules/src/index.ts"],
+      "@frontendchecklist/rules/*": ["../../packages/rules/src/*"]
+    }
+  }
+}

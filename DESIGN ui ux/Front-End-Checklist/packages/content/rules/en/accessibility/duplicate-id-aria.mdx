@@ -1,0 +1,129 @@
+---
+title: Use unique IDs for ARIA references
+description: >-
+  IDs referenced by ARIA attributes must be unique to ensure correct
+  accessibility relationships.
+categories:
+  - accessibility
+subcategory: aria
+priority: high
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - 'Ensure IDs referenced by ARIA attributes (e.g., aria-labelledby) are unique'
+  - Avoid duplicate IDs that lead to ambiguous accessibility relationships
+  - Verify that ARIA controls correctly target their intended elements
+whyItMatters: >-
+  When ARIA attributes point to duplicate IDs, assistive technologies may read
+  the wrong label or description, providing misleading information to the user.
+prompts:
+  check: >-
+    Identify elements where an ARIA attribute references an id that appears
+    multiple times in the DOM.
+  fix: >-
+    Ensure all elements referenced by ARIA attributes have unique IDs and update
+    the references accordingly.
+  explain: >-
+    Explain how unique IDs are essential for establishing reliable relationships
+    between ARIA attributes and their targets.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Use unique IDs
+    for ARIA references. Flag exact elements, roles, labels, focus behavior, or
+    keyboard interactions that violate the rule, and note how to verify the fix
+    with browser accessibility tooling or assistive tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Use unique IDs for ARIA references. Check native semantics
+  first, then inspect keyboard behavior, focus flow, accessible names, and
+  screen-reader output where relevant.
+sources:
+  - title: WAI-ARIA 1.2
+    url: 'https://www.w3.org/TR/wai-aria-1.2/'
+    type: spec
+    id: wai-aria-1-2
+    role: standard
+    authority: primary
+  - title: 'MDN: ARIA'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA'
+    type: mdn
+    id: mdn-aria
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: aria-tooltip-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-input-field-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-valid-attr-value
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-allowed-attr
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+---
+ARIA attributes like `aria-labelledby`, `aria-describedby`, and `aria-controls` rely on element IDs to create relationships. If these IDs are not unique, the relationships become ambiguous and unreliable.
+
+## Code Example
+
+```html
+<!-- ✅ Good: Unique IDs for ARIA mapping -->
+<h2 id="modal-title-1">Settings</h2>
+<div role="dialog" aria-labelledby="modal-title-1">...</div>
+
+<!-- ❌ Bad: Duplicate IDs referenced by ARIA -->
+<div id="desc">Standard shipping</div>
+<button aria-describedby="desc">Option A</button>
+
+<div id="desc">Express shipping</div>
+<button aria-describedby="desc">Option B</button> <!-- Error: Screen reader may only see the first "desc" -->
+```
+
+## Why It Matters
+
+- **Accurate Labeling**: Screen readers use these references to announce labels and descriptions. Duplicates cause the wrong text to be read.
+- **Dynamic Interaction**: `aria-controls` helps users understand which part of the page changes when they interact with a toggle or menu.
+- **Relationship Clarity**: Clear ID mapping ensures that users with disabilities receive the same contextual information as sighted users.
+
+## Best Practices
+
+✅ **Unique Reference IDs**: Ensure that every element used as a label or description source has a globally unique ID.
+✅ **Validation**: Use tools that specifically check the "Accessibility Tree" to ensure references are resolving correctly.
+✅ **Dynamic IDs**: If generating content dynamically, use a library or utility to ensure generated IDs are unique (e.g., `useId` in React).
+
+## Tools & Validation
+
+- [Axe-core Rule: duplicate-id-aria](https://dequeuniversity.com/rules/axe/4.7/duplicate-id-aria)
+- [Accessibility Insights for Web](https://accessibilityinsights.io/)
+
+## Exceptions
+
+- Prefer native HTML semantics over ARIA when both are possible; some apparent ARIA failures disappear when the underlying element is corrected.
+- A missing ARIA attribute is not automatically the strongest finding if the control is already semantically broken, unnamed, or keyboard-inaccessible.
+- Do not add ARIA only to satisfy the rule if the feature should instead be implemented with a native element or a simpler interaction pattern.
+
+## Standards
+
+- Align the implementation with WAI-ARIA 1.2 and verify the rendered experience, not only the source code.
+- Align the implementation with MDN: ARIA and verify the rendered experience, not only the source code.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

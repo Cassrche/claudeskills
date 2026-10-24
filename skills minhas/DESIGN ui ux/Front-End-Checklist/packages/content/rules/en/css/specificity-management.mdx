@@ -1,0 +1,183 @@
+---
+title: Keep CSS specificity low and flat
+description: >-
+  Write selectors at the lowest specificity that works, avoiding ID selectors
+  and deep nesting, so styles can be overridden cleanly without resorting to
+  !important.
+categories:
+  - css
+subcategory: best-practices
+priority: high
+difficulty: intermediate
+estimatedTime: 20
+tldr:
+  - Prefer class selectors over ID selectors for styling
+  - Avoid nesting selectors more than 3 levels deep
+  - Never use !important except as a last resort for utility overrides
+  - 'Use :where() to apply styles with zero specificity'
+whyItMatters: >-
+  High specificity creates an escalation problem — once you use an ID selector,
+  you need another ID to override it. Developers respond with !important, which
+  escalates further. Flat, low-specificity CSS is predictable: later rules and
+  more-specific selectors win cleanly, and the cascade works as intended.
+relatedRules:
+  - slug: naming-conventions
+    reason: >-
+      BEM and other naming conventions are designed specifically to keep
+      specificity flat
+  - slug: styles-lint
+    reason: Stylelint can detect high-specificity selectors automatically
+  - slug: cascade-layers
+    reason: >-
+      Both rules sit in the `css/best-practices` area and are commonly reviewed
+      together.
+  - slug: has-selector
+    reason: >-
+      Both rules sit in the `css/best-practices` area and are commonly reviewed
+      together.
+tools:
+  - name: Specificity Calculator
+    url: 'https://specificity.keegan.st'
+  - name: Stylelint (max-nesting-depth)
+    url: 'https://stylelint.io/user-guide/rules/max-nesting-depth'
+prompts:
+  check: >-
+    Analyze the selectors in this CSS file for specificity issues: ID selectors
+    used for styling, overly nested selectors, and unnecessary !important.
+  fix: >-
+    Flatten high-specificity selectors to use classes instead of IDs, reduce
+    nesting depth, and remove unnecessary !important declarations.
+  explain: >-
+    Explain CSS specificity scoring, why high specificity causes maintenance
+    problems, and how to keep specificity flat using classes and BEM.
+  codeReview: >-
+    Review stylesheets, component styles, and responsive states related to Keep
+    CSS specificity low and flat. Flag exact selectors, declarations, or
+    breakpoints that violate the rule in the rendered UI.
+aiContext: >-
+  Use when reviewing stylesheets, component styles, and responsive behavior
+  related to Keep CSS specificity low and flat. Check the rendered layout across
+  breakpoints and interaction states before proposing a fix.
+sources:
+  - title: 'MDN: CSS'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/CSS'
+    type: mdn
+    id: mdn-css
+    role: reference
+    authority: primary
+  - title: 'web.dev: Learn CSS'
+    url: 'https://web.dev/learn/css'
+    type: guide
+    id: web-dev-learn-css
+    role: implementation
+    authority: primary
+---
+Specificity determines which CSS rule wins when multiple rules target the same element. Keeping it low and predictable prevents the escalation that leads to `!important` everywhere.
+
+## Code Example
+
+```
+Inline styles:          1,0,0,0  (always wins over stylesheets)
+ID selectors:           0,1,0,0  (#header)
+Class/pseudo-class:     0,0,1,0  (.button, :hover, :first-child)
+Element/pseudo-element: 0,0,0,1  (div, h1, ::before)
+Universal selector:     0,0,0,0  (*)
+```
+
+## Why It Matters
+
+High specificity creates an escalation problem — once you use an ID selector, you need another ID to override it. Developers respond with !important, which escalates further. Flat, low-specificity CSS is predictable: later rules and more-specific selectors win cleanly, and the cascade works as intended.
+
+## The Escalation Problem
+
+```css
+/* Step 1: Someone styles with an ID */
+#sidebar .nav-item { color: blue; }      /* Specificity: 0,1,1,0 */
+
+/* Step 2: Designer wants to override, needs higher specificity */
+#sidebar #main-nav .nav-item { color: red; } /* 0,2,1,0 */
+
+/* Step 3: Developer gives up and uses !important */
+.nav-item { color: green !important; }
+
+/* Step 4: Chaos */
+```
+
+## Low-Specificity Solutions
+
+```css
+/* ❌ High specificity — hard to override */
+#main-navigation .nav-list .nav-item .nav-link { color: blue; }
+
+/* ✅ Single class — easy to override, predictable */
+.nav-link { color: blue; }
+.nav-link--active { color: var(--color-primary); }
+```
+
+## :where() for Zero-Specificity Styles
+
+```css
+/* :where() has zero specificity — perfect for base/reset styles */
+:where(h1, h2, h3, h4) {
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* Any class rule will override it without specificity battle */
+.hero-title {
+  font-weight: 800; /* Wins over :where() regardless of order */
+}
+```
+
+## :is() for Flat Multi-Selectors
+
+```css
+/* ❌ Verbose and repetitive */
+header a,
+main a,
+footer a {
+  text-decoration: underline;
+}
+
+/* ✅ :is() matches the highest specificity of its arguments */
+:is(header, main, footer) a {
+  text-decoration: underline;
+}
+```
+
+## Nesting Depth
+
+```css
+/* ❌ 4-level nesting — specificity: 0,0,4,0 */
+.card .card__header .card__title span { font-size: 1.25rem; }
+
+/* ✅ Flat — specificity: 0,0,1,0 */
+.card__title-text { font-size: 1.25rem; }
+```
+
+## Utility Classes and !important
+
+```css
+/* The one valid use of !important: utility classes that must always win */
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+}
+
+.hidden { display: none !important; }
+```
+
+## Verification
+
+### Automated Checks
+
+- Confirm the computed styles match the intended fix in DevTools.
+- If the rule affects motion, contrast, or layout stability, verify those user-facing outcomes directly.
+
+### Manual Checks
+
+- Inspect the rendered UI at the breakpoints and interaction states affected by the rule.
+- Test at least one mobile and one desktop viewport before shipping.

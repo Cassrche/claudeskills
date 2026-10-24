@@ -1,0 +1,223 @@
+---
+title: 'Load scripts with defer, async, or type=module'
+description: >-
+  Prevent JavaScript from blocking HTML parsing by using defer, async, or
+  type=module attributes on script tags so the browser can continue building the
+  DOM while scripts download.
+categories:
+  - html
+subcategory: performance
+priority: high
+difficulty: beginner
+estimatedTime: 15
+tldr:
+  - >-
+    defer downloads in parallel and executes after HTML parsing, in order — use
+    for most scripts
+  - >-
+    async downloads in parallel and executes immediately when ready — use for
+    independent scripts
+  - type=module always defers and enables ES module syntax
+  - Never place scripts in <head> without defer or async
+whyItMatters: >-
+  A plain &lt;script&gt; tag in the document head blocks all HTML parsing until
+  the script downloads, parses, and executes. On a slow network this can add
+  seconds of white-screen time before any content renders. defer and async allow
+  the browser to continue parsing HTML while the script downloads, reducing Time
+  to First Contentful Paint dramatically.
+relatedRules:
+  - slug: resource-hints
+    reason: >-
+      Preloading key scripts and using defer/async work together for optimal
+      load order
+  - slug: es-modules
+    reason: type=module enables ES module syntax and implies defer behavior
+  - slug: offscreen-lazy
+    reason: >-
+      Both rules sit in the `html/performance` area and are commonly reviewed
+      together.
+tools:
+  - name: MDN Script loading strategies
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Learn/JavaScript/First_steps/What_is_JavaScript#script_loading_strategies
+prompts:
+  check: >-
+    Find all script tags in this HTML file. Flag any in the <head> without defer
+    or async, and any at the bottom of <body> that could be in <head> with
+    defer.
+  fix: >-
+    Add defer or async to script tags in the document head, or convert to
+    type=module where ES modules are used.
+  explain: >-
+    Explain the difference between defer, async, and type=module script loading,
+    and when to use each.
+  codeReview: >-
+    Review templates, server-rendered HTML, and shared components that output
+    markup related to Load scripts with defer, async, or type=module. Flag exact
+    elements, attributes, and routes where the rendered HTML violates the rule.
+aiContext: >-
+  Use when reviewing templates, rendered HTML, or shared components related to
+  Load scripts with defer, async, or type=module. Validate the final
+  browser-facing markup, not just the source framework abstraction.
+sources:
+  - title: 'MDN: <script> element'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/script'
+    type: mdn
+    id: mdn-script-element
+    role: reference
+    authority: primary
+  - title: 'web.dev: Speed up script loading'
+    url: 'https://web.dev/articles/speed-script-loading'
+    type: guide
+    id: web-dev-speed-up-script-loading
+    role: implementation
+    authority: primary
+  - title: WHATWG HTML Living Standard
+    url: 'https://html.spec.whatwg.org/'
+    type: spec
+    id: whatwg-html-living-standard
+    role: standard
+    authority: primary
+resources:
+  - name: Next.js Script component
+    url: 'https://nextjs.org/docs/app/api-reference/components/script'
+    type: reference
+---
+How you load JavaScript has a major impact on page rendering performance. The default `<script>` behavior blocks the HTML parser.
+
+## Code Example
+
+```
+HTML parsing: [====================================================]
+
+Plain <script src="app.js"> in <head>:
+HTML parsing: [====]  BLOCKED  [====================================]
+Download:          [=========]
+Execute:                      [=]
+
+async:
+HTML parsing: [========================]  [=========================]
+Download:     [=========]
+Execute:               [=]  ← interrupts parsing when ready
+
+defer:
+HTML parsing: [====================================================]
+Download:     [=========]
+Execute:                                                          [=]  ← after parsing
+
+type="module":
+Behaves like defer + enables import/export
+```
+
+## Why It Matters
+
+A plain &lt;script&gt; tag in the document head blocks all HTML parsing until the script downloads, parses, and executes. On a slow network this can add seconds of white-screen time before any content renders. defer and async allow the browser to continue parsing HTML while the script downloads, reducing Time to First Contentful Paint dramatically.
+
+## When to Use Each
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <!-- ✅ defer: order-dependent scripts, most application code -->
+  <!-- Executes in order, after DOM is ready -->
+  <script defer src="/vendor.js"></script>
+  <script defer src="/app.js"></script>
+
+  <!-- ✅ async: independent scripts that don't need DOM or other scripts -->
+  <!-- Analytics, chat widgets, social share buttons -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=GA_ID"></script>
+
+  <!-- ✅ type=module: ES modules, implies defer -->
+  <script type="module" src="/main.js"></script>
+
+  <!-- ❌ Bad: blocks parsing -->
+  <script src="/app.js"></script>
+</head>
+</html>
+```
+
+## Decision Guide
+
+```
+Does the script use import/export?
+  → type="module"
+
+Does the script depend on other scripts or the DOM?
+  → defer (executes in order after HTML is parsed)
+
+Is the script completely independent (analytics, widgets)?
+  → async (executes as soon as downloaded)
+
+Does the script need to run before DOM is ready (e.g., anti-flicker theme)?
+  → inline <script> in <head> (acceptable exception)
+```
+
+## Inline Critical Scripts
+
+```html
+<!-- Anti-flicker theme detection must run before paint — inline is correct here -->
+<head>
+  <script>
+    // Runs synchronously before render — necessary for theme
+    const theme = localStorage.getItem('theme') || 'light'
+    document.documentElement.setAttribute('data-theme', theme)
+  </script>
+
+  <!-- Then defer everything else -->
+  <script defer src="/app.js"></script>
+</head>
+```
+
+## module vs nomodule for Legacy Support
+
+```html
+<!-- Modern browsers load the module, legacy browsers load the nomodule -->
+<script type="module" src="/app.modern.js"></script>
+<script nomodule src="/app.legacy.js"></script>
+```
+
+## Framework Examples
+
+```tsx
+import Script from 'next/script'
+
+export function AnalyticsScripts() {
+  return (
+    <>
+      <Script
+        src="https://www.googletagmanager.com/gtag/js?id=GA_ID"
+        strategy="afterInteractive"
+      />
+      <Script id="theme-loader" strategy="beforeInteractive">
+        {`document.documentElement.dataset.theme = localStorage.getItem('theme') || 'light'`}
+      </Script>
+    </>
+  )
+}
+```
+
+```javascript
+button.addEventListener('click', async () => {
+  const { openConfigurator } = await import('./configurator.js')
+  openConfigurator()
+})
+```
+
+## Standards
+
+- Use MDN: HTML as the standard for the final rendered HTML and browser-facing behavior.
+- Use WHATWG HTML Living Standard as the standard for the final rendered HTML and browser-facing behavior.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the final rendered HTML in the browser or page source to confirm the rule is satisfied.
+- Validate the affected markup with browser tooling or an HTML validator where appropriate.
+- Test one representative route or template that uses the pattern.
+- Re-check shared components that emit the same markup so the fix is consistent.
+
+### Manual Checks
+
+- Verify the rendered browser behavior manually on representative routes and supported browsers so the user-facing outcome matches the rule.

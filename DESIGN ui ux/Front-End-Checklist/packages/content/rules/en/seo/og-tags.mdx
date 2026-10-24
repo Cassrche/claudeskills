@@ -1,0 +1,190 @@
+---
+title: Open Graph Tags
+description: Validates Open Graph meta tags for social sharing
+categories:
+  - seo
+subcategory: social
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - 'Include og:title, og:description, og:image, and og:url on every page'
+  - 'Use absolute URLs for og:image and og:url'
+  - 'og:image should be at least 1200×630 px for optimal display'
+  - >-
+    og:type defaults to 'website' if omitted, but setting it explicitly is best
+    practice
+whyItMatters: >-
+  Open Graph tags control how your pages appear when shared on Facebook,
+  LinkedIn, Slack, and other platforms—missing or incorrect tags result in
+  unappealing link previews that reduce click-through rates.
+aiContext: >-
+  Use when auditing a web page's social sharing metadata. Applies to any page
+  users might share on social networks or messaging apps.
+prompts:
+  check: >-
+    Check the <head> for Open Graph meta tags: og:title, og:description,
+    og:image, og:url, and og:type. Verify all values are non-empty and
+    og:image/og:url use absolute HTTPS URLs.
+  fix: >-
+    Add the four required Open Graph meta tags to the <head>: og:title (≤95
+    chars), og:description (≤200 chars), og:image (absolute HTTPS URL,
+    1200×630), og:url (canonical absolute URL). Add og:type='website' for
+    standard pages.
+  explain: >-
+    Open Graph tags control how this page is displayed when shared on social
+    platforms like Facebook, LinkedIn, and Slack. Without them, platforms fall
+    back to guessing the title, description, and image, often with poor results.
+  codeReview: >-
+    Check the rendered <head> for all five core OG properties: og:title,
+    og:description, og:image, og:url, og:type. Verify og:image and og:url values
+    start with 'https://'. Flag any empty content attributes. Compare og:url
+    against the canonical tag — they must match exactly.
+relatedRules:
+  - slug: og-image-size
+    reason: 'og:image must meet size requirements to display correctly on all platforms'
+  - slug: og-url-match
+    reason: 'og:url must match the canonical URL'
+  - slug: twitter-cards
+    reason: Twitter/X uses separate card tags alongside OG tags
+resources:
+  - title: Facebook Sharing Debugger
+    url: 'https://developers.facebook.com/tools/debug/'
+    type: guide
+  - title: LinkedIn Post Inspector
+    url: 'https://www.linkedin.com/post-inspector/'
+    type: guide
+sources:
+  - title: The Open Graph Protocol
+    url: 'https://ogp.me'
+    type: spec
+    id: the-open-graph-protocol
+    role: standard
+    authority: primary
+  - title: 'Open Graph Protocol: Basic metadata'
+    url: 'https://ogp.me/#metadata'
+    type: spec
+    id: open-graph-protocol-basic-metadata
+    role: implementation
+    authority: primary
+  - title: 'Google: Structured data for social'
+    url: >-
+      https://developers.google.com/search/docs/appearance/structured-data/article
+    type: guide
+    id: google-structured-data-for-social
+    role: search
+    authority: primary
+---
+Open Graph tags let social platforms and messaging apps construct rich link previews when a URL is shared. Without them, platforms guess—usually poorly.
+
+## Code Examples
+
+```html
+<!-- ✅ Good: All required tags present with absolute URLs -->
+<head>
+  <meta property="og:title" content="How to Bake Sourdough Bread" />
+  <meta property="og:description" content="A step-by-step guide to making sourdough bread at home, from starter to scoring." />
+  <meta property="og:image" content="https://example.com/images/sourdough-og.jpg" />
+  <meta property="og:url" content="https://example.com/blog/sourdough-bread" />
+  <meta property="og:type" content="article" />
+</head>
+```
+
+```html
+<!-- ❌ Bad: Missing og:image and og:url, relative path -->
+<head>
+  <meta property="og:title" content="Sourdough" />
+  <meta property="og:image" content="/images/bread.jpg" />
+</head>
+```
+
+## Why It Matters
+
+Open Graph tags control how your pages appear when shared on Facebook, LinkedIn, Slack, and other platforms—missing or incorrect tags result in unappealing link previews that reduce click-through rates.
+
+## Required Tags
+
+| Tag | Purpose | Max Length |
+|-----|---------|-----------|
+| `og:title` | Title shown in the card | ~95 characters |
+| `og:description` | Description shown in the card | ~200 characters |
+| `og:image` | Preview image (absolute URL) | — |
+| `og:url` | Canonical URL of the page | — |
+| `og:type` | Content type (`website`, `article`, etc.) | — |
+
+## Next.js Implementation
+
+```tsx
+// app/blog/[slug]/page.tsx
+import { Metadata } from 'next'
+
+export async function generateMetadata({ params }): Promise<Metadata> {
+  const post = await getPost(params.slug)
+  return {
+    openGraph: {
+      title: post.title,
+      description: post.excerpt,
+      url: `https://example.com/blog/${params.slug}`,
+      images: [
+        {
+          url: `https://example.com/og/${params.slug}.jpg`,
+          width: 1200,
+          height: 630,
+          alt: post.title,
+        },
+      ],
+      type: 'article',
+    },
+  }
+}
+```
+
+## Common Mistakes
+
+```html
+<!-- ❌ Bad: Relative image URL — won't work on most platforms -->
+<meta property="og:image" content="/images/og.png" />
+
+<!-- ✅ Good: Absolute HTTPS URL -->
+<meta property="og:image" content="https://example.com/images/og.png" />
+
+<!-- ❌ Bad: og:url doesn't match canonical-url -->
+<meta property="og:url" content="https://example.com/blog/post?utm_source=share" />
+
+<!-- ✅ Good: og:url matches the canonical URL -->
+<meta property="og:url" content="https://example.com/blog/post" />
+```
+
+## Validation
+
+- Use the [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/) to inspect and refresh cached OG data
+- Use the [LinkedIn Post Inspector](https://www.linkedin.com/post-inspector/) for LinkedIn previews
+- Check that og:url exactly matches the `<link rel="canonical">` tag
+
+<Warning title="Cache Invalidation">
+Social platforms cache OG data aggressively. After fixing tags, use each platform's debugger tool to force a cache refresh.
+</Warning>
+
+## Exceptions
+
+- Utility or intentionally noindex pages may keep minimal metadata when richer search presentation is not a goal.
+- Template-driven pages can look repetitive in isolation; confirm the fully rendered production output before flagging duplication or omission.
+- If a page is intentionally redirected or excluded from indexation, resolve that crawlability decision before treating metadata polish as the primary issue.
+
+## Standards
+
+- Use these references as the standard for the final search-facing HTML, metadata, and crawl behavior.
+- Check the implementation against The Open Graph Protocol before treating the rule as satisfied.
+- Check the implementation against Facebook: Sharing Debugger & OG tags before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

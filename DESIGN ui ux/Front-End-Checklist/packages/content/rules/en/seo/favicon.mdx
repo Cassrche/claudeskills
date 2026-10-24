@@ -1,0 +1,192 @@
+---
+title: Add a favicon to every page
+description: Checks for favicon presence and correct link element configuration
+categories:
+  - seo
+subcategory: meta-tags
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - >-
+    Provide a `<link rel="icon">` pointing to a favicon file; Google uses it to
+    identify your site in search results
+  - >-
+    Serve the favicon via HTTPS, ensure it is publicly accessible (not blocked
+    by robots.txt), and at least 48×48px for Google's use
+  - >-
+    Include both an ICO fallback and SVG/PNG versions for broad browser and
+    device compatibility
+whyItMatters: >-
+  Google displays favicons next to search results on mobile devices, making your
+  brand immediately recognisable in the SERP. A missing or inaccessible favicon
+  prevents Google from showing it, reducing visual brand presence in search.
+aiContext: >-
+  Use when checking whether a site has a correctly configured favicon, auditing
+  `<link rel='icon'>` tags in the `<head>`, or setting up favicon infrastructure
+  for a new project.
+prompts:
+  check: >-
+    In the page `<head>`, look for `<link rel="icon">` or `<link rel="shortcut
+    icon">` elements. Verify: (1) The href points to an accessible URL (returns
+    200, not blocked by robots.txt). (2) The file is at least 48×48px (for
+    Google Search use). (3) A PNG or SVG version is provided alongside the ICO
+    fallback. (4) The favicon is accessible over HTTPS.
+  fix: |
+    1. Create favicon files:
+       - `favicon.ico` (16×16 and 32×32, ICO format) — legacy browser fallback
+       - `favicon.svg` (scalable, modern browsers)
+       - `apple-touch-icon.png` (180×180 PNG) — iOS home screen
+    2. Place them in the root or `/public` directory.
+    3. Add to `<head>`:
+       ```html
+       <link rel="icon" href="/favicon.ico" sizes="any">
+       <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+       <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+       ```
+    4. Verify the favicon URL returns a 200 response (not 404).
+    5. Check that /robots.txt does not block the favicon path.
+    6. Test Google's display using the URL Inspection tool in Search Console.
+  explain: >-
+    Favicons appear next to your site's name in browser tabs, bookmarks, and
+    Google Search mobile results. Google explicitly states it uses the favicon
+    from `<link rel='icon'>` for display in search results. A missing, blocked,
+    or too-small favicon means Google cannot show your brand icon, reducing
+    search result click-through rate.
+  codeReview: >-
+    Check the `<head>` for `<link rel='icon'>` and `<link
+    rel='apple-touch-icon'>`. Verify the `href` values are valid relative or
+    absolute paths. Confirm the favicon files exist and return HTTP 200. Flag if
+    only `favicon.ico` at site root is used without an explicit `<link>` element
+    (relying on browser default discovery is less reliable).
+relatedRules:
+  - slug: og-tags
+    reason: >-
+      Open Graph `og:image` is related — both control visual brand
+      representation in external surfaces
+  - slug: web-app-manifest
+    reason: Web app manifests extend favicon configuration for installable apps
+  - slug: title-unique
+    reason: >-
+      Both rules sit in the `seo/meta-tags` area and are commonly reviewed
+      together.
+  - slug: canonical-url
+    reason: >-
+      Both rules sit in the `seo/meta-tags` area and are commonly reviewed
+      together.
+resources:
+  - title: 'Google Search Central: Define a favicon'
+    url: 'https://developers.google.com/search/docs/appearance/favicon-in-search'
+    type: guide
+  - title: 'MDN: link rel=icon'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/rel#icon'
+    type: mdn
+sources:
+  - title: 'Google Search Central: Favicon in search results'
+    url: 'https://developers.google.com/search/docs/appearance/favicon-in-search'
+    type: guide
+    id: google-search-central-favicon-in-search-results
+    role: search
+    authority: primary
+  - title: 'MDN: How to add a favicon'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Structuring_content/Webpage_metadata#adding_custom_icons_to_your_site
+    type: mdn
+    id: mdn-how-to-add-a-favicon
+    role: reference
+    authority: primary
+---
+A favicon is the small icon shown in browser tabs, bookmarks, and Google Search results. Google uses the favicon declared in your page's `<head>` to identify your site across its products.
+
+## Code Examples
+
+#
+
+## ❌ Avoid — no favicon declared (browser default fallback only)
+
+```html
+<head>
+  <title>My Site</title>
+  <!-- No <link rel="icon"> — relies on browser checking /favicon.ico -->
+  <!-- Google may not detect it reliably -->
+</head>
+```
+
+### ❌ Avoid — only ICO format, no modern variants
+
+```html
+<head>
+  <link rel="shortcut icon" href="/favicon.ico">
+  <!-- Works for legacy browsers but no SVG for modern browsers -->
+</head>
+```
+
+### ✅ Correct — full favicon stack
+
+```html
+<head>
+  <!-- ICO fallback for older browsers -->
+  <link rel="icon" href="/favicon.ico" sizes="any">
+
+  <!-- SVG for modern browsers (scales to any size, supports dark mode) -->
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+
+  <!-- iOS and Android home screen icon -->
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+  <!-- Web app manifest for installable apps -->
+  <link rel="manifest" href="/site.webmanifest">
+</head>
+```
+
+### ✅ SVG favicon with dark mode support
+
+```xml
+<!-- favicon.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <style>
+    @media (prefers-color-scheme: dark) {
+      circle { fill: #ffffff; }
+    }
+  </style>
+  <circle cx="50" cy="50" r="50" fill="#0070f3"/>
+  <text x="50" y="65" text-anchor="middle" font-size="60" fill="white">A</text>
+</svg>
+```
+
+## Why It Matters
+
+- **SERP visibility**: Google displays favicons next to mobile search results, making your brand recognisable at a glance.
+- **User recognition**: Favicons in browser tabs help users identify your site among many open tabs.
+- **Professionalism**: A missing favicon is often a sign of an unfinished or unmaintained site.
+
+## Google's Requirements
+
+Google has specific rules for favicons displayed in search results:
+- The favicon must be accessible to Googlebot (not blocked by robots.txt)
+- The image must be at least 48×48px (Google scales it to 16×16 for display)
+- The favicon must follow Google's [safe search policies](https://developers.google.com/search/docs/appearance/favicon-in-search)
+- A new favicon may take several weeks to appear in search after deployment
+
+## Exceptions
+
+- Utility or intentionally noindex pages may keep minimal metadata when richer search presentation is not a goal.
+- Template-driven pages can look repetitive in isolation; confirm the fully rendered production output before flagging duplication or omission.
+- If a page is intentionally redirected or excluded from indexation, resolve that crawlability decision before treating metadata polish as the primary issue.
+
+## Support Notes
+
+- Search-facing behavior can differ between rendered HTML, crawlers, and browser environments, so verify the final output on live routes and not only in source templates.
+- Document any platform or browser-specific limitation only when it materially changes the crawl, metadata, or indexing signal.
+
+## Verification
+
+### Automated Checks
+
+- Open your page source and confirm `<link rel="icon">` is present.
+- Use Google Search Console's URL Inspection tool on your homepage to see whether Google can fetch the favicon.
+
+### Manual Checks
+
+- Visit `yourdomain.com/favicon.ico` and confirm it returns a valid image.
+- Check robots.txt does not disallow your favicon path.

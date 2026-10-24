@@ -1,0 +1,128 @@
+---
+title: Ensure headings contain text
+description: 'All heading elements (h1-h6) must have visible, descriptive content.'
+categories:
+  - accessibility
+subcategory: document-structure
+priority: medium
+difficulty: beginner
+estimatedTime: 5
+tldr:
+  - 'Add visible, descriptive text to all heading elements (h1-h6)'
+  - Avoid using headings solely for styling or as empty placeholders
+  - Ensure document structure is meaningful for screen reader navigation
+whyItMatters: >-
+  Empty headings create 'ghost' stops in the document outline, confusing users
+  who rely on headings to navigate and understand the page structure.
+prompts:
+  check: >-
+    Find any heading tags (h1 through h6) that are empty or contain only
+    non-perceivable whitespace.
+  fix: >-
+    Add descriptive text content to the empty heading or remove the heading tag
+    if it's not needed.
+  explain: >-
+    Explain why meaningful heading content is vital for document navigation and
+    accessibility.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Ensure
+    headings contain text. Flag exact elements, roles, labels, focus behavior,
+    or keyboard interactions that violate the rule, and note how to verify the
+    fix with browser accessibility tooling or assistive tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Ensure headings contain text. Check native semantics
+  first, then inspect keyboard behavior, focus flow, accessible names, and
+  screen-reader output where relevant.
+sources:
+  - title: 'W3C WAI: WCAG Overview'
+    url: 'https://www.w3.org/WAI/standards-guidelines/wcag/'
+    type: wcag
+    id: w3c-wai-wcag-overview
+    role: standard
+    authority: primary
+  - title: 'MDN: Accessibility'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility'
+    type: mdn
+    id: mdn-accessibility
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: duplicate-id-active
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+  - slug: aria-treeitem-name
+    reason: >-
+      Both rules affect accessibility quality and can fail in the same
+      implementation.
+  - slug: heading-hierarchy
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+  - slug: listitem
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+---
+Headings provide a roadmap for the page. If a heading is empty, it fails to provide any information about the section it represents, while still appearing in the document's outline.
+
+## Code Example
+
+```html
+<!-- ✅ Good: Descriptive heading content -->
+<h1>Product Specifications</h1>
+
+<!-- ❌ Bad: Empty heading -->
+<h2></h2>
+
+<!-- ❌ Bad: Heading with only whitespace -->
+<h3>   </h3>
+
+<!-- ❌ Bad: Heading used only for an icon without text -->
+<h4><i class="fas fa-user"></i></h4> <!-- Needs an aria-label or screen-reader-only text -->
+```
+
+## Why It Matters
+
+- **Navigation**: Screen reader users often navigate pages by jumping from heading to heading. An empty heading is a frustrating "dead end."
+- **SEO**: Search engines use headings to understand the hierarchy and topic of your content.
+- **Context**: Headings help all users quickly scan a page to find the information they need.
+
+## Best Practices
+
+✅ **Visible Content**: Headings should ideally contain text that is visible to all users.
+✅ **Hidden Text as Fallback**: If a heading must be visual-only (like an icon), include text wrapped in a "screen-reader-only" class.
+✅ **Avoid Styling-Only Headings**: Don't use an `<h3>` just because you like the font size; use CSS for styling and HTML for structure.
+
+## Tools & Validation
+
+- [Heading Map Browser Extension](https://chrome.google.com/webstore/detail/headings-map/faieocmmodmbebebegejdcdoomihichn)
+- [WAVE Web Accessibility Tool](https://wave.webaim.org/)
+
+## Exceptions
+
+- Evaluate the rendered experience before treating a static-code smell as a blocker; interaction timing, browser behavior, and assistive technology output often determine severity.
+- Not every secondary accessibility issue deserves equal weight; prioritize the issue that most directly blocks perception, operation, or understanding.
+- Avoid adding redundant markup or ARIA solely to satisfy a rule when a simpler semantic implementation would eliminate the issue entirely.
+
+## Standards
+
+- Align the implementation with W3C WAI: WCAG Overview and verify the rendered experience, not only the source code.
+- Align the implementation with MDN: Accessibility and verify the rendered experience, not only the source code.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

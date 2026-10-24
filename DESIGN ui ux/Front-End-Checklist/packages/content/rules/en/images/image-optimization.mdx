@@ -1,0 +1,459 @@
+---
+title: Optimize all images for web
+description: >-
+  Images are optimized with appropriate formats, compression, and modern
+  techniques.
+categories:
+  - images
+  - performance
+subcategory: optimization
+priority: high
+difficulty: intermediate
+estimatedTime: 20
+relatedRules:
+  - slug: lazy-loading
+    reason: Combine optimization with lazy loading for maximum performance
+  - slug: responsive-images
+    reason: Serve optimized images at appropriate sizes
+  - slug: webp-format
+    reason: Modern format that provides better compression
+  - slug: avif-format
+    reason: Next-gen format with even better compression
+tools:
+  - name: Squoosh
+    url: 'https://squoosh.app/'
+  - name: Sharp
+    url: 'https://sharp.pixelplumbing.com/'
+  - name: ImageOptim
+    url: 'https://imageoptim.com/'
+  - name: Lighthouse
+    url: 'https://developer.chrome.com/docs/lighthouse/'
+resources:
+  - name: Optimize images
+    url: 'https://web.dev/learn/images/performance-issues'
+    type: article
+    author: web.dev
+    description: Comprehensive guide to image optimization techniques
+  - name: Modern Image Formats
+    url: 'https://web.dev/articles/serve-images-webp'
+    type: documentation
+    author: web.dev
+  - name: Image Optimization in Next.js
+    url: 'https://nextjs.org/docs/app/building-your-application/optimizing/images'
+    type: documentation
+    author: Vercel
+  - name: Image Performance
+    url: 'https://www.youtube.com/watch?v=YJGCZCaIZkQ'
+    type: video
+    author: Google Chrome Developers
+prompts:
+  check: >-
+    Scan this codebase for all image assets and <img> elements. For each image,
+    verify: 1) Format is appropriate (WebP/AVIF for photos, SVG for icons, PNG
+    only for transparency). 2) Responsive srcset and sizes attributes exist for
+    images > 100px wide. 3) width/height attributes are present to prevent
+    layout shift. 4) loading='lazy' is set for below-fold images. 5) File sizes
+    are reasonable (< 200KB for photos, < 50KB for graphics). Report issues
+    grouped by severity with file paths.
+  fix: >-
+    For each image optimization issue found: 1) Convert JPEG/PNG photos to WebP
+    with AVIF fallback using <picture> element. 2) Add srcset with 400w, 800w,
+    1200w, 1600w variants and appropriate sizes attribute. 3) Add explicit
+    width/height attributes matching aspect ratio. 4) Add loading='lazy' to
+    images below the fold, keep priority images without lazy loading. 5)
+    Compress images to 80% quality for photos, 60% for AVIF. 6) Use SVG for
+    icons and logos. Show the corrected HTML with optimized image markup.
+  explain: >-
+    Explain the impact of image optimization on Core Web Vitals, specifically
+    how unoptimized images affect Largest Contentful Paint (LCP) and Cumulative
+    Layout Shift (CLS). Cover the compression differences between AVIF, WebP,
+    and JPEG formats, when to use each, and browser support considerations.
+    Describe how srcset and sizes work together to serve appropriately-sized
+    images, and why width/height attributes prevent layout shift. Include
+    bandwidth savings calculations and loading performance improvements.
+  codeReview: >-
+    Review image assets, markup, and delivery configuration related to Optimize
+    all images for web. Flag exact files or components where format choice,
+    sizing, or loading behavior violates the rule, and describe how to confirm
+    the fix in DevTools.
+tldr:
+  - 'Use modern formats: AVIF > WebP > JPEG/PNG'
+  - Compress images to 80% quality for photos
+  - Always provide responsive srcset for different screen sizes
+  - Use `<picture>` element for format fallbacks
+whyItMatters: >-
+  Images typically account for 50%+ of page weight. Unoptimized images cause
+  slow load times, wasted bandwidth, poor Core Web Vitals scores, and frustrated
+  users—especially on mobile networks.
+aiContext: >-
+  Use when reviewing image assets, markup, and CDN or build transforms related
+  to Optimize all images for web. Check encoded size, rendered size, loading
+  strategy, and above-the-fold impact together.
+sources:
+  - title: 'MDN: Responsive images'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Learn/HTML/Multimedia_and_embedding/Responsive_images
+    type: mdn
+    id: mdn-responsive-images
+    role: reference
+    authority: primary
+  - title: 'web.dev: Image performance'
+    url: 'https://web.dev/learn/performance/image-performance'
+    type: guide
+    id: web-dev-image-performance
+    role: implementation
+    authority: primary
+---
+
+Image optimization is crucial for web performance. Properly optimized images can reduce page weight by 50-80% without visible quality loss, directly improving [Largest Contentful Paint (LCP)](https://web.dev/lcp/) and user experience.
+
+<Tip>
+Use the `<picture>` element with multiple sources to serve modern formats (AVIF, WebP) to supported browsers while providing JPEG/PNG fallbacks for older browsers.
+</Tip>
+
+## Code Example
+
+Choose the right format based on image content and browser support.
+
+```html
+<!-- Modern format with fallbacks -->
+<picture>
+  <source srcset="image.avif" type="image/avif">
+  <source srcset="image.webp" type="image/webp">
+  <img src="image.jpg" alt="Description" loading="lazy">
+</picture>
+```
+
+#
+
+## Format Comparison
+
+| Format | Best For | Compression | Browser Support |
+|--------|----------|-------------|-----------------|
+| **AVIF** | All images | ~50% smaller than JPEG | Modern browsers |
+| **WebP** | All images | ~30% smaller than JPEG | 95%+ browsers |
+| **JPEG** | Photos | Good | Universal |
+| **PNG** | Transparency, logos | Larger files | Universal |
+| **SVG** | Icons, illustrations | Scalable | Universal |
+
+<Warning title="Format Support">
+Always provide fallbacks when using AVIF or WebP. Safari only added AVIF support in version 16.4 (2023), and some enterprise browsers may lack WebP support.
+</Warning>
+
+## Why It Matters
+
+Images typically account for 50%+ of page weight. Unoptimized images cause slow load times, wasted bandwidth, poor Core Web Vitals scores, and frustrated users—especially on mobile networks.
+
+## Responsive Images
+
+Serve appropriately sized images for different screen sizes to avoid downloading unnecessarily large files.
+
+```html
+<!-- ✅ Good: Responsive with srcset -->
+<img
+  src="image-800w.jpg"
+  srcset="
+    image-400w.jpg 400w,
+    image-800w.jpg 800w,
+    image-1200w.jpg 1200w,
+    image-1600w.jpg 1600w
+  "
+  sizes="(max-width: 600px) 100vw, (max-width: 1200px) 50vw, 800px"
+  alt="Responsive image"
+  loading="lazy"
+>
+
+<!-- ❌ Bad: Single large image for all screens -->
+<img src="image-1600w.jpg" alt="Large image">
+```
+
+### Art Direction
+
+Use `<picture>` for different crops or aspect ratios at different breakpoints.
+
+```html
+<picture>
+  <!-- Mobile: Square crop -->
+  <source media="(max-width: 600px)" srcset="hero-square.webp">
+  <!-- Tablet: 4:3 aspect -->
+  <source media="(max-width: 1024px)" srcset="hero-4x3.webp">
+  <!-- Desktop: Wide banner -->
+  <img src="hero-wide.jpg" alt="Hero image">
+</picture>
+```
+
+## Framework Examples
+
+<CodeTabs defaultTab="react">
+  <Tab value="react" label="React">
+
+```jsx
+function OptimizedImage({ src, alt, sizes = "100vw" }) {
+  // Generate srcset for multiple sizes
+  const widths = [400, 800, 1200, 1600]
+  const srcset = widths
+    .map(w => `${src}?w=${w} ${w}w`)
+    .join(', ')
+
+  return (
+    <picture>
+      {/* Modern formats */}
+      <source
+        type="image/avif"
+        srcSet={srcset.replace(/\?w=/g, '?format=avif&w=')}
+        sizes={sizes}
+      />
+      <source
+        type="image/webp"
+        srcSet={srcset.replace(/\?w=/g, '?format=webp&w=')}
+        sizes={sizes}
+      />
+      {/* Fallback */}
+      <img
+        src={`${src}?w=800`}
+        srcSet={srcset}
+        sizes={sizes}
+        alt={alt}
+        loading="lazy"
+        decoding="async"
+        className="w-full h-auto"
+      />
+    </picture>
+  )
+}
+
+// Progressive loading with blur-up
+function ProgressiveImage({ src, placeholder, alt }) {
+  const [loaded, setLoaded] = useState(false)
+  const [currentSrc, setCurrentSrc] = useState(placeholder)
+
+  useEffect(() => {
+    const img = new Image()
+    img.onload = () => {
+      setCurrentSrc(src)
+      setLoaded(true)
+    }
+    img.src = src
+  }, [src])
+
+  return (
+    <img
+      src={currentSrc}
+      alt={alt}
+      className={`transition-all duration-300 ${
+        loaded ? 'blur-0' : 'blur-sm'
+      }`}
+    />
+  )
+}
+```
+
+  </Tab>
+  <Tab value="nextjs" label="Next.js">
+
+```jsx
+import Image from 'next/image'
+
+function OptimizedGallery({ images }) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+      {images.map((image, index) => (
+        <Image
+          key={image.id}
+          src={image.src}
+          alt={image.alt}
+          width={400}
+          height={300}
+          // Priority for above-the-fold images
+          priority={index < 2}
+          // Blur placeholder for better UX
+          placeholder="blur"
+          blurDataURL={image.blurDataUrl}
+          // Responsive sizing
+          sizes="(max-width: 768px) 50vw, 33vw"
+          className="rounded-lg object-cover"
+        />
+      ))}
+    </div>
+  )
+}
+
+// For external images, configure next.config.js
+// module.exports = {
+//   images: {
+//     remotePatterns: [{ hostname: 'cdn.example.com' }]
+//   }
+// }
+```
+
+  </Tab>
+  <Tab value="vue" label="Vue.js">
+
+```vue
+<template>
+  <picture>
+    <source
+      v-for="format in formats"
+      :key="format"
+      :type="`image/${format}`"
+      :srcset="generateSrcset(format)"
+      :sizes="sizes"
+    />
+    <img
+      :src="fallbackSrc"
+      :alt="alt"
+      loading="lazy"
+      decoding="async"
+      @load="onLoad"
+      :class="{ 'opacity-0': !loaded, 'opacity-100': loaded }"
+      class="transition-opacity duration-300"
+    />
+  </picture>
+</template>
+
+<script setup>
+import { ref, computed } from 'vue'
+
+const props = defineProps({
+  src: { type: String, required: true },
+  alt: { type: String, required: true },
+  sizes: { type: String, default: '100vw' },
+  widths: { type: Array, default: () => [400, 800, 1200, 1600] }
+})
+
+const loaded = ref(false)
+const formats = ['avif', 'webp']
+
+const generateSrcset = (format) => {
+  return props.widths
+    .map(w => `${props.src}?format=${format}&w=${w} ${w}w`)
+    .join(', ')
+}
+
+const fallbackSrc = computed(() => `${props.src}?w=800`)
+
+const onLoad = () => {
+  loaded.value = true
+}
+</script>
+```
+
+  </Tab>
+</CodeTabs>
+
+## Build Tool Integration
+
+### Vite with Sharp
+
+```javascript
+// vite.config.js
+import { defineConfig } from 'vite'
+import { viteImageOptimizer } from 'vite-plugin-image-optimizer'
+
+export default defineConfig({
+  plugins: [
+    viteImageOptimizer({
+      jpg: { quality: 80, progressive: true },
+      png: { quality: 80 },
+      webp: { quality: 80, effort: 6 },
+      avif: { quality: 60, effort: 6 }
+    })
+  ]
+})
+```
+
+### Sharp Script for Batch Processing
+
+```javascript
+// scripts/optimize-images.js
+const sharp = require('sharp')
+const fs = require('fs').promises
+const path = require('path')
+
+const SIZES = [400, 800, 1200, 1600]
+const FORMATS = ['webp', 'avif', 'jpeg']
+
+async function optimizeImage(inputPath, outputDir) {
+  const { name } = path.parse(inputPath)
+
+  for (const width of SIZES) {
+    for (const format of FORMATS) {
+      const outputPath = path.join(outputDir, `${name}-${width}w.${format}`)
+
+      await sharp(inputPath)
+        .resize(width, null, { withoutEnlargement: true })
+        .toFormat(format, {
+          quality: format === 'avif' ? 60 : 80,
+          effort: 6
+        })
+        .toFile(outputPath)
+    }
+  }
+
+  console.log(`✅ Optimized: ${name}`)
+}
+```
+
+<Success title="Quick Win">
+Use a CDN with automatic image optimization like Cloudflare Images, Imgix, or Cloudinary. They handle format negotiation, resizing, and compression automatically based on the visitor's browser and device.
+</Success>
+
+## Common Mistakes
+
+<Warning title="Mistakes to Avoid">
+- **Serving desktop images to mobile** — Use srcset and sizes for responsive images
+- **Missing width/height attributes** — Causes layout shift (CLS issues)
+- **Over-compressing** — Quality below 60% causes visible artifacts
+- **Ignoring format fallbacks** — Not all browsers support AVIF/WebP
+- **No lazy loading** — Loads all images immediately, blocking page render
+- **Huge hero images** — Prioritize and optimize above-the-fold images
+</Warning>
+
+```html
+<!-- ❌ Bad: Common mistakes -->
+<img src="photo.png" alt="Photo"><!-- PNG for photos -->
+<img src="hero-4000px.jpg"><!-- No responsive sizing -->
+<img src="icon.jpg" width="20"><!-- JPEG for small icon -->
+
+<!-- ✅ Good: Optimized versions -->
+<picture>
+  <source srcset="photo.avif" type="image/avif">
+  <source srcset="photo.webp" type="image/webp">
+  <img src="photo.jpg" alt="Photo" loading="lazy">
+</picture>
+
+<img
+  srcset="hero-400.jpg 400w, hero-800.jpg 800w, hero-1200.jpg 1200w"
+  sizes="100vw"
+  src="hero-800.jpg"
+  alt="Hero"
+  width="1200"
+  height="600"
+>
+
+<img src="icon.svg" alt="Icon" width="20" height="20"><!-- SVG for icons -->
+```
+
+<Exceptions>
+- **SVG images** don't need format conversion—they're already optimized for web
+- **Animated GIFs** may be better served as videos (MP4/WebM) for large animations
+- **Tiny images** (< 1KB) can be inlined as base64 data URIs to avoid HTTP requests
+- **User-uploaded content** may need server-side optimization pipelines rather than build-time processing
+</Exceptions>
+
+## Support Notes
+
+- Image format and delivery behavior can vary by browser, CDN, and device characteristics, so verify the final bytes and rendered output on the supported browser matrix.
+- Add a fallback note when a modern format or loading behavior is not available for every required target browser.
+
+## Verification
+
+### Automated Checks
+
+- **Test on slow connections** — Use Chrome DevTools Network throttling (Slow 3G)
+- **Measure LCP** — Use Lighthouse or Web Vitals extension to ensure LCP < 2.5s
+
+### Manual Checks
+
+- **Check file sizes** — Images should generally be under 200KB for photos, under 50KB for icons
+- **Verify format negotiation** — Check Network tab to confirm WebP/AVIF is served

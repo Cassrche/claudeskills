@@ -1,0 +1,183 @@
+---
+title: Ensure all input fields have accessible names
+description: >-
+  Checks that input fields have accessible names so screen reader users know
+  what data each field expects.
+categories:
+  - accessibility
+subcategory: aria
+priority: critical
+difficulty: beginner
+estimatedTime: 10
+tldr:
+  - >-
+    Every `<input>`, `<textarea>`, and `<select>` must have a programmatically
+    associated accessible name
+  - 'Preferred: associate a `<label>` via matching `for`/`id` attributes'
+  - >-
+    Alternatives: `aria-label` (inline string) or `aria-labelledby` (references
+    another element's `id`)
+  - >-
+    Placeholder text is not an accessible name — it disappears on input and is
+    not reliably announced
+  - >-
+    Applies to WCAG 2.1 SC 1.3.1 (Info and Relationships) and SC 4.1.2 (Name,
+    Role, Value)
+whyItMatters: >-
+  Screen readers announce the accessible name of a focused input before the user
+  types. Without a name, VoiceOver reads 'text field' and NVDA reads 'edit' with
+  no context, making it impossible for blind users to fill out forms correctly.
+  Voice control users (Dragon NaturallySpeaking) also need the visible label
+  text to match the accessible name so they can say 'click Email Address' to
+  move focus to the field.
+aiContext: >-
+  Applies to all `<input>` (except type=hidden), `<textarea>`, `<select>`, and
+  custom form widgets using role=textbox, role=combobox, role=spinbutton,
+  role=searchbox, or role=listbox.
+prompts:
+  check: >-
+    Find all `<input>` (excluding type='hidden'), `<textarea>`, and `<select>`
+    elements. For each, check that one of these is true: (1) a `<label>` element
+    with a `for` attribute matching the input's `id` exists, (2) the input has a
+    non-empty `aria-label` attribute, or (3) the input has an `aria-labelledby`
+    attribute pointing to a visible element. Flag any that use only
+    `placeholder` as their label. Also check custom widgets using role=textbox,
+    role=combobox, etc.
+  fix: >-
+    For each unlabeled input: (1) Add a `<label for='input-id'>Label
+    text</label>` and matching `id` on the input — this is the most robust
+    method. (2) If a visible label is impractical (e.g., search bar), add
+    `aria-label='Search'` directly on the input. (3) If the label text already
+    exists elsewhere in the DOM, add `aria-labelledby='label-element-id'` to the
+    input. Remove `placeholder` as a substitute for a label; keep placeholder
+    only as a hint for expected format.
+  explain: >-
+    WCAG 2.1 SC 4.1.2 (Name, Role, Value) requires that all user interface
+    components have an accessible name. For form inputs, the accessible name is
+    computed from: (1) `aria-labelledby` → (2) `aria-label` → (3) associated
+    `<label>` → (4) `title` attribute (last resort). Screen readers announce
+    this name when the input receives focus. Without it, a blind user hears only
+    the input type ('text field') with no indication of what to type. Dragon
+    NaturallySpeaking users need the accessible name to match visible text so
+    voice commands work.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Ensure all
+    input fields have accessible names. Flag exact elements, roles, labels,
+    focus behavior, or keyboard interactions that violate the rule, and note how
+    to verify the fix with browser accessibility tooling or assistive tech.
+sources:
+  - title: 'WCAG 2.1 SC 4.1.2: Name, Role, Value'
+    url: 'https://www.w3.org/TR/WCAG21/#name-role-value'
+    type: wcag
+    id: wcag-2-1-sc-4-1-2-name-role-value
+    role: standard
+    authority: primary
+  - title: 'WCAG 2.1 SC 1.3.1: Info and Relationships'
+    url: 'https://www.w3.org/TR/WCAG21/#info-and-relationships'
+    type: wcag
+    id: wcag-2-1-sc-1-3-1-info-and-relationships
+    role: standard
+    authority: primary
+  - title: 'WAI-ARIA 1.2: Accessible Name and Description Computation'
+    url: 'https://www.w3.org/TR/accname-1.2/'
+    type: spec
+    id: wai-aria-1-2-accessible-name-and-description-computation
+    role: standard
+    authority: primary
+  - title: 'MDN: <label>'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/label'
+    type: mdn
+    id: mdn-label
+    role: reference
+    authority: primary
+  - title: 'WebAIM: Creating Accessible Forms'
+    url: 'https://webaim.org/techniques/forms/controls'
+    type: guide
+    id: webaim-creating-accessible-forms
+    role: implementation
+    authority: secondary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: aria-treeitem-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-command-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-dialog-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-meter-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+---
+Form inputs must be clearly labeled so that users of assistive technology know what information they are expected to provide. [WCAG 2.1 SC 4.1.2](https://www.w3.org/TR/WCAG21/#name-role-value) and the accessible-name computation model both treat that name as required, which is why placeholders are not a substitute for a real label.
+## Code Example
+
+```html
+<!-- ✅ Correct: <label> with matching for/id — most robust approach -->
+<label for="email-address">Email Address</label>
+<input type="email" id="email-address" name="email" autocomplete="email">
+
+<!-- ✅ Correct: aria-label for a standalone search input -->
+<input type="search" aria-label="Search the knowledge base" name="q">
+
+<!-- ✅ Correct: aria-labelledby references visible heading -->
+<h2 id="billing-heading">Billing Address</h2>
+<input type="text" aria-labelledby="billing-heading" id="billing-street">
+
+<!-- ❌ Incorrect: placeholder is NOT an accessible name -->
+<input type="text" placeholder="Enter your name">
+
+<!-- ❌ Incorrect: visually hidden label text without proper association -->
+<span>Username</span>
+<input type="text" name="username">
+```
+
+## Why It Matters
+
+- **Form Usability**: Screen readers announce the name when focus moves to the field, giving users context before they type.
+- **Voice Control**: Dragon NaturallySpeaking users say "click [label text]" to activate fields — the accessible name must match visible text.
+- **Error Recovery**: When validation fails, the error message can reference the field name, which only works if the name was defined.
+- **AT Navigation**: Screen reader users jump between fields using Tab; the name is the only context they get.
+
+## Accessible Name Computation Order
+
+The browser computes an input's accessible name using this priority order (highest wins):
+
+1. `aria-labelledby` — references another element's text
+2. `aria-label` — inline string on the element itself
+3. Associated `<label>` element (via `for`/`id` or wrapping)
+4. `title` attribute (last resort; also shows as tooltip)
+5. `placeholder` — **not a reliable accessible name**
+
+## Exceptions
+
+- Prefer native HTML semantics over ARIA when both are possible; some apparent ARIA failures disappear when the underlying element is corrected.
+- A missing ARIA attribute is not automatically the strongest finding if the control is already semantically broken, unnamed, or keyboard-inaccessible.
+- Do not add ARIA only to satisfy the rule if the feature should instead be implemented with a native element or a simpler interaction pattern.
+
+## Standards
+
+- Align the implementation with WCAG 2.1 SC 4.1.2: Name, Role, Value and verify the rendered experience, not only the source code.
+- Align the implementation with WCAG 2.1 SC 1.3.1: Info and Relationships and verify the rendered experience, not only the source code.
+- Align the implementation with WAI-ARIA 1.2: Accessible Name and Description Computation and verify the rendered experience, not only the source code.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

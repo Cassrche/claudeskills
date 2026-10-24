@@ -1,0 +1,211 @@
+---
+title: External Link Security
+description: >-
+  Links that open in a new tab using target='_blank' must include rel='noopener
+  noreferrer' to prevent the opened page from accessing the opener's window
+  context.
+categories:
+  - security
+subcategory: headers
+priority: medium
+difficulty: beginner
+estimatedTime: 10
+tldr:
+  - Always add `rel="noopener noreferrer"` to any `<a target="_blank">` link
+  - >-
+    `noopener` prevents the new tab from accessing `window.opener` and
+    redirecting your page
+  - >-
+    `noreferrer` additionally suppresses the `Referer` header sent to the
+    destination site
+  - >-
+    Modern browsers (Chrome 88+, Firefox 79+) implicitly add `noopener` for
+    cross-origin `_blank` links, but explicit markup is required for older
+    browsers and same-origin links
+  - >-
+    ESLint rule `jsx-a11y/anchor-is-valid` and `eslint-plugin-security` can
+    enforce this automatically
+whyItMatters: >-
+  A malicious site opened via target='_blank' can use window.opener.location to
+  silently redirect your original tab to a phishing page — the user switches
+  back and sees a fake login screen on what appears to be your domain.
+aiContext: >-
+  Use when reviewing HTML or JSX for anchor elements with target='_blank' to
+  verify rel='noopener noreferrer' is present.
+prompts:
+  check: >-
+    Find all anchor elements with target='_blank' in the HTML and JSX source.
+    Verify each one includes rel='noopener noreferrer' (or at minimum
+    rel='noopener'). Flag any external links opening in a new tab that are
+    missing this attribute.
+  fix: >-
+    Add rel='noopener noreferrer' to all <a target='_blank'> elements. In
+    React/JSX this is rel="noopener noreferrer". Configure an ESLint rule to
+    prevent this from recurring.
+  explain: >-
+    Explain the reverse tabnapping attack enabled by window.opener, how
+    rel='noopener' and rel='noreferrer' prevent it, and the difference between
+    the two values.
+  codeReview: >-
+    Review server config, headers, forms, and integration points related to
+    External Link Security. Flag exact responses, cookies, or browser behaviors
+    that violate the rule, and verify them against the effective production-like
+    response.
+sources:
+  - title: 'MDN: Link types: noreferrer'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/rel/noreferrer
+    type: mdn
+    id: mdn-link-types-noreferrer
+    role: reference
+    authority: primary
+  - title: 'MDN: Link types: noopener'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/rel/noopener'
+    type: mdn
+    id: mdn-link-types-noopener
+    role: reference
+    authority: primary
+  - title: 'OWASP WSTG: Testing for Reverse Tabnabbing'
+    url: >-
+      https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/14-Testing_for_Reverse_Tabnabbing
+    type: owasp
+    id: owasp-wstg-testing-for-reverse-tabnabbing
+    role: regulation
+    authority: primary
+resources:
+  - name: Mozilla Observatory
+    url: 'https://observatory.mozilla.org/'
+    type: tool
+relatedRules:
+  - slug: referrer-policy
+    reason: >-
+      Both rules sit in the `security/headers` area and are commonly reviewed
+      together.
+  - slug: x-frame-options
+    reason: >-
+      Both rules sit in the `security/headers` area and are commonly reviewed
+      together.
+  - slug: hsts
+    reason: >-
+      Both rules sit in the `security/headers` area and are commonly reviewed
+      together.
+---
+When a link opens a new browser tab with `target="_blank"`, the new page receives a reference to the opener's `window` object via `window.opener`. A malicious destination can exploit that behavior in a [reverse tabnapping](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/14-Testing_for_Reverse_Tabnabbing) flow unless you explicitly add [`rel="noopener"`](https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/rel/noopener) or [`rel="noreferrer"`](https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/rel/noreferrer).
+## Code Example
+
+```
+1. User is on bank.example.com
+2. User clicks a link to malicious.com (opens in new tab)
+3. malicious.com runs: window.opener.location = 'https://fake-bank.example.com/login'
+4. User switches back to the original tab
+5. Tab now shows the phishing site — user thinks the bank session expired and types credentials
+```
+
+## Why It Matters
+
+A malicious site opened via target='_blank' can use window.opener.location to silently redirect your original tab to a phishing page — the user switches back and sees a fake login screen on what appears to be your domain.
+
+## The Fix
+
+```html
+❌ Vulnerable to reverse tabnapping
+<a href="https://example.com" target="_blank">Visit Example</a>
+
+✅ Safe — no access to window.opener
+<a href="https://example.com" target="_blank" rel="noopener noreferrer">Visit Example</a>
+```
+
+#
+
+## React / JSX
+
+```jsx
+❌ Vulnerable
+<a href="https://external.com" target="_blank">External Link</a>
+
+✅ Safe
+<a href="https://external.com" target="_blank" rel="noopener noreferrer">
+  External Link
+</a>
+```
+
+## Understanding the `rel` Values
+
+| Value | What it does |
+|-------|-------------|
+| `noopener` | Sets `window.opener` to `null` in the new tab — the opened page cannot access the original window |
+| `noreferrer` | Suppresses the `Referer` HTTP header sent to the destination; also implies `noopener` |
+| Both together | Maximum privacy + security: no opener access, no referrer sent |
+
+**Recommendation**: Use both `noopener noreferrer` for external links. Use `noopener` alone if you need the referrer for analytics on same-origin links.
+
+## Browser Behavior
+
+As of Chrome 88 and Firefox 79, cross-origin `target="_blank"` links implicitly get `noopener` behavior. However:
+
+- **Same-origin** `_blank` links are **not** implicitly protected
+- Older browsers still require the explicit attribute
+- `noreferrer` is never added implicitly
+
+For these reasons, always add the attribute explicitly.
+
+## Automated Enforcement
+
+### ESLint (React projects)
+
+```bash
+pnpm add -D eslint-plugin-react
+```
+
+```json
+// .eslintrc.json
+{
+  "rules": {
+    "react/jsx-no-target-blank": ["error", {
+      "allowReferrer": false,
+      "enforceDynamicLinks": "error"
+    }]
+  }
+}
+```
+
+### Finding Violations in Existing Code
+
+```bash
+# Search HTML files
+grep -rn 'target="_blank"' ./src --include="*.html" | grep -v 'new-tab'
+
+# Search JSX/TSX files
+grep -rn 'target="_blank"' ./src --include="*.jsx" --include="*.tsx" | grep -v 'new-tab'
+```
+
+## Internal Links
+
+Internal links (same domain) are generally safe to open in new tabs without `noopener` because you control both pages. However, adding it is still a best practice for consistency:
+
+```html
+<!-- Internal link — window.opener risk is lower, but still good practice -->
+<a href="/docs/guide" target="_blank" rel="noopener">Open Docs</a>
+```
+
+<Exceptions>
+If you intentionally need the opened page to communicate back with the opener via `window.opener` (e.g., OAuth popup flows), omit `noopener`. This is a legitimate use case — document it clearly in code comments.
+</Exceptions>
+
+## Exceptions
+
+- A weaker form control is only acceptable when the business requirement and compensating controls are documented explicitly.
+- If the flow is already transport-insecure, inaccessible, or externally embedded in a way that changes the threat model, fix that stronger issue first.
+- False positives are common on demo, sandbox, or intentionally constrained flows, but they should still be bounded and clearly labeled.
+
+## Verification
+
+### Automated Checks
+
+- Test the affected flow in a production-like environment, not just local development.
+- Document any intentional exceptions explicitly.
+
+### Manual Checks
+
+- Inspect the final HTTP response or browser behavior to confirm the control is actually enforced.
+- Verify third-party integrations or embeds still work after the restriction is applied.

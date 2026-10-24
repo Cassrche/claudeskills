@@ -1,0 +1,545 @@
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - main [ref=e3]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]: "Beta: Front-End Checklist is currently in beta. Some issues are still being fixed. Thanks for your patience."
+        - generic [ref=e9]:
+          - generic [ref=e10]:
+            - link "Front-End Checklist" [ref=e11] [cursor=pointer]:
+              - /url: /
+              - img [ref=e13]
+              - generic [ref=e15]: Front-End Checklist
+            - navigation "Main navigation" [ref=e16]:
+              - link "Rules" [ref=e17] [cursor=pointer]:
+                - /url: /rules
+              - link "Checklists" [ref=e18] [cursor=pointer]:
+                - /url: /checklists
+              - link "Guides" [ref=e19] [cursor=pointer]:
+                - /url: /guides
+          - generic [ref=e20]:
+            - link "View on GitHub" [ref=e21] [cursor=pointer]:
+              - /url: https://github.com/thedaviddias/Front-End-Checklist
+              - img [ref=e22]
+              - generic [ref=e24]: 72.7k
+            - link "Follow on X" [ref=e25] [cursor=pointer]:
+              - /url: https://x.com/thedaviddias
+              - img [ref=e26]
+            - button "Search ⌘ K" [ref=e28] [cursor=pointer]:
+              - img [ref=e29]
+              - generic [ref=e32]: Search
+              - generic [ref=e33]:
+                - generic [ref=e34]: ⌘
+                - text: K
+            - link "Lists" [ref=e35] [cursor=pointer]:
+              - /url: /lists
+              - img [ref=e36]
+              - generic [ref=e39]: Lists
+            - generic [ref=e40]:
+              - img [ref=e41]
+              - generic [ref=e43]: Loading
+      - generic [ref=e44]:
+        - generic [ref=e48]:
+          - heading "Trusted front-end quality rules for humans and AI agents" [level=1] [ref=e49]
+          - paragraph [ref=e50]: The essential checklist for modern web development, with 350+ rules across launch, review, accessibility, performance, security, privacy, and SEO workflows. Browse the corpus, start with curated checklists, or connect the same standards to AI tools with MCP.
+          - generic [ref=e51]:
+            - link "Start a Curated Checklist" [ref=e52] [cursor=pointer]:
+              - /url: /checklists
+              - text: Start a Curated Checklist
+              - img [ref=e53]
+            - link "Browse All Rules" [ref=e55] [cursor=pointer]:
+              - /url: /rules
+          - generic [ref=e56]:
+            - link "GitHub repository with 72.7k stars" [ref=e57] [cursor=pointer]:
+              - /url: https://github.com/thedaviddias/Front-End-Checklist
+              - img [ref=e58]
+              - generic [ref=e60]: GitHub
+              - generic [ref=e61]:
+                - generic [ref=e62]: ·
+                - generic [ref=e63]: 72.7k
+            - link "View on Skills.sh" [ref=e64] [cursor=pointer]:
+              - /url: https://skills.sh/thedaviddias/frontendchecklist
+              - img [ref=e65]
+              - generic [ref=e67]: Skills.sh
+            - link "MCP Server" [ref=e68] [cursor=pointer]:
+              - /url: /mcp
+              - img [ref=e69]
+              - generic [ref=e72]: MCP Server
+        - region "Browse by Category" [ref=e73]:
+          - generic [ref=e74]:
+            - generic [ref=e75]:
+              - generic [ref=e76]:
+                - generic [ref=e77]:
+                  - img [ref=e78]
+                  - generic [ref=e82]: Categories
+                - heading "Browse by Category" [level=2] [ref=e83]
+                - paragraph [ref=e84]: Use curated checklists when you want a guided path, or explore 11 categories with 350+ rules when you already know the area you need
+              - link "View all rules" [ref=e85] [cursor=pointer]:
+                - /url: /rules
+                - text: View all rules
+                - img [ref=e86]
+            - generic [ref=e88]:
+              - generic [ref=e90]:
+                - img [ref=e92]
+                - generic [ref=e95]:
+                  - generic [ref=e96]:
+                    - heading "Accessibility" [level=3] [ref=e97]:
+                      - link "Accessibility" [ref=e98] [cursor=pointer]:
+                        - /url: /rules/accessibility
+                    - img [ref=e99]
+                  - paragraph [ref=e101]: WCAG compliance and inclusive design
+                  - generic [ref=e104]:
+                    - generic [ref=e105]: Not started
+                    - generic [ref=e106]: 0/95
+              - generic [ref=e108]:
+                - img [ref=e110]
+                - generic [ref=e114]:
+                  - generic [ref=e115]:
+                    - heading "CSS" [level=3] [ref=e116]:
+                      - link "CSS" [ref=e117] [cursor=pointer]:
+                        - /url: /rules/css
+                    - img [ref=e118]
+                  - paragraph [ref=e120]: Styling, responsive design, and optimization
+                  - generic [ref=e123]:
+                    - generic [ref=e124]: Not started
+                    - generic [ref=e125]: 0/32
+              - generic [ref=e127]:
+                - img [ref=e129]
+                - generic [ref=e134]:
+                  - generic [ref=e135]:
+                    - heading "HTML" [level=3] [ref=e136]:
+                      - link "HTML" [ref=e137] [cursor=pointer]:
+                        - /url: /rules/html
+                    - img [ref=e138]
+                  - paragraph [ref=e140]: Semantic markup and document structure
+                  - generic [ref=e143]:
+                    - generic [ref=e144]: Not started
+                    - generic [ref=e145]: 0/25
+              - generic [ref=e147]:
+                - img [ref=e149]
+                - generic [ref=e152]:
+                  - generic [ref=e153]:
+                    - heading "I18n" [level=3] [ref=e154]:
+                      - link "I18n" [ref=e155] [cursor=pointer]:
+                        - /url: /rules/i18n
+                    - img [ref=e156]
+                  - paragraph [ref=e158]: Localization, language, and translation workflows
+                  - generic [ref=e161]:
+                    - generic [ref=e162]: Not started
+                    - generic [ref=e163]: 0/5
+              - generic [ref=e165]:
+                - img [ref=e167]
+                - generic [ref=e171]:
+                  - generic [ref=e172]:
+                    - heading "Images" [level=3] [ref=e173]:
+                      - link "Images" [ref=e174] [cursor=pointer]:
+                        - /url: /rules/images
+                    - img [ref=e175]
+                  - paragraph [ref=e177]: Optimization and responsive images
+                  - generic [ref=e180]:
+                    - generic [ref=e181]: Not started
+                    - generic [ref=e182]: 0/25
+              - generic [ref=e184]:
+                - img [ref=e186]
+                - generic [ref=e190]:
+                  - generic [ref=e191]:
+                    - heading "JavaScript" [level=3] [ref=e192]:
+                      - link "JavaScript" [ref=e193] [cursor=pointer]:
+                        - /url: /rules/javascript
+                    - img [ref=e194]
+                  - paragraph [ref=e196]: Modern patterns and code organization
+                  - generic [ref=e199]:
+                    - generic [ref=e200]: Not started
+                    - generic [ref=e201]: 0/26
+              - generic [ref=e203]:
+                - img [ref=e205]
+                - generic [ref=e207]:
+                  - generic [ref=e208]:
+                    - heading "Performance" [level=3] [ref=e209]:
+                      - link "Performance" [ref=e210] [cursor=pointer]:
+                        - /url: /rules/performance
+                    - img [ref=e211]
+                  - paragraph [ref=e213]: Core Web Vitals and rendering strategies
+                  - generic [ref=e216]:
+                    - generic [ref=e217]: Not started
+                    - generic [ref=e218]: 0/43
+              - generic [ref=e220]:
+                - img [ref=e222]
+                - generic [ref=e224]:
+                  - generic [ref=e225]:
+                    - heading "Privacy" [level=3] [ref=e226]:
+                      - link "Privacy" [ref=e227] [cursor=pointer]:
+                        - /url: /rules/privacy
+                    - img [ref=e228]
+                  - paragraph [ref=e230]: Consent, tracking, and user data rights
+                  - generic [ref=e233]:
+                    - generic [ref=e234]: Not started
+                    - generic [ref=e235]: 0/5
+              - generic [ref=e237]:
+                - img [ref=e239]
+                - generic [ref=e241]:
+                  - generic [ref=e242]:
+                    - heading "Security" [level=3] [ref=e243]:
+                      - link "Security" [ref=e244] [cursor=pointer]:
+                        - /url: /rules/security
+                    - img [ref=e245]
+                  - paragraph [ref=e247]: Security best practices
+                  - generic [ref=e250]:
+                    - generic [ref=e251]: Not started
+                    - generic [ref=e252]: 0/22
+              - generic [ref=e254]:
+                - img [ref=e256]
+                - generic [ref=e259]:
+                  - generic [ref=e260]:
+                    - heading "SEO" [level=3] [ref=e261]:
+                      - link "SEO" [ref=e262] [cursor=pointer]:
+                        - /url: /rules/seo
+                    - img [ref=e263]
+                  - paragraph [ref=e265]: Meta tags and search optimization
+                  - generic [ref=e268]:
+                    - generic [ref=e269]: Not started
+                    - generic [ref=e270]: 0/94
+              - generic [ref=e272]:
+                - img [ref=e274]
+                - generic [ref=e276]:
+                  - generic [ref=e277]:
+                    - heading "Testing" [level=3] [ref=e278]:
+                      - link "Testing" [ref=e279] [cursor=pointer]:
+                        - /url: /rules/testing
+                    - img [ref=e280]
+                  - paragraph [ref=e282]: Testing strategies and QA
+                  - generic [ref=e285]:
+                    - generic [ref=e286]: Not started
+                    - generic [ref=e287]: 0/13
+        - region "Ready-Made Checklists" [ref=e288]:
+          - generic [ref=e289]:
+            - generic [ref=e290]:
+              - generic [ref=e291]:
+                - generic [ref=e292]:
+                  - img [ref=e293]
+                  - generic [ref=e296]: Curated
+                - heading "Ready-Made Checklists" [level=2] [ref=e297]
+                - paragraph [ref=e298]: Start with guided workflows that help juniors, senior reviewers, launch teams, and AI-assisted audits begin in the right place
+              - link "View all checklists" [ref=e299] [cursor=pointer]:
+                - /url: /checklists
+                - text: View all checklists
+                - img [ref=e300]
+            - generic [ref=e302]:
+              - generic [ref=e304]:
+                - img [ref=e306]
+                - generic [ref=e311]:
+                  - generic [ref=e312]:
+                    - heading "Launch Checklist" [level=3] [ref=e313]:
+                      - link "Launch Checklist" [ref=e314] [cursor=pointer]:
+                        - /url: /checklists/launch-checklist
+                    - generic [ref=e316]:
+                      - text: Start
+                      - img [ref=e317]
+                  - paragraph [ref=e319]: Essential checks to complete before deploying your website to production. Covers critical items across HTML, SEO, security, and performance.
+                  - generic [ref=e320]:
+                    - generic [ref=e321]: Launch workflow
+                    - generic [ref=e322]: Launch workflow
+                    - generic [ref=e323]: Junior dev
+                  - paragraph [ref=e324]: Use before a new site, major redesign, or high-risk release goes live.
+                  - generic [ref=e325]:
+                    - generic [ref=e326]:
+                      - img [ref=e327]
+                      - text: 16 rules
+                    - generic [ref=e330]:
+                      - img [ref=e331]
+                      - text: 45 minutes
+                    - generic [ref=e334]: Beginner
+              - generic [ref=e337]:
+                - img [ref=e339]
+                - generic [ref=e342]:
+                  - generic [ref=e343]:
+                    - heading "SEO Audit" [level=3] [ref=e344]:
+                      - link "SEO Audit" [ref=e345] [cursor=pointer]:
+                        - /url: /checklists/seo-audit
+                    - generic [ref=e347]:
+                      - text: Start
+                      - img [ref=e348]
+                  - paragraph [ref=e350]: Comprehensive checklist for search engine optimization. Improve your site's visibility and rankings with these best practices.
+                  - generic [ref=e351]:
+                    - generic [ref=e352]: Search visibility pass
+                    - generic [ref=e353]: Senior reviewer
+                    - generic [ref=e354]: AI-assisted audit
+                  - paragraph [ref=e355]: Use when traffic, indexing, metadata quality, or editorial discoverability are active concerns.
+                  - generic [ref=e356]:
+                    - generic [ref=e357]:
+                      - img [ref=e358]
+                      - text: 12 rules
+                    - generic [ref=e361]:
+                      - img [ref=e362]
+                      - text: 30 minutes
+                    - generic [ref=e365]: Intermediate
+              - generic [ref=e368]:
+                - img [ref=e370]
+                - generic [ref=e372]:
+                  - generic [ref=e373]:
+                    - heading "Performance Quick Wins" [level=3] [ref=e374]:
+                      - link "Performance Quick Wins" [ref=e375] [cursor=pointer]:
+                        - /url: /checklists/performance-quick-wins
+                    - generic [ref=e377]:
+                      - text: Start
+                      - img [ref=e378]
+                  - paragraph [ref=e380]: High-impact performance optimizations that are relatively easy to implement. Get the most improvement with the least effort.
+                  - generic [ref=e381]:
+                    - generic [ref=e382]: Fast performance wins
+                    - generic [ref=e383]: Junior dev
+                    - generic [ref=e384]: Launch workflow
+                  - paragraph [ref=e385]: Use when you want the highest-impact performance improvements without a deep performance investigation.
+                  - generic [ref=e386]:
+                    - generic [ref=e387]:
+                      - img [ref=e388]
+                      - text: 8 rules
+                    - generic [ref=e391]:
+                      - img [ref=e392]
+                      - text: 20 minutes
+                    - generic [ref=e395]: Beginner
+              - generic [ref=e398]:
+                - img [ref=e400]
+                - generic [ref=e403]:
+                  - generic [ref=e404]:
+                    - heading "Accessibility Essentials" [level=3] [ref=e405]:
+                      - link "Accessibility Essentials" [ref=e406] [cursor=pointer]:
+                        - /url: /checklists/accessibility-essentials
+                    - generic [ref=e408]:
+                      - text: Start
+                      - img [ref=e409]
+                  - paragraph [ref=e411]: Core accessibility requirements for WCAG compliance. Ensure your website is usable by everyone, including people with disabilities.
+                  - generic [ref=e412]:
+                    - generic [ref=e413]: Accessibility foundations
+                    - generic [ref=e414]: Junior dev
+                    - generic [ref=e415]: Senior reviewer
+                  - paragraph [ref=e416]: Use on new pages, redesigns, or baseline accessibility reviews where the core experience matters more than edge-case nuance.
+                  - generic [ref=e417]:
+                    - generic [ref=e418]:
+                      - img [ref=e419]
+                      - text: 12 rules
+                    - generic [ref=e422]:
+                      - img [ref=e423]
+                      - text: 35 minutes
+                    - generic [ref=e426]: Intermediate
+        - region "Bring the checklist into your AI workflow" [ref=e428]:
+          - generic [ref=e433]:
+            - generic [ref=e435]:
+              - img [ref=e436]
+              - text: AI Integration
+            - heading "Bring the checklist into your AI workflow" [level=2] [ref=e439]
+            - paragraph [ref=e440]: Use the Model Context Protocol (MCP) to integrate Front-End Checklist with Claude, Cursor, and other AI tools. Review code, fetch rules, run focused workflows, and keep your assistants grounded in the same standards your team uses on the site.
+            - generic [ref=e441]:
+              - generic [ref=e442]:
+                - img [ref=e444]
+                - generic [ref=e448]:
+                  - heading "Proactive Code Review" [level=3] [ref=e449]
+                  - paragraph [ref=e450]: Analyze code against the same trusted rule corpus automatically
+              - generic [ref=e451]:
+                - img [ref=e453]
+                - generic [ref=e456]:
+                  - heading "Smart Search" [level=3] [ref=e457]
+                  - paragraph [ref=e458]: Find relevant rules by category or keyword
+              - generic [ref=e459]:
+                - img [ref=e461]
+                - generic [ref=e463]:
+                  - heading "Quick References" [level=3] [ref=e464]
+                  - paragraph [ref=e465]: Generate checklists for CI/CD pipelines
+            - code [ref=e467]: https://mcp.frontendchecklist.io
+            - generic [ref=e468]:
+              - link "Setup Instructions" [ref=e469] [cursor=pointer]:
+                - /url: /mcp
+                - text: Setup Instructions
+                - img [ref=e470]
+              - generic [ref=e472]: Works with Claude, Cursor, and more
+        - region "What developers are saying" [ref=e473]:
+          - generic [ref=e477]:
+            - generic [ref=e478]:
+              - generic [ref=e479]:
+                - img [ref=e480]
+                - generic [ref=e482]: Community Love
+              - heading "What developers are saying" [level=2] [ref=e483]
+              - paragraph [ref=e484]: Trusted by thousands of developers worldwide
+            - link "View all mentions" [ref=e485] [cursor=pointer]:
+              - /url: /mentions
+              - text: View all mentions
+              - img [ref=e486]
+        - region "Pro features for teams and power users" [ref=e573]:
+          - generic [ref=e578]:
+            - generic [ref=e580]:
+              - img [ref=e581]
+              - text: Coming Soon
+            - heading "Pro features for teams and power users" [level=2] [ref=e584]
+            - paragraph [ref=e585]: The checklist will always be free. We're building additional tools for teams and professionals who want to take their workflow to the next level.
+            - generic [ref=e586]:
+              - generic [ref=e587]:
+                - img [ref=e589]
+                - generic [ref=e594]:
+                  - heading "Team Workspaces" [level=3] [ref=e595]
+                  - paragraph [ref=e596]: Share progress and collaborate with your team
+              - generic [ref=e597]:
+                - img [ref=e599]
+                - generic [ref=e600]:
+                  - heading "Analytics Dashboard" [level=3] [ref=e601]
+                  - paragraph [ref=e602]: Track completion trends and identify patterns
+              - generic [ref=e603]:
+                - img [ref=e605]
+                - generic [ref=e608]:
+                  - heading "Smart Reminders" [level=3] [ref=e609]
+                  - paragraph [ref=e610]: Get notified about incomplete critical items
+            - generic [ref=e611]:
+              - generic [ref=e613]:
+                - textbox "you@example.com" [ref=e614]
+                - button "Join Waitlist" [ref=e615] [cursor=pointer]
+              - generic [ref=e616]:
+                - img [ref=e617]
+                - text: Free forever for individuals
+        - region "Frequently Asked Questions" [ref=e620]:
+          - generic [ref=e622]:
+            - generic [ref=e623]:
+              - generic [ref=e624]:
+                - img [ref=e625]
+                - generic [ref=e628]: FAQ
+              - heading "Frequently Asked Questions" [level=2] [ref=e629]
+              - paragraph [ref=e630]: Everything you need to know about the Front-End Checklist
+            - generic [ref=e631]:
+              - generic [ref=e632]:
+                - heading "What is the Front-End Checklist?" [level=3] [ref=e633]:
+                  - button "What is the Front-End Checklist?" [expanded] [ref=e634] [cursor=pointer]:
+                    - generic [ref=e635]: What is the Front-End Checklist?
+                    - img [ref=e637]
+                - region "What is the Front-End Checklist?" [ref=e639]:
+                  - generic [ref=e640]: The Front-End Checklist is a comprehensive list of best practices and guidelines for modern web development. It covers HTML, CSS, JavaScript, Performance, Accessibility, SEO, and Security. Originally created in 2017, it has been used by thousands of developers worldwide.
+              - heading "Is it free to use?" [level=3] [ref=e642]:
+                - button "Is it free to use?" [ref=e643] [cursor=pointer]:
+                  - generic [ref=e644]: Is it free to use?
+                  - img [ref=e646]
+              - heading "How do I track my progress?" [level=3] [ref=e649]:
+                - button "How do I track my progress?" [ref=e650] [cursor=pointer]:
+                  - generic [ref=e651]: How do I track my progress?
+                  - img [ref=e653]
+              - heading "Can I create custom checklists?" [level=3] [ref=e656]:
+                - button "Can I create custom checklists?" [ref=e657] [cursor=pointer]:
+                  - generic [ref=e658]: Can I create custom checklists?
+                  - img [ref=e660]
+              - heading "How do the AI prompts work?" [level=3] [ref=e663]:
+                - button "How do the AI prompts work?" [ref=e664] [cursor=pointer]:
+                  - generic [ref=e665]: How do the AI prompts work?
+                  - img [ref=e667]
+              - heading "Can I contribute to the checklist?" [level=3] [ref=e670]:
+                - button "Can I contribute to the checklist?" [ref=e671] [cursor=pointer]:
+                  - generic [ref=e672]: Can I contribute to the checklist?
+                  - img [ref=e674]
+        - region "Support Open Source" [ref=e676]:
+          - generic [ref=e677]:
+            - generic [ref=e678]:
+              - generic [ref=e679]:
+                - img [ref=e680]
+                - generic [ref=e682]: Sponsors
+              - heading "Support Open Source" [level=2] [ref=e683]
+            - generic [ref=e684]:
+              - img [ref=e687]
+              - heading "Support Open Source" [level=3] [ref=e689]
+              - paragraph [ref=e690]: The Front-End Checklist is free and open source. Your sponsorship helps sustain development and keeps this resource available for everyone.
+              - generic [ref=e691]:
+                - link "Become a Sponsor" [ref=e692] [cursor=pointer]:
+                  - /url: https://github.com/sponsors/thedaviddias
+                  - img [ref=e693]
+                  - text: Become a Sponsor
+                  - img [ref=e695]
+                - link "Open Collective" [ref=e699] [cursor=pointer]:
+                  - /url: https://opencollective.com/front-end-checklist
+                  - text: Open Collective
+                  - img [ref=e700]
+        - region "Ready to improve your front-end quality?" [ref=e704]:
+          - generic [ref=e708]:
+            - generic [ref=e709]:
+              - img [ref=e710]
+              - generic [ref=e715]: Get Started
+            - heading "Ready to improve your front-end quality?" [level=2] [ref=e716]:
+              - text: Ready to improve your
+              - text: front-end quality?
+            - paragraph [ref=e717]: Start with the critical rules that have the biggest impact, or explore all rules at your own pace.
+            - generic [ref=e718]:
+              - link "Start with Critical Rules" [ref=e719] [cursor=pointer]:
+                - /url: /rules?priority=critical
+                - img [ref=e720]
+                - text: Start with Critical Rules
+                - img [ref=e725]
+              - link "Browse Guides" [ref=e727] [cursor=pointer]:
+                - /url: /guides
+                - img [ref=e728]
+                - text: Browse Guides
+        - generic [ref=e733]:
+          - generic [ref=e734]:
+            - generic [ref=e735]:
+              - text: "0"
+              - generic [ref=e736]: / 385
+            - progressbar "0 of 385 rules completed" [ref=e737]
+          - button "Reset progress" [ref=e739] [cursor=pointer]:
+            - img [ref=e740]
+      - generic [ref=e744]:
+        - generic [ref=e745]:
+          - generic [ref=e746]:
+            - link "Front-End Checklist" [ref=e747] [cursor=pointer]:
+              - /url: /
+            - paragraph [ref=e748]: Open-source rules, curated workflows, and AI-friendly resources for teams that want sharper front-end quality without guesswork.
+            - paragraph [ref=e749]: Built for modern HTML, CSS, JavaScript, performance, accessibility, and SEO work.
+          - navigation "Explore" [ref=e750]:
+            - heading "Explore" [level=3] [ref=e751]
+            - list [ref=e752]:
+              - listitem [ref=e753]:
+                - link "Guides" [ref=e754] [cursor=pointer]:
+                  - /url: /guides
+              - listitem [ref=e755]:
+                - link "How to Use This Checklist" [ref=e756] [cursor=pointer]:
+                  - /url: /guide
+          - navigation "Project" [ref=e757]:
+            - heading "Project" [level=3] [ref=e758]
+            - list [ref=e759]:
+              - listitem [ref=e760]:
+                - link "About" [ref=e761] [cursor=pointer]:
+                  - /url: /about
+              - listitem [ref=e762]:
+                - link "Community Mentions" [ref=e763] [cursor=pointer]:
+                  - /url: /mentions
+              - listitem [ref=e764]:
+                - link "Source Code (opens in new tab)" [ref=e765] [cursor=pointer]:
+                  - /url: https://github.com/thedaviddias/Front-End-Checklist
+                  - text: Source Code
+                  - generic [ref=e766]: (opens in new tab)
+              - listitem [ref=e767]:
+                - link "Sitemap" [ref=e768] [cursor=pointer]:
+                  - /url: /sitemap.xml
+          - navigation "For AI Agents" [ref=e769]:
+            - heading "For AI Agents" [level=3] [ref=e770]
+            - list [ref=e771]:
+              - listitem [ref=e772]:
+                - link "MCP Overview" [ref=e773] [cursor=pointer]:
+                  - /url: /mcp
+              - listitem [ref=e774]:
+                - link "llms.txt" [ref=e775] [cursor=pointer]:
+                  - /url: /llms.txt
+        - generic [ref=e776]:
+          - paragraph [ref=e778]:
+            - text: Front-End Checklist. Open source, MIT licensed./Created by
+            - link "David Dias (opens in new tab)" [ref=e779] [cursor=pointer]:
+              - /url: https://thedaviddias.com
+              - text: David Dias
+              - generic [ref=e780]: (opens in new tab)
+            - text: .
+          - generic [ref=e781]:
+            - button "Toggle theme" [disabled] [ref=e782]:
+              - generic [ref=e784]: Theme
+            - link "Open the GitHub repository with 72.7k stars" [ref=e785] [cursor=pointer]:
+              - /url: https://github.com/thedaviddias/Front-End-Checklist
+              - generic [ref=e786]: GitHub
+              - generic [ref=e787]: · 72.7k
+              - generic [ref=e788]: (opens in new tab)
+            - link "Open the X profile" [ref=e789] [cursor=pointer]:
+              - /url: https://x.com/thedaviddias
+              - img [ref=e790]
+              - generic [ref=e792]: (opens in new tab)
+  - button "Open Next.js Dev Tools" [ref=e798] [cursor=pointer]:
+    - img [ref=e799]
+  - alert [ref=e802]

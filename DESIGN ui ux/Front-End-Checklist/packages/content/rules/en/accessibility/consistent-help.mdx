@@ -1,0 +1,165 @@
+---
+title: Keep repeated help mechanisms in a consistent location
+description: >-
+  When help or support mechanisms appear on multiple pages in the same flow,
+  they stay in the same relative order so users can find them predictably.
+categories:
+  - accessibility
+  - html
+subcategory: navigation
+priority: medium
+difficulty: beginner
+estimatedTime: 15
+tldr:
+  - Put repeated help in the same place across related pages
+  - Keep the same relative order at the same breakpoint and zoom level
+  - Review chat, phone, contact, FAQ, and help-center entry points together
+  - Inconsistency across steps matters more than the exact visual style
+whyItMatters: >-
+  Users who need help during a task should not have to hunt for it on every
+  screen. Predictable placement reduces stress and makes support easier to find
+  when a user is already struggling.
+prompts:
+  check: >-
+    Audit repeated help mechanisms across this set of pages. Check whether
+    contact links, chat triggers, help-center links, or support phone numbers
+    appear in the same relative order on each page.
+  fix: >-
+    Move repeated help mechanisms into a consistent location and keep their
+    relative order stable across the flow at the same breakpoint.
+  explain: >-
+    Explain WCAG Consistent Help, what counts as a repeated help mechanism, and
+    why consistent serial order matters more than pixel-perfect placement.
+  codeReview: >-
+    Review page chrome, support UI, and responsive layouts related to Keep
+    repeated help mechanisms in a consistent location. Flag exact pages or
+    breakpoints where repeated help moves to a different relative position.
+aiContext: >-
+  Use when reviewing support UI across multi-page flows such as checkout,
+  onboarding, account recovery, or support journeys. Compare multiple pages in
+  the same variation instead of reviewing a single page alone.
+sources:
+  - title: 'WCAG 2.2 SC 3.2.6: Consistent Help'
+    url: 'https://www.w3.org/TR/WCAG22/#consistent-help'
+    type: wcag
+    id: wcag-2-2-sc-3-2-6-consistent-help
+    role: standard
+    authority: primary
+  - title: 'W3C: Understanding SC 3.2.6 Consistent Help'
+    url: 'https://www.w3.org/WAI/WCAG22/Understanding/consistent-help.html'
+    type: wcag
+    id: w3c-understanding-sc-3-2-6-consistent-help
+    role: implementation
+    authority: primary
+resources:
+  - name: Chrome DevTools
+    url: 'https://developer.chrome.com/docs/devtools/'
+    type: tool
+relatedRules:
+  - slug: navigation-landmark
+    reason: >-
+      Consistent page structure and consistent support placement reinforce each
+      other for keyboard and assistive-technology users.
+  - slug: form-validation
+    reason: >-
+      Users often need help while fixing errors or completing forms, so support
+      entry points should remain predictable across those pages.
+  - slug: contact-page
+    reason: >-
+      Repeated help mechanisms usually point to the same contact or support
+      destination and should stay easy to locate.
+  - slug: search-input
+    reason: >-
+      Search and help are both fallback mechanisms users reach for when they
+      cannot complete a task as expected.
+---
+If a site offers help across multiple pages in the same journey, users should be able to learn where that help lives and find it again without re-scanning the whole layout. Consistency matters most when the user is already stuck.
+
+## Code Example
+
+```html
+<!-- Good: help stays in the same relative area across checkout steps -->
+<header>
+  <a href="/checkout">Checkout</a>
+  <a href="/help" aria-label="Get help with checkout">Help</a>
+</header>
+```
+
+```html
+<!-- Bad: page 1 puts help in the header -->
+<header>
+  <a href="/help">Help</a>
+</header>
+
+<!-- Bad: page 2 moves the same help mechanism to the footer -->
+<footer>
+  <a href="/help">Help</a>
+</footer>
+```
+
+```html
+<!-- Better: keep the same help order on another page in the same flow -->
+<aside aria-label="Support">
+  <a href="/help">Help center</a>
+  <a href="/contact">Contact support</a>
+</aside>
+```
+
+## Why It Matters
+
+People who need help during a task often need it quickly. Inconsistent support placement creates extra search effort at exactly the moment a user is already blocked.
+
+- users with cognitive disabilities benefit from predictable placement
+- repeated scanning for support controls slows form and checkout completion
+- consistency reduces frustration in recovery, onboarding, and support flows
+
+## Best Practices
+
+### Choose a stable support location
+
+If help is repeated across a flow, keep it in one predictable place such as:
+
+- the header utility area
+- the same sidebar region
+- the same footer support area
+
+The exact visual position can vary by breakpoint, but the relative order should stay consistent within that page variation.
+
+### Keep the same mechanisms together
+
+If you expose more than one support mechanism, such as:
+
+- chat
+- phone
+- FAQ/help center
+- contact form
+
+keep their order predictable across pages in the same flow.
+
+### Do not over-apply the rule
+
+This rule does not require every page to have help. It requires consistency when the same help mechanism is repeated across multiple pages.
+
+## Standards
+
+- This rule maps to WCAG 2.2 Success Criterion 3.2.6 Consistent Help.
+- Evaluate the same breakpoint and zoom level when comparing relative order across pages.
+
+## Exceptions
+
+- A page that does not include a help mechanism at all does not fail this rule solely because another page in the flow does.
+- Responsive layouts can rearrange content, but the relative order should remain consistent within the same breakpoint and zoom variation.
+- Contextual inline help inside a field is different from a repeated help mechanism such as chat, support, or contact links.
+
+## Verification
+
+### Automated Checks
+
+- Inventory repeated help mechanisms across the relevant set of pages.
+- Compare their DOM order and placement across pages at the same breakpoint.
+
+### Manual Checks
+
+- Open several pages in the same flow at the same viewport and zoom level.
+- Pass if repeated help appears in the same relative order on each page.
+- Fail if the same chat, contact, or help-center entry point moves unpredictably between header, body, sidebar, and footer positions.

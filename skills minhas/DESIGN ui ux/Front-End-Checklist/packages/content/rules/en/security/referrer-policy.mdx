@@ -1,0 +1,230 @@
+---
+title: Set a Referrer-Policy header
+description: >-
+  The Referrer-Policy header controls how much referrer information is sent when
+  navigating from your site to another, protecting user privacy and preventing
+  leaking sensitive URL parameters.
+categories:
+  - security
+subcategory: headers
+priority: medium
+difficulty: beginner
+estimatedTime: 10
+tldr:
+  - >-
+    Use `Referrer-Policy: strict-origin-when-cross-origin` — the recommended
+    modern default
+  - >-
+    `strict-origin-when-cross-origin` sends the full URL for same-origin
+    requests, only the origin for cross-origin HTTPS, and nothing for HTTPS→HTTP
+  - >-
+    Never use `unsafe-url` — it sends the full URL including path and query
+    string to every external site
+  - >-
+    Can be set via HTTP header, `<meta>` tag, or the `referrerpolicy` attribute
+    on individual `<a>` and `<img>` elements
+  - >-
+    Sensitive URLs (reset tokens, private IDs) in query strings can be exposed
+    via the Referer header if policy is too permissive
+whyItMatters: >-
+  Without a Referrer-Policy, a password reset link like
+  `https://example.com/reset?token=abc123` is included in the `Referer` header
+  when the user clicks an external link on that page — leaking the token to
+  third parties.
+aiContext: >-
+  Use when reviewing HTTP response headers for privacy hardening on any website
+  that handles authentication, session state, or sensitive URL parameters.
+prompts:
+  check: >-
+    Check whether the server sends a Referrer-Policy header and verify the value
+    is appropriate. The recommended value is strict-origin-when-cross-origin.
+    Check for any pages with sensitive URL parameters that could be leaked via
+    the Referer header.
+  fix: >-
+    Add Referrer-Policy: strict-origin-when-cross-origin to all HTTP responses.
+    Configure it in your web server, CDN, or application framework. For pages
+    with particularly sensitive URLs, consider no-referrer or same-origin.
+  explain: >-
+    Explain what the Referer header contains, how a permissive Referrer-Policy
+    can leak sensitive URL parameters to third parties, and what the difference
+    is between the various Referrer-Policy values.
+  codeReview: >-
+    Review server config, headers, forms, and integration points related to Set
+    a Referrer-Policy header. Flag exact responses, cookies, or browser
+    behaviors that violate the rule, and verify them against the effective
+    production-like response.
+sources:
+  - title: 'MDN: Referrer-Policy'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referrer-Policy'
+    type: mdn
+    id: mdn-referrer-policy
+    role: reference
+    authority: primary
+  - title: 'web.dev: Best Practices for Referrer Policies'
+    url: 'https://web.dev/articles/referrer-best-practices'
+    type: web.dev
+    id: web-dev-best-practices-for-referrer-policies
+    role: implementation
+    authority: primary
+  - title: W3C Referrer Policy specification
+    url: 'https://www.w3.org/TR/referrer-policy/'
+    type: spec
+    id: w3c-referrer-policy-specification
+    role: standard
+    authority: primary
+resources:
+  - name: Mozilla Observatory
+    url: 'https://observatory.mozilla.org/'
+    type: tool
+relatedRules:
+  - slug: new-tab
+    reason: >-
+      Both rules sit in the `security/headers` area and are commonly reviewed
+      together.
+  - slug: hsts
+    reason: >-
+      Both rules sit in the `security/headers` area and are commonly reviewed
+      together.
+  - slug: x-frame-options
+    reason: >-
+      Both rules sit in the `security/headers` area and are commonly reviewed
+      together.
+  - slug: content-security-policy
+    reason: >-
+      Both rules sit in the `security/headers` area and are commonly reviewed
+      together.
+---
+When a user clicks a link or a page loads a resource, browsers send a `Referer` header to the destination server. The `Referrer-Policy` header controls how much of the originating URL is included in that header.
+
+## Code Example
+
+```http
+Referrer-Policy: strict-origin-when-cross-origin
+```
+
+## Why It Matters
+
+Without a Referrer-Policy, a password reset link such as `/reset?token=abc123` is included in the `Referer` header when the user clicks an external link on that page, leaking the token to third parties.
+
+## Available Policy Values
+
+| Value | Same-origin requests | Cross-origin HTTPS | HTTPS → HTTP |
+|-------|---------------------|-------------------|--------------|
+| `no-referrer` | Nothing | Nothing | Nothing |
+| `no-referrer-when-downgrade` | Full URL | Full URL | Nothing |
+| `origin` | Origin only | Origin only | Origin only |
+| `origin-when-cross-origin` | Full URL | Origin only | Origin only |
+| `same-origin` | Full URL | Nothing | Nothing |
+| `strict-origin` | Origin only | Origin only | Nothing |
+| **`strict-origin-when-cross-origin`** | **Full URL** | **Origin only** | **Nothing** |
+| `unsafe-url` | Full URL | Full URL | Full URL |
+
+**Recommended: `strict-origin-when-cross-origin`** — this is the browser default as of Chrome 85+ and Firefox 87+. Set it explicitly to ensure consistent behavior across all browsers.
+
+## Server Configuration
+
+#
+
+## Nginx
+
+```nginx
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+```
+
+### Apache
+
+```apache
+<IfModule mod_headers.c>
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+```
+
+### Next.js
+
+```javascript
+// next.config.js
+const nextConfig = {
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+        ],
+      },
+    ]
+  },
+}
+```
+
+### Express.js (using Helmet)
+
+```javascript
+import helmet from 'helmet'
+
+app.use(
+  helmet.referrerPolicy({
+    policy: 'strict-origin-when-cross-origin',
+  })
+)
+```
+
+## HTML Meta Tag (Page-level)
+
+```html
+<meta name="referrer" content="strict-origin-when-cross-origin">
+```
+
+## Per-Element Control
+
+Override the policy for specific links or resources:
+
+```html
+<!-- No referrer for this external link -->
+<a href="https://external.com" referrerpolicy="no-referrer">External</a>
+
+<!-- Send full URL only to same origin -->
+<a href="https://partner.com/track" referrerpolicy="origin">Partner</a>
+
+<!-- No referrer for this image request -->
+<img src="https://analytics.example.com/pixel.gif" referrerpolicy="no-referrer">
+```
+
+## What Gets Leaked Without a Policy
+
+Consider a user on `/reset-password?token=xK9mP2qR&user=42` who clicks an external link. Without a strict [Referrer-Policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referrer-Policy):
+
+```http
+Referer: https://app.example.com/reset-password?token=xK9mP2qR&user=42
+```
+
+The third-party site receives the full URL including the password reset token.
+
+<Warning title="Sensitive Tokens in Query Strings">
+Even with a good Referrer-Policy, placing sensitive tokens in query strings is a security smell — they may appear in server logs, browser history, and shared links. Prefer tokens in the URL path or HTTP POST bodies, and rotate tokens immediately after use.
+</Warning>
+
+## Exceptions
+
+- A missing or weak header should be evaluated against the live production response path, not only the framework or server config in isolation.
+- Legacy integrations or embedded third-party content may require narrowly scoped exceptions, but they should be documented explicitly instead of left permissive by default.
+- When multiple security headers are missing, prioritize the header that removes the highest exploitability or browser capability first.
+
+## Support Notes
+
+- The feature is supported across the current project browser matrix.
+- Baseline-compatible minimums: chrome 115, edge 115, firefox 116, safari 16.4, safari_ios 16.4.
+- Add a fallback or a narrower policy note when a required project target falls outside that support range.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the effective response headers with curl, a security header scanner, or equivalent tooling against representative live responses.
+
+### Manual Checks
+
+- Verify the browser or user-facing behavior manually in a production-like flow and confirm there is no stronger conflicting security signal.

@@ -1,0 +1,229 @@
+---
+title: Geo Meta Tags
+description: Checks for geographic meta tags for local or regional targeting
+categories:
+  - seo
+subcategory: local-seo
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - >-
+    Geo meta tags (`geo.region`, `geo.placename`, `geo.position`) are not used
+    by Google, but may be read by Bing and minor engines
+  - >-
+    Prefer hreflang for multi-region/language targeting and LocalBusiness
+    JSON-LD for local business signals
+  - >-
+    Include geo meta tags only as a supplementary signal alongside, not instead
+    of, structured data and hreflang
+whyItMatters: >-
+  While Google does not officially support geo meta tags, Bing and other search
+  engines may use them for geographic targeting. For sites with clear regional
+  focus, they provide a low-effort supplementary signal alongside the primary
+  approaches (hreflang, LocalBusiness schema, NAP consistency).
+aiContext: >-
+  Use when auditing locally-focused or regionally-targeted pages for geo
+  targeting signals, particularly on sites targeting audiences through Bing or
+  regional search engines. Note that these meta tags have no documented effect
+  on Google's ranking.
+prompts:
+  check: >-
+    In the page `<head>`, check for `<meta name="geo.region">`, `<meta
+    name="geo.placename">`, and `<meta name="geo.position">` tags. Verify: (1)
+    `geo.region` uses a valid ISO 3166-1/3166-2 code (e.g., `US-CA` for
+    California, `GB-ENG` for England). (2) `geo.position` uses
+    latitude;longitude format (e.g., `37.7749;-122.4194`). (3) ICBM meta tag
+    matches geo.position if present.
+  fix: >
+    1. Add geo meta tags to region-specific pages in the `<head>`:
+       ```html
+       <meta name="geo.region" content="US-CA">
+       <meta name="geo.placename" content="San Francisco">
+       <meta name="geo.position" content="37.7749;-122.4194">
+       <meta name="ICBM" content="37.7749, -122.4194">
+       ```
+    2. Use ISO 3166-2 codes for `geo.region`: country code + region code.
+
+    3. Ensure `geo.position` and `ICBM` use consistent coordinates.
+
+    4. For Google targeting, prioritise: hreflang (multilingual), LocalBusiness
+    JSON-LD (local businesses), and Google Search Console's International
+    Targeting settings.
+  explain: >-
+    Geo meta tags signal a page's geographic focus to search engines. While
+    Google does not use them as a ranking factor, Bing's guidelines reference
+    them for geo-targeting. They are most useful for regional or local sites
+    wanting to signal geographic relevance without significant development
+    effort. They should supplement, not replace, hreflang and LocalBusiness
+    structured data.
+  codeReview: >-
+    Check `<meta name='geo.region'>` for a valid ISO 3166-2 value (e.g.,
+    'US-CA', 'GB-LND'). Verify `geo.position` format as `lat;lon` (semicolon
+    separator). Flag if geo tags are present but contradict the site's actual
+    target region. Note if geo tags are used without accompanying hreflang or
+    LocalBusiness schema, which are more impactful.
+relatedRules:
+  - slug: local-business
+    reason: >-
+      LocalBusiness JSON-LD is the preferred approach for local SEO geo
+      targeting
+  - slug: hreflang
+    reason: hreflang is the correct approach for targeting by language and region
+  - slug: service-area
+    reason: >-
+      Both rules sit in the `seo/local-seo` area and are commonly reviewed
+      together.
+  - slug: nap-consistency
+    reason: >-
+      Both rules sit in the `seo/local-seo` area and are commonly reviewed
+      together.
+resources:
+  - title: Bing Webmaster Tools
+    url: 'https://learn.microsoft.com/bingwebmaster/'
+    type: guide
+  - title: ISO 3166-2 country subdivision codes
+    url: 'https://en.wikipedia.org/wiki/ISO_3166-2'
+    type: other
+sources:
+  - title: Bing Webmaster Tools
+    url: 'https://learn.microsoft.com/bingwebmaster/'
+    type: guide
+    id: bing-webmaster-tools
+    role: reference
+    authority: secondary
+  - title: 'Google Search Central: International targeting'
+    url: >-
+      https://developers.google.com/search/docs/specialty/international/managing-multi-regional-sites
+    type: guide
+    id: google-search-central-international-targeting
+    role: search
+    authority: primary
+---
+Geo meta tags are HTML meta elements that declare a page's geographic region, place name, and coordinates. They are a lightweight regional signal, primarily relevant for Bing, and should sit behind stronger systems such as [hreflang](/en/rules/i18n/hreflang) and Google's international targeting guidance.
+
+## Code Examples
+
+#
+
+## ❌ Avoid — incorrect format
+
+```html
+<!-- Wrong: using full country name instead of ISO code -->
+<meta name="geo.region" content="United States, California">
+
+<!-- Wrong: comma separator instead of semicolon for geo.position -->
+<meta name="geo.position" content="37.7749, -122.4194">
+```
+
+### ✅ Correct — properly formatted geo meta tags
+
+```html
+<head>
+  <!-- ISO 3166-2 region code: country-subdivision -->
+  <meta name="geo.region" content="US-CA">
+
+  <!-- Human-readable city/place name -->
+  <meta name="geo.placename" content="San Francisco, California">
+
+  <!-- Coordinates: latitude;longitude (semicolon separator) -->
+  <meta name="geo.position" content="37.7749;-122.4194">
+
+  <!-- ICBM: same coordinates, comma separator (legacy tag) -->
+  <meta name="ICBM" content="37.7749, -122.4194">
+</head>
+```
+
+### ✅ Common ISO 3166-2 region codes
+
+```html
+<!-- United Kingdom — England -->
+<meta name="geo.region" content="GB-ENG">
+
+<!-- United States — New York -->
+<meta name="geo.region" content="US-NY">
+
+<!-- Germany — Bavaria -->
+<meta name="geo.region" content="DE-BY">
+
+<!-- Australia — New South Wales -->
+<meta name="geo.region" content="AU-NSW">
+```
+
+### ✅ Complete local targeting stack (recommended)
+
+```html
+<head>
+  <!-- Geo meta tags (Bing signal) -->
+  <meta name="geo.region" content="US-CA">
+  <meta name="geo.placename" content="San Francisco">
+  <meta name="geo.position" content="37.7749;-122.4194">
+  <meta name="ICBM" content="37.7749, -122.4194">
+</head>
+
+<!-- LocalBusiness JSON-LD (Google signal — more impactful) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": "Acme Corp SF",
+  "address": {
+    "@type": "PostalAddress",
+    "addressLocality": "San Francisco",
+    "addressRegion": "CA",
+    "addressCountry": "US"
+  },
+  "geo": {
+    "@type": "GeoCoordinates",
+    "latitude": 37.7749,
+    "longitude": -122.4194
+  }
+}
+</script>
+```
+
+## Why It Matters
+
+While Google does not officially support geo meta tags, Bing and other search engines may use them for geographic targeting. [Bing Webmaster Tools](https://learn.microsoft.com/bingwebmaster/) make them more relevant there, while Google-focused local targeting still relies more on [LocalBusiness schema](/en/rules/seo/local-business) and NAP consistency.
+
+## Important Context
+
+Google does not use geo meta tags as a documented ranking signal. For Google-focused geo targeting:
+- Use **hreflang** for language/regional variants
+- Use **LocalBusiness JSON-LD** for local business signals
+- Use **Google Search Console's International Targeting** settings for country targeting, alongside the broader [international targeting documentation](https://developers.google.com/search/docs/specialty/international/managing-multi-regional-sites)
+
+Geo meta tags remain useful for Bing and as a supplementary signal for regional pages.
+
+## When to Use Geo Meta Tags
+
+- Regional news sites targeting readers in a specific area
+- Service businesses operating in a defined geographic area
+- E-commerce sites with country-specific inventory or pricing
+- Any site that benefits from Bing's geo-targeting features
+
+When your primary search engine target is Google, invest more in hreflang configuration and LocalBusiness structured data.
+
+## Exceptions
+
+- Local SEO guidance only applies when the business actually serves a geographic area or has public location information relevant to searchers.
+- Service-area businesses may need service-area guidance instead of storefront-focused address markup or location-page patterns.
+- Do not invent addresses, business categories, or geographic claims to satisfy local SEO recommendations; accuracy overrides completeness.
+
+## Standards
+
+- Use these references as the standard for the final search-facing HTML, metadata, and crawl behavior.
+- Check the implementation against Bing Webmaster Guidelines before treating the rule as satisfied.
+- Check the implementation against Google Search Central: International targeting before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

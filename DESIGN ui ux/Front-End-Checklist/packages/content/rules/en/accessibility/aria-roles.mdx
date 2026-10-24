@@ -1,0 +1,125 @@
+---
+title: Use valid ARIA role values
+description: Checks for valid ARIA role values
+categories:
+  - accessibility
+subcategory: aria
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - Use only standard ARIA roles defined in the W3C specification
+  - 'Avoid typos or non-existent roles (e.g., use `checkbox`, not `check-box`)'
+  - Ensure roles are applied to appropriate HTML elements
+  - Prefer native HTML controls over custom ARIA widgets whenever possible
+whyItMatters: >-
+  Invalid or misspelled ARIA roles are ignored by browsers and assistive
+  technologies, rendering the intended accessibility features useless and
+  potentially confusing users.
+prompts:
+  check: >-
+    Search for any role attributes that use non-standard or misspelled ARIA role
+    values.
+  fix: >-
+    Replace invalid ARIA roles with the correct, standard values from the
+    WAI-ARIA specification. When a native `<button>`, `<input>`, `<select>`,
+    or other semantic element can replace the custom widget, prefer that change
+    over adding more ARIA.
+  explain: >-
+    Explain why using standardized ARIA roles is critical for ensuring that
+    assistive technologies can interpret and announce elements correctly, and
+    why native HTML controls are usually more reliable than recreating them
+    with ARIA.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Use valid ARIA
+    role values. Flag exact elements, roles, labels, focus behavior, or keyboard
+    interactions that violate the rule, and note how to verify the fix with
+    browser accessibility tooling or assistive tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Use valid ARIA role values. Check native semantics first,
+  then inspect keyboard behavior, focus flow, accessible names, and
+  screen-reader output where relevant.
+sources:
+  - title: WAI-ARIA 1.2
+    url: 'https://www.w3.org/TR/wai-aria-1.2/'
+    type: spec
+    id: wai-aria-1-2
+    role: standard
+    authority: primary
+  - title: 'MDN: ARIA'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA'
+    type: mdn
+    id: mdn-aria
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: aria-valid-attr
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-live-regions
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-required-parent
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: decorative-elements
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+---
+Only valid, standardized ARIA roles should be used to ensure compatibility with browsers and assistive technologies.
+
+## Code Example
+
+```html
+<!-- ✅ Valid Roles -->
+<div role="button">Click me</div>
+<nav role="navigation">...</nav>
+<div role="status">Saved changes</div>
+
+<!-- ❌ Invalid/Common Typos -->
+<div role="btn">Incorrect</div> <!-- Should be 'button' -->
+<div role="check-box">Incorrect</div> <!-- Should be 'checkbox' -->
+<div role="tooltip-item">Incorrect</div> <!-- Should be 'tooltip' -->
+
+<!-- ✅ Better: native control instead of custom ARIA recreation -->
+<button type="button">Click me</button>
+```
+
+## Why It Matters
+
+- **Technology Support**: Assistive technologies (like VoiceOver or NVDA) only recognize official ARIA roles.
+- **Browser Interpretation**: Modern browsers use ARIA roles to expose elements correctly in the accessibility tree.
+- **Future Proofing**: Using standard roles ensures your site remains accessible as browsers and tools evolve.
+- **Clarity**: Standard roles have defined behaviors that users are already familiar with.
+
+## Exceptions
+
+- Prefer native HTML semantics over ARIA when both are possible; some apparent ARIA failures disappear when the underlying element is corrected.
+- A missing ARIA attribute is not automatically the strongest finding if the control is already semantically broken, unnamed, or keyboard-inaccessible.
+- Do not add ARIA only to satisfy the rule if the feature should instead be implemented with a native element or a simpler interaction pattern.
+
+## Standards
+
+- Align the implementation with WAI-ARIA 1.2 and verify the rendered experience, not only the source code.
+- Align the implementation with MDN: ARIA and verify the rendered experience, not only the source code.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

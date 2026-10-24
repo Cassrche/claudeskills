@@ -1,0 +1,468 @@
+package watch
+
+import (
+	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"codemap/config"
+	"codemap/scanner"
+
+	"github.com/fsnotify/fsnotify"
+)
+
+func TestDaemonDebounceActionUsesSizeAndModTime(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "main.go")
+	if err := os.WriteFile(path, []byte("package foo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	initialModTime := time.Unix(1_700_000_000, 0)
+	if err := os.Chtimes(path, initialModTime, initialModTime); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	d := &Daemon{
+		root: root,
+		graph: &Graph{State: map[string]*FileState{
+			"main.go": {Size: info.Size(), ModTime: info.ModTime().UnixNano()},
+		}, ConfiguredFiles: map[string]struct{}{"main.go": {}}},
+	}
+	debouncer := newEventDebouncer(100 * time.Millisecond)
+	event := fsnotify.Event{Name: path, Op: fsnotify.Write}
+	base := time.Unix(0, 0)
+
+	if got := d.debounceAction(debouncer, event, base); got != debounceProcess {
+		t.Fatalf("first write action = %v, want process", got)
+	}
+
+	if err := os.WriteFile(path, []byte("package bar\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	changedModTime := initialModTime.Add(time.Second)
+	if err := os.Chtimes(path, changedModTime, changedModTime); err != nil {
+		t.Fatal(err)
+	}
+	if got := d.debounceAction(debouncer, event, base.Add(10*time.Millisecond)); got != debounceDefer {
+		t.Fatalf("same-size changed write action = %v, want defer", got)
+	}
+
+	info, err = os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.graph.State["main.go"].Size = info.Size()
+	d.graph.State["main.go"].ModTime = info.ModTime().UnixNano()
+	if got := d.debounceAction(debouncer, event, base.Add(20*time.Millisecond)); got != debounceSkip {
+		t.Fatalf("duplicate write action = %v, want skip", got)
+	}
+	if got := d.debounceAction(debouncer, event, base.Add(200*time.Millisecond)); got != debounceSkip {
+		t.Fatalf("delayed duplicate write action = %v, want skip", got)
+	}
+	if got := d.debounceAction(debouncer, fsnotify.Event{Name: path, Op: fsnotify.Create}, base.Add(210*time.Millisecond)); got != debounceProcess {
+		t.Fatalf("create after write action = %v, want process", got)
+	}
+}
+
+func TestDaemonDebounceActionProcessesMissingCache(t *testing.T) {
+	root := t.TempDir()
+	d := &Daemon{root: root, graph: &Graph{State: map[string]*FileState{}}}
+	debouncer := newEventDebouncer(100 * time.Millisecond)
+	event := fsnotify.Event{Name: filepath.Join(root, "missing.go"), Op: fsnotify.Write}
+	base := time.Unix(0, 0)
+
+	if got := d.debounceAction(debouncer, event, base); got != debounceProcess {
+		t.Fatalf("first missing-cache action = %v, want process", got)
+	}
+	if got := d.debounceAction(debouncer, event, base.Add(10*time.Millisecond)); got != debounceProcess {
+		t.Fatalf("rapid missing-cache action = %v, want process", got)
+	}
+}
+
+func TestDaemonDebounceActionProcessesMissingTrackedFile(t *testing.T) {
+	root := t.TempDir()
+	d := &Daemon{root: root, graph: &Graph{State: map[string]*FileState{
+		"missing.go": {},
+	}}}
+	debouncer := newEventDebouncer(100 * time.Millisecond)
+	event := fsnotify.Event{Name: filepath.Join(root, "missing.go"), Op: fsnotify.Write}
+	base := time.Unix(0, 0)
+
+	if got := d.debounceAction(debouncer, event, base); got != debounceProcess {
+		t.Fatalf("first missing-file action = %v, want process", got)
+	}
+	if got := d.debounceAction(debouncer, event, base.Add(10*time.Millisecond)); got != debounceProcess {
+		t.Fatalf("rapid missing-file action = %v, want process", got)
+	}
+}
+
+func TestDaemonDebouncesConfiguredWriteAfterFirstEvent(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "main.go")
+	content := []byte("package main\n")
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, status := range []GraphLifecycle{graphLifecycleAvailable, graphLifecycleStale} {
+		t.Run(string(status), func(t *testing.T) {
+			d := &Daemon{
+				root: root,
+				graph: &Graph{
+					State:           map[string]*FileState{"main.go": {Size: info.Size(), ModTime: info.ModTime().UnixNano()}},
+					ConfiguredFiles: map[string]struct{}{"main.go": {}},
+					GraphState:      newGraphState(root, config.ProjectConfig{}, status, time.Now(), []string{"main.go"}),
+				},
+			}
+			debouncer := newEventDebouncer(100 * time.Millisecond)
+			event := fsnotify.Event{Name: path, Op: fsnotify.Write}
+			base := time.Unix(0, 0)
+			if got := d.debounceAction(debouncer, event, base); got != debounceProcess {
+				t.Fatal("first configured write should not be skipped")
+			}
+			if got := d.debounceAction(debouncer, event, base.Add(10*time.Millisecond)); got != debounceSkip {
+				t.Fatalf("duplicate configured write while graph is %s = %v, want skip", status, got)
+			}
+		})
+	}
+}
+
+func TestEventDebouncerSkipsRapidWrites(t *testing.T) {
+	debouncer := newEventDebouncer(100 * time.Millisecond)
+	base := time.Unix(0, 0)
+	event := fsnotify.Event{Name: "src/file.go", Op: fsnotify.Write}
+
+	if debouncer.shouldSkip(event, base) {
+		t.Fatal("first write should not be skipped")
+	}
+	if !debouncer.shouldSkip(event, base.Add(50*time.Millisecond)) {
+		t.Fatal("rapid write should be skipped")
+	}
+	if !debouncer.shouldSkip(event, base.Add(120*time.Millisecond)) {
+		t.Fatal("rapid write should extend the quiet window")
+	}
+	if debouncer.shouldSkip(event, base.Add(220*time.Millisecond)) {
+		t.Fatal("write outside debounce window should not be skipped")
+	}
+}
+
+func TestDaemonDrainQueuedProcessesSourceAndFlushBeforeFinalPublication(t *testing.T) {
+	root := canonicalDaemonRoot(t)
+	path := filepath.Join(root, "main.go")
+	if err := os.WriteFile(path, []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	d, err := NewDaemon(root, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.watcher.Close()
+	if err := d.fullScan(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(d.publisher.flushDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.publisher.publish(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("package main\n\nvar changed = true\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	req := flushRequest{Version: flushProtocolVersion, CanonicalRoot: d.root, DaemonInstance: d.publisher.instance, Nonce: "drain", ObservedGeneration: d.publisher.generation, Timestamp: time.Now()}
+	data, _ := json.Marshal(req)
+	requestPath := filepath.Join(d.publisher.flushDir, "request-drain.json")
+	if err := os.WriteFile(requestPath, data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	events := make(chan fsnotify.Event, 2)
+	events <- fsnotify.Event{Name: path, Op: fsnotify.Write}
+	events <- fsnotify.Event{Name: requestPath, Op: fsnotify.Create}
+	close(events)
+	d.drainQueued(newEventDebouncer(100*time.Millisecond), events)
+	if err := d.publisher.publish(); err != nil {
+		t.Fatal(err)
+	}
+	if got := d.GetEvents(0); len(got) == 0 || got[len(got)-1].Path != "main.go" {
+		t.Fatalf("queued source event not published: %#v", got)
+	}
+	if _, err := os.Stat(filepath.Join(d.publisher.flushDir, "ack-drain.json")); err != nil {
+		t.Fatalf("queued flush not acknowledged: %v", err)
+	}
+}
+
+func TestStopClosesWatcherAfterEventLoopDrain(t *testing.T) {
+	d, err := NewDaemon(t.TempDir(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	drained := make(chan struct{})
+	d.eventLoopWG.Add(1)
+	go func() {
+		defer d.eventLoopWG.Done()
+		<-d.done
+		close(drained)
+	}()
+	closeWatcher := d.closeWatcher
+	d.closeWatcher = func() error {
+		select {
+		case <-drained:
+		default:
+			t.Error("watcher closed before event-loop drain")
+		}
+		return closeWatcher()
+	}
+	d.Stop()
+}
+
+func TestEventLoopRefreshesDependenciesAfterConfiguredEvent(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".codemap"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, "main.go")
+	if err := os.WriteFile(path, []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	d, err := NewDaemon(root, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { d.Stop() })
+	if err := d.watcher.Close(); err != nil {
+		t.Fatal(err)
+	}
+	d.watcher.Events = make(chan fsnotify.Event, 1)
+	d.watcher.Errors = make(chan error)
+	if err := os.MkdirAll(d.runtimeDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	d.graph.Files["main.go"] = &scanner.FileInfo{Path: "main.go", Ext: ".go"}
+	d.graph.State["main.go"] = &FileState{Lines: 1}
+	d.graph.ConfiguredFiles["main.go"] = struct{}{}
+	d.graph.GraphState = newGraphState(root, config.ProjectConfig{}, graphLifecycleAvailable, time.Now(), []string{"main.go"})
+	d.graph.FileGraph = &scanner.FileGraph{Imports: map[string][]string{"main.go": {"dep.go"}}}
+	d.graph.HasDeps = true
+
+	originalBuild := buildFileGraph
+	originalRefresh := daemonRefreshDependencies
+	t.Cleanup(func() {
+		buildFileGraph = originalBuild
+		daemonRefreshDependencies = originalRefresh
+	})
+	var refreshes atomic.Int32
+	buildFileGraph = func(context.Context, string, scanner.Filters) (*scanner.FileGraph, error) {
+		return &scanner.FileGraph{
+			Imports:   map[string][]string{"main.go": {"dep.go"}},
+			Importers: map[string][]string{"dep.go": {"main.go"}},
+		}, nil
+	}
+	daemonRefreshDependencies = func(d *Daemon) {
+		refreshes.Add(1)
+		originalRefresh(d)
+	}
+
+	d.eventLoopWG.Add(1)
+	go func() {
+		defer d.eventLoopWG.Done()
+		d.eventLoop()
+	}()
+	d.watcher.Events <- fsnotify.Event{Name: path, Op: fsnotify.Write}
+	waitForWatchCondition(t, time.Second, func() bool {
+		d.graph.mu.RLock()
+		defer d.graph.mu.RUnlock()
+		return refreshes.Load() > 0 && d.graph.GraphState.Status == graphLifecycleAvailable && d.graph.HasDeps
+	})
+}
+
+func TestEventDebouncerDoesNotSkipNonWriteOps(t *testing.T) {
+	debouncer := newEventDebouncer(100 * time.Millisecond)
+	base := time.Unix(0, 0)
+	path := "src/tmp.go"
+
+	if debouncer.shouldSkip(fsnotify.Event{Name: path, Op: fsnotify.Create}, base) {
+		t.Fatal("create should not be skipped")
+	}
+	if debouncer.shouldSkip(fsnotify.Event{Name: path, Op: fsnotify.Remove}, base.Add(5*time.Millisecond)) {
+		t.Fatal("remove should not be skipped even after rapid create")
+	}
+	if debouncer.shouldSkip(fsnotify.Event{Name: path, Op: fsnotify.Write}, base.Add(10*time.Millisecond)) {
+		t.Fatal("first write should not be skipped")
+	}
+	if debouncer.shouldSkip(fsnotify.Event{Name: path, Op: fsnotify.Rename}, base.Add(15*time.Millisecond)) {
+		t.Fatal("rename should not be skipped even after rapid write")
+	}
+}
+
+func TestEventDebouncerDoesNotSkipCombinedLifecycleOps(t *testing.T) {
+	debouncer := newEventDebouncer(100 * time.Millisecond)
+	base := time.Unix(0, 0)
+	path := "src/tmp.go"
+
+	if debouncer.shouldSkip(fsnotify.Event{Name: path, Op: fsnotify.Create | fsnotify.Write}, base) {
+		t.Fatal("create+write should not be skipped")
+	}
+	if debouncer.shouldSkip(fsnotify.Event{Name: path, Op: fsnotify.Rename | fsnotify.Write}, base.Add(10*time.Millisecond)) {
+		t.Fatal("rename+write should not be skipped")
+	}
+	if debouncer.shouldSkip(fsnotify.Event{Name: path, Op: fsnotify.Remove | fsnotify.Write}, base.Add(20*time.Millisecond)) {
+		t.Fatal("remove+write should not be skipped")
+	}
+}
+
+func TestEventDebouncerPrunesStaleEntries(t *testing.T) {
+	debouncer := newEventDebouncer(100 * time.Millisecond)
+	base := time.Unix(0, 0)
+
+	debouncer.shouldSkip(fsnotify.Event{Name: "src/old.go", Op: fsnotify.Write}, base)
+	if len(debouncer.lastSeen) != 1 {
+		t.Fatalf("expected 1 tracked path, got %d", len(debouncer.lastSeen))
+	}
+
+	debouncer.shouldSkip(fsnotify.Event{Name: "src/new.go", Op: fsnotify.Write}, base.Add(2*time.Second))
+
+	if _, exists := debouncer.lastSeen["src/old.go"]; exists {
+		t.Fatal("expected stale path entry to be pruned")
+	}
+	if _, exists := debouncer.lastSeen["src/new.go"]; !exists {
+		t.Fatal("expected recent path entry to be retained")
+	}
+}
+
+func TestEventDebouncerPendingWritesKeepLatestUntilDue(t *testing.T) {
+	debouncer := newEventDebouncer(100 * time.Millisecond)
+	base := time.Unix(0, 0)
+	first := fsnotify.Event{Name: "src/file.go", Op: fsnotify.Write}
+	latest := fsnotify.Event{Name: "src/file.go", Op: fsnotify.Write | fsnotify.Chmod}
+
+	debouncer.deferEvent(first, base)
+	debouncer.deferEvent(latest, base.Add(50*time.Millisecond))
+
+	if got := debouncer.takeDue(base.Add(149 * time.Millisecond)); len(got) != 0 {
+		t.Fatalf("takeDue before quiet window returned %v", got)
+	}
+	if delay, ok := debouncer.nextDelay(base.Add(100 * time.Millisecond)); !ok || delay != 50*time.Millisecond {
+		t.Fatalf("nextDelay = (%v, %v), want (50ms, true)", delay, ok)
+	}
+	if delay, ok := debouncer.nextDelay(base.Add(151 * time.Millisecond)); !ok || delay != 0 {
+		t.Fatalf("overdue nextDelay = (%v, %v), want (0, true)", delay, ok)
+	}
+
+	got := debouncer.takeDue(base.Add(150 * time.Millisecond))
+	if len(got) != 1 || got[0] != latest {
+		t.Fatalf("takeDue after quiet window = %v, want latest event %v", got, latest)
+	}
+	if _, ok := debouncer.nextDelay(base.Add(150 * time.Millisecond)); ok {
+		t.Fatal("expected no timer deadline after pending event drained")
+	}
+}
+
+func TestEventLoopDrainsLatestPendingWriteOnShutdown(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, ".codemap"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, "main.go")
+	if err := os.WriteFile(path, []byte("package foo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	d, err := NewDaemon(root, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := d.watcher.Close(); err != nil {
+		t.Fatal(err)
+	}
+	d.watcher.Events = make(chan fsnotify.Event)
+	d.watcher.Errors = make(chan error)
+	d.eventLoopWG.Add(1)
+	go func() {
+		defer d.eventLoopWG.Done()
+		d.eventLoop()
+	}()
+	stopped := false
+	t.Cleanup(func() {
+		if !stopped {
+			d.Stop()
+		}
+	})
+
+	event := fsnotify.Event{Name: path, Op: fsnotify.Write}
+	d.watcher.Events <- event
+	waitForWatchCondition(t, time.Second, func() bool {
+		return len(d.GetEvents(10)) == 1
+	})
+	d.watcher.Events <- event
+	time.Sleep(20 * time.Millisecond)
+	if got := len(d.GetEvents(10)); got != 1 {
+		t.Fatalf("duplicate write produced %d events, want 1", got)
+	}
+
+	if err := os.WriteFile(path, []byte("package bar\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changedModTime := info.ModTime().Add(time.Second)
+	if err := os.Chtimes(path, changedModTime, changedModTime); err != nil {
+		t.Fatal(err)
+	}
+	d.watcher.Events <- event
+	d.Stop()
+	stopped = true
+	got := d.GetEvents(10)
+	if len(got) != 2 || got[1].Lines != 1 {
+		t.Fatalf("events after shutdown drain = %#v, want latest pending write", got)
+	}
+}
+
+func TestEventDebouncerCancelsAndDrainsPendingWrites(t *testing.T) {
+	debouncer := newEventDebouncer(100 * time.Millisecond)
+	base := time.Unix(0, 0)
+	canceled := fsnotify.Event{Name: "src/canceled.go", Op: fsnotify.Write}
+	remaining := fsnotify.Event{Name: "src/remaining.go", Op: fsnotify.Write}
+
+	debouncer.deferEvent(canceled, base)
+	debouncer.deferEvent(remaining, base.Add(10*time.Millisecond))
+	debouncer.cancelPending(canceled.Name)
+
+	got := debouncer.takeAll()
+	if len(got) != 1 || got[0] != remaining {
+		t.Fatalf("takeAll = %v, want remaining event %v", got, remaining)
+	}
+	if got := debouncer.takeAll(); len(got) != 0 {
+		t.Fatalf("second takeAll returned already-drained events: %v", got)
+	}
+}
+
+func TestEventDebouncerLifecycleCancelsSamePathBeforeDueFlush(t *testing.T) {
+	debouncer := newEventDebouncer(100 * time.Millisecond)
+	base := time.Unix(0, 0)
+	canceled := fsnotify.Event{Name: "src/canceled.go", Op: fsnotify.Write}
+	remaining := fsnotify.Event{Name: "src/remaining.go", Op: fsnotify.Write}
+
+	debouncer.deferEvent(canceled, base)
+	debouncer.deferEvent(remaining, base)
+	got := debouncer.takeDueBeforeEvent(
+		fsnotify.Event{Name: canceled.Name, Op: fsnotify.Remove},
+		base.Add(100*time.Millisecond),
+	)
+
+	if len(got) != 1 || got[0] != remaining {
+		t.Fatalf("due writes before lifecycle event = %v, want only %v", got, remaining)
+	}
+}

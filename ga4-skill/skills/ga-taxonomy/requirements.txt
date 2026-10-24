@@ -1,0 +1,4 @@
+google-analytics-data>=0.18.0
+google-api-python-client>=2.100.0
+openpyxl>=3.1.0
+pytest>=8.0.0

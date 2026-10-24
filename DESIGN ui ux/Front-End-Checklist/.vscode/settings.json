@@ -1,0 +1,33 @@
+{
+  "editor.defaultFormatter": "biomejs.biome",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.biome": "explicit",
+    "source.fixAll.tailwindCSS": "explicit",
+    "source.organizeImports.biome": "explicit"
+  },
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/.DS_Store": true,
+    "**/*.log": true,
+    "**/*.tmp": true,
+    "**/*.temp": true,
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/out": true,
+    "**/.turbo": true,
+    "**/.swc": true,
+    "**/.content-collections": true,
+    "**/.next": true,
+    "**/.pnpm-store": true,
+    "**/.artifacts": true,
+    "**/tsconfig.tsbuildinfo": true,
+    "**/coverage": true,
+    "**/playwright-report": true,
+    "**/test-results": true
+  }
+}

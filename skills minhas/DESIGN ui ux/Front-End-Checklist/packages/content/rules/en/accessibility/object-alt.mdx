@@ -1,0 +1,122 @@
+---
+title: Provide alternative text for objects
+description: >-
+  The `<object>` element must contain alternative content to ensure
+  accessibility for users who cannot view the primary content.
+categories:
+  - accessibility
+subcategory: visual
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - Include descriptive alternative text inside every `<object>` element
+  - The fallback content should serve as a functional equivalent
+  - Use simple text or other semantic elements as alternative content
+whyItMatters: >-
+  If an object fails to load or the user's browser doesn't support the format,
+  alternative text ensures that the information is still accessible.
+prompts:
+  check: >-
+    Check all `<object>` elements in the HTML to ensure they contain descriptive
+    fallback content.
+  fix: Add alternative text or a semantic fallback inside the `<object>` tags.
+  explain: >-
+    Explain how fallback content in `<object>` tags helps users who cannot load
+    or view the primary object content.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Provide
+    alternative text for objects. Flag exact elements, roles, labels, focus
+    behavior, or keyboard interactions that violate the rule, and note how to
+    verify the fix with browser accessibility tooling or assistive tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Provide alternative text for objects. Check native
+  semantics first, then inspect keyboard behavior, focus flow, accessible names,
+  and screen-reader output where relevant.
+sources:
+  - title: 'WCAG 2.1 SC 1.1.1: Non-text Content'
+    url: 'https://www.w3.org/TR/WCAG21/#non-text-content'
+    type: wcag
+    id: wcag-2-1-sc-1-1-1-non-text-content
+    role: standard
+    authority: primary
+  - title: 'MDN: <object> element'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/object'
+    type: mdn
+    id: mdn-object-element
+    role: reference
+    authority: primary
+  - title: 'HTML Living Standard: The object element'
+    url: 'https://html.spec.whatwg.org/multipage/iframe-embed-object.html#the-object-element'
+    type: spec
+    id: html-living-standard-the-object-element
+    role: standard
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: frame-title
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+  - slug: touch-targets
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+  - slug: focus-styles
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+  - slug: landmark-one-main
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+---
+The [`<object>` element](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/object) is used to embed external resources like multimedia or other web pages. The [HTML standard](https://html.spec.whatwg.org/multipage/iframe-embed-object.html#the-object-element) and [WCAG non-text content rules](https://www.w3.org/TR/WCAG21/#non-text-content) both rely on meaningful fallback content when the primary object is unavailable or inaccessible.
+## Code Example
+
+```html
+<!-- Incorrect: No alternative content -->
+<object data="interactive-map.swf" type="application/x-shockwave-flash">
+</object>
+
+<!-- Correct: Meaningful fallback text -->
+<object data="annual-report.pdf" type="application/pdf" width="600" height="800">
+  <p>Your browser does not support PDFs. You can 
+     <a href="annual-report.pdf">download the 2023 Annual Report PDF</a> instead.
+  </p>
+</object>
+
+<!-- Correct: Fallback image and text -->
+<object data="chart.svg" type="image/svg+xml">
+  <img src="chart.png" alt="Graph showing a 20% increase in sales this quarter">
+</object>
+```
+
+## Why It Matters
+
+- **Assistive Technology**: Screen readers read the content inside the `<object>` tag if the object itself is not accessible or cannot be rendered.
+- **Fail-safe Design**: It provides a graceful degradation for browsers that do not support certain file types (e.g., legacy plugins or modern PDF viewers).
+- **SEO**: Search engine crawlers can index the fallback text even if they cannot parse the object's internal data.
+- **User Experience**: Users on slow connections may benefit from a text alternative while waiting for a large object to load.
+
+## Exceptions
+
+- Logos, purely decorative text treatments, and screenshots used as documentation can be valid exceptions when their accessible alternative is still provided appropriately.
+- An image or media rule should not force redundant alt text, captions, or transcripts when another nearby mechanism already provides the equivalent information clearly.
+- If the media asset fails more than one rule, prioritize the issue that most directly blocks understanding for assistive technology users.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

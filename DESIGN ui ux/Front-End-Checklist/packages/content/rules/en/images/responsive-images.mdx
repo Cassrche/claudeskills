@@ -1,0 +1,277 @@
+---
+title: Implement responsive images with srcset
+description: Images use srcset and sizes attributes for responsive delivery across devices.
+categories:
+  - images
+  - html
+subcategory: responsive
+priority: high
+difficulty: intermediate
+estimatedTime: 20
+tldr:
+  - Use srcset to provide multiple image sizes
+  - Use sizes attribute to tell browser which size to download
+  - Browser selects optimal size based on viewport and DPR
+  - Can save 50-70% bandwidth on mobile devices
+whyItMatters: >-
+  Serving a 2000px image to a 400px phone screen wastes bandwidth and slows
+  loading—srcset lets the browser download only the size it needs.
+aiContext: >-
+  Use when reviewing article images, cards, galleries, or any component rendered
+  at multiple sizes across breakpoints. Check both the markup and the CSS layout
+  because an incorrect `sizes` attribute can negate a perfectly good `srcset`.
+relatedRules:
+  - slug: srcset
+    reason: This rule expands on the mechanics of responsive image candidate selection
+  - slug: dimensions
+    reason: >-
+      Intrinsic width and height still matter for layout stability when serving
+      multiple variants
+  - slug: retina-display
+    reason: >-
+      Both rules sit in the `images/responsive` area and are commonly reviewed
+      together.
+  - slug: responsive-size
+    reason: Both rules affect images quality and are commonly reviewed together.
+sources:
+  - title: 'MDN: Responsive images'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Learn/HTML/Multimedia_and_embedding/Responsive_images
+    type: mdn
+    id: mdn-responsive-images
+    role: reference
+    authority: primary
+  - title: 'web.dev: Responsive images'
+    url: 'https://web.dev/articles/responsive-images'
+    type: guide
+    id: web-dev-responsive-images
+    role: implementation
+    authority: primary
+resources:
+  - name: Next.js Image component
+    url: 'https://nextjs.org/docs/app/api-reference/components/image'
+    type: reference
+prompts:
+  check: Verify that images use srcset and sizes attributes for responsive delivery.
+  fix: >-
+    Implement responsive images with srcset for different screen sizes and
+    resolutions.
+  explain: >-
+    Explain how responsive images deliver optimized versions based on device
+    capabilities.
+  codeReview: >-
+    Inspect image markup and component abstractions for `srcset`, `sizes`, and
+    width/height handling. Flag pages that always ship desktop-sized assets to
+    mobile, omit `sizes`, or generate variants that do not match the actual
+    rendered layout.
+---
+Responsive images deliver the right size image for each device, saving bandwidth and improving performance.
+
+## Code Example
+
+```html
+<img
+  src="image-800.jpg"
+  srcset="
+    image-400.jpg 400w,
+    image-800.jpg 800w,
+    image-1200.jpg 1200w,
+    image-1600.jpg 1600w
+  "
+  sizes="(max-width: 600px) 100vw,
+         (max-width: 1200px) 50vw,
+         33vw"
+  alt="Responsive image"
+  width="800"
+  height="600"
+>
+```
+
+## Why It Matters
+
+Serving a 2000px image to a 400px phone screen wastes bandwidth and slows loading—srcset lets the browser download only the size it needs.
+
+## Understanding sizes Attribute
+
+| sizes Value | Meaning |
+|-------------|---------|
+| `100vw` | Image takes full viewport width |
+| `50vw` | Image takes half viewport width |
+| `(max-width: 600px) 100vw` | Full width on screens up to 600px |
+| `33vw` | Default when no condition matches |
+
+## srcset with Pixel Density (x) Descriptors
+
+```html
+<!-- For fixed-size images (icons, logos) -->
+<img
+  src="logo.png"
+  srcset="
+    logo.png 1x,
+    logo@2x.png 2x,
+    logo@3x.png 3x
+  "
+  alt="Logo"
+  width="200"
+  height="50"
+>
+```
+
+## Picture Element for Art Direction
+
+```html
+<picture>
+  <!-- Different crop for mobile -->
+  <source
+    media="(max-width: 600px)"
+    srcset="hero-mobile.webp 600w, hero-mobile-2x.webp 1200w"
+    sizes="100vw"
+    type="image/webp"
+  >
+  <!-- Desktop version -->
+  <source
+    media="(min-width: 601px)"
+    srcset="hero-desktop.webp 1200w, hero-desktop-2x.webp 2400w"
+    sizes="100vw"
+    type="image/webp"
+  >
+  <!-- Fallback -->
+  <img src="hero-desktop.jpg" alt="Hero" width="1200" height="600">
+</picture>
+```
+
+## React Responsive Image Component
+
+```tsx
+interface ResponsiveImageProps {
+  src: string
+  alt: string
+  sizes: string
+  widths?: number[]
+  className?: string
+}
+
+function ResponsiveImage({
+  src,
+  alt,
+  sizes,
+  widths = [400, 800, 1200, 1600],
+  className
+}: ResponsiveImageProps) {
+  const srcSet = widths
+    .map(w => `${getImageUrl(src, w)} ${w}w`)
+    .join(', ')
+
+  return (
+    <img
+      src={getImageUrl(src, widths[1])} // Default to medium size
+      srcSet={srcSet}
+      sizes={sizes}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      className={className}
+    />
+  )
+}
+
+function getImageUrl(src: string, width: number): string {
+  // Example: append width parameter for CDN
+  return `${src}?w=${width}`
+}
+
+// Usage
+<ResponsiveImage
+  src="/images/hero.jpg"
+  alt="Hero image"
+  sizes="(max-width: 768px) 100vw, 50vw"
+  widths={[320, 640, 960, 1280]}
+/>
+```
+
+## Next.js Automatic Responsive Images
+
+```tsx
+import Image from 'next/image'
+
+function ProductCard({ product }: { product: Product }) {
+  return (
+    <Image
+      src={product.image}
+      alt={product.name}
+      width={400}
+      height={300}
+      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+      // Next.js automatically generates srcset
+    />
+  )
+}
+```
+
+## Common sizes Patterns
+
+```html
+<!-- Full width hero -->
+<img sizes="100vw" ...>
+
+<!-- Two-column layout on desktop -->
+<img sizes="(min-width: 1024px) 50vw, 100vw" ...>
+
+<!-- Three-column grid -->
+<img sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" ...>
+
+<!-- Fixed sidebar, fluid main -->
+<img sizes="(min-width: 1024px) calc(100vw - 300px), 100vw" ...>
+```
+
+## Generating Multiple Sizes
+
+```javascript
+// Build script to generate image sizes
+const sharp = require('sharp')
+
+const sizes = [400, 800, 1200, 1600, 2000]
+
+async function generateSizes(inputPath, outputDir) {
+  for (const width of sizes) {
+    await sharp(inputPath)
+      .resize(width)
+      .webp({ quality: 80 })
+      .toFile(`${outputDir}/image-${width}.webp`)
+  }
+}
+```
+
+## Browser Selection Logic
+
+The browser considers:
+1. Viewport width
+2. Device pixel ratio (DPR)
+3. `sizes` attribute value
+4. Available `srcset` options
+
+```text
+Example: 400px viewport, 2x DPR, sizes="100vw"
+- Needs: 400px × 2 = 800 CSS pixels worth of image data
+- Browser selects: image-800.jpg (or next larger)
+```
+
+## Testing
+
+1. Open DevTools Network tab, filter by Images
+2. Resize viewport—different sizes should load
+3. Check which srcset variant was selected in Network details
+4. Test on real mobile devices (different DPRs)
+5. Use Lighthouse to verify responsive images are implemented
+
+## Verification
+
+### Automated Checks
+
+- Re-test key pages in DevTools or WebPageTest after deployment to confirm the CDN or image component preserves the responsive variants.
+
+### Manual Checks
+
+- Confirm the browser selects smaller image candidates on narrow viewports and higher-density variants on retina screens.
+- Check that the `sizes` attribute matches the real CSS layout; if the layout changes, update `sizes` in the same PR.
+- Verify you are not sending a `1600w` image to a viewport that only renders it at a few hundred CSS pixels.

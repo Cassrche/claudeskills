@@ -1,0 +1,53 @@
+---
+title: JavaScript Resilience
+description: Harden client-side code for safer runtime behavior, maintainability, and better responsiveness.
+icon: braces
+rules:
+  - javascript/error-handling
+  - javascript/avoid-eval
+  - javascript/runtime-validation
+  - javascript/typescript-strict-mode
+  - javascript/no-explicit-any
+  - javascript/no-unchecked-indexed-access
+  - javascript/type-only-imports
+  - javascript/code-splitting
+  - javascript/debounce-throttle
+  - javascript/memory-leaks
+  - javascript/web-storage
+  - javascript/scheduler-yield
+estimatedTime: '45 minutes'
+difficulty: intermediate
+order: 10
+featured: false
+---
+
+Frontend quality problems often show up as fragile runtime behavior long before they look like obvious “performance” bugs. This checklist concentrates on the JavaScript patterns that make applications safer under load, easier to debug, and less likely to degrade over time.
+
+## Who It's For
+
+- Developers working on fragile or integration-heavy client code
+- Reviewers looking for runtime safety and resilience, not just style issues
+- Teams tightening TypeScript and runtime guardrails before larger refactors
+
+## Done Looks Like
+
+You should finish with clearer failure handling, stronger validation of external data, and fewer obvious sources of stale state, long tasks, or memory leaks.
+
+## Focus Areas
+
+- Runtime safety for untrusted input and external data
+- TypeScript guardrails that reduce hidden failure modes
+- Client-side responsiveness when work becomes expensive
+- Long-lived browser behavior such as timers, listeners, storage, and memory use
+
+## Good Times To Run It
+
+- After adding a new API integration or analytics provider
+- When bundle size and interaction latency start trending up
+- Before major refactors where stronger typing and runtime validation will reduce regressions
+
+## Review Tips
+
+1. Trace the highest-risk user flows from input to network response to rendering.
+2. Check for failure recovery, not just happy-path correctness.
+3. Prioritize issues that can crash the UI, block input, or leak state across sessions.

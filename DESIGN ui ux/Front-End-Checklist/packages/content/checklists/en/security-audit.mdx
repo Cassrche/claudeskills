@@ -1,0 +1,72 @@
+---
+title: Security Audit
+description: Essential security checks for your frontend application. Protect your users and your application from common web vulnerabilities.
+icon: shield
+rules:
+  - security/https
+  - security/http-to-https
+  - security/content-security-policy
+  - security/referrer-policy
+  - security/x-content-type
+  - privacy/cookie-consent
+  - privacy/privacy-policy
+  - security/password-field-security
+  - security/form-https
+  - privacy/third-party-cookies
+estimatedTime: "25 minutes"
+difficulty: intermediate
+order: 5
+featured: false
+---
+
+Security is not optional. This checklist covers the essential security measures every frontend application should implement to protect users and data.
+
+## When To Use It
+
+Use this checklist before launch, after auth or form changes, or any time a team needs a practical browser-facing security review rather than a full application threat model.
+
+## Who It's For
+
+- Senior reviewers checking frontend security posture
+- Launch teams validating transport and browser defenses
+- Product teams reviewing privacy-sensitive frontend flows
+
+## Done Looks Like
+
+You should finish with the main transport, header, form, password, and privacy-boundary controls reviewed together, with obvious gaps treated as release risks.
+
+## Why This Matters
+
+- **Data Protection** - Prevent sensitive user data from being intercepted or stolen
+- **User Trust** - Secure sites build confidence and credibility
+- **Compliance** - Many regulations require security best practices (GDPR, CCPA)
+- **SEO Impact** - HTTPS is a ranking factor for search engines
+
+## Key Security Areas
+
+### Transport Security
+Ensure all data in transit is encrypted using HTTPS. This prevents man-in-the-middle attacks and data interception.
+
+### Content Security Policy
+CSP headers help prevent XSS attacks by controlling which resources can be loaded and executed on your pages.
+
+### Browser Defenses
+Response headers like CSP, referrer policy, and MIME sniffing protections reduce browser-side attack surface and make mistakes less exploitable.
+
+### Privacy Boundaries
+Cookie consent, privacy disclosures, and third-party cookie controls are part of the frontend security surface because they decide what runs in the browser and what user data leaves it.
+
+## Quick Wins
+
+1. Enable HTTPS everywhere (use HSTS)
+2. Set basic CSP headers
+3. Lock down referrer and content-type behavior
+4. Make form submission and password handling secure
+5. Audit consent and third-party cookies
+
+## Testing Security
+
+- Use browser DevTools Security panel
+- Run Lighthouse security audits
+- Test with [SecurityHeaders.com](https://securityheaders.com/)
+- Check for mixed content warnings

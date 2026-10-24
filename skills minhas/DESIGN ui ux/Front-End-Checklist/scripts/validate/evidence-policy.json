@@ -1,0 +1,53 @@
+{
+  "minimumSourceCount": 2,
+  "minimumDistinctRoles": 2,
+  "minimumPrimarySourceCount": 1,
+  "primaryTypes": ["wcag", "spec", "owasp", "google", "mdn", "documentation", "web.dev"],
+  "primaryDomains": [
+    "w3.org",
+    "developer.mozilla.org",
+    "developers.google.com",
+    "search.google.com",
+    "support.google.com",
+    "googleusercontent.com",
+    "developer.chrome.com",
+    "developers.facebook.com",
+    "developer.twitter.com",
+    "learn.microsoft.com",
+    "google.com",
+    "web.dev",
+    "owasp.org",
+    "developer.apple.com",
+    "m3.material.io"
+  ],
+  "structuredSupportTypes": ["spec", "mdn", "documentation"],
+  "categoryPolicies": {
+    "accessibility": {
+      "requiredSourceRoleGroups": [["standard"], ["reference", "implementation"]]
+    },
+    "security": {
+      "requiredSourceRoleGroups": [
+        ["regulation", "standard", "search", "reference"],
+        ["reference", "implementation"]
+      ]
+    },
+    "privacy": {
+      "requiredSourceRoleGroups": [
+        ["regulation", "standard", "search", "reference"],
+        ["reference", "implementation"]
+      ]
+    },
+    "seo": {
+      "requireGoogleOrSpecForSearchClaims": true
+    },
+    "css": {
+      "requireStructuredSupportSource": true
+    },
+    "html": {
+      "requireStructuredSupportSource": true
+    },
+    "javascript": {
+      "requireStructuredSupportSource": true
+    }
+  }
+}

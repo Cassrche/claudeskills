@@ -1,0 +1,224 @@
+---
+title: Fix invalid links
+description: 'Detects malformed, empty, or syntactically invalid link formats on the page'
+categories:
+  - seo
+subcategory: technical
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - >-
+    Invalid `<a>` tags (empty href, JavaScript voids, non-URL values) are not
+    crawlable — Googlebot cannot follow them
+  - >-
+    Links must use crawlable `<a href='...'>` elements with valid absolute or
+    relative URLs to pass PageRank and be followed
+  - >-
+    JavaScript-only navigation (onClick handlers without `href`) is invisible to
+    search engine crawlers
+whyItMatters: >-
+  Google can only follow links declared as valid `<a href>` elements with
+  crawlable URL values. Invalid links — empty hrefs, JavaScript voids, or
+  non-URL content — prevent PageRank from flowing to linked pages and stop
+  Googlebot from discovering those destinations.
+aiContext: >-
+  Use when auditing a page's link elements for crawlability, reviewing
+  JavaScript-heavy SPAs where navigation may not use `<a href>` tags, or
+  checking that dynamically generated links have valid href values.
+prompts:
+  check: >-
+    Parse all `<a>` elements on the page. Flag links where `href`: (1) is empty
+    (`href=''` or `href='#'` with no meaningful target). (2) starts with
+    `javascript:` (e.g., `href='javascript:void(0)'`). (3) starts with `mailto:`
+    or `tel:` — these are valid but not crawlable for page discovery. (4)
+    contains only a fragment identifier that references an anchor not present on
+    the page. (5) is absent entirely (`<a>` without any href attribute). Report
+    the count per type.
+  fix: >
+    1. For links using `href='javascript:void(0)'` or `href='#'` as navigation
+    triggers:
+       - Add a real URL as the href value
+       - Use JavaScript to enhance the navigation, not replace it
+       - Before: `<a href="javascript:void(0)" onclick="openModal()">View Details</a>`
+       - After: `<a href="/products/details" onclick="openModal(event)">View Details</a>`
+    2. For `<a>` elements without href (used as button-like elements):
+       - If they trigger navigation: add href
+       - If they trigger actions only: change to `<button>` elements
+    3. For empty `href=''`: either add the correct URL or remove the `<a>`
+    wrapper
+
+    4. For `href='#'` anchors: use meaningful fragment IDs that reference actual
+    page sections (`href='#features'` where `id='features'` exists)
+  explain: >-
+    Google's documentation states that crawlable links must be `<a>` tags with
+    an `href` attribute containing a valid URL. Links with `javascript:` hrefs,
+    empty hrefs, or no href attribute are not followed by crawlers. This means
+    pages only reachable through invalid links are not discovered by Googlebot,
+    and any intended PageRank flow is blocked.
+  codeReview: >-
+    Query all `<a>` elements in the rendered DOM. For each, extract the `href`
+    attribute. Flag: absent href, empty string, `'#'` only, values starting with
+    `javascript:`, values starting with `void`. Separately flag `<div>`,
+    `<span>`, or `<button>` elements with `onclick` navigation handlers that
+    lack a corresponding `<a href>` — these are not crawlable.
+relatedRules:
+  - slug: broken-links
+    reason: >-
+      Broken links (404s) are a related issue — invalid format links are a
+      different failure type
+  - slug: external-links
+    reason: >-
+      External links must also be valid `<a href>` elements with proper
+      attributes
+  - slug: https-downgrade
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: weak-internal-links
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+resources:
+  - title: 'Google Search Central: Links that Google can follow'
+    url: >-
+      https://developers.google.com/search/docs/crawling-indexing/links-crawlable
+    type: guide
+  - title: 'MDN: The anchor element'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a'
+    type: mdn
+sources:
+  - title: 'Google Search Central: Crawlable links'
+    url: >-
+      https://developers.google.com/search/docs/crawling-indexing/links-crawlable
+    type: guide
+    id: google-search-central-crawlable-links
+    role: search
+    authority: primary
+  - title: 'MDN: The anchor element'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a'
+    type: mdn
+    id: mdn-the-anchor-element
+    role: reference
+    authority: primary
+---
+Not all `<a>` elements are crawlable by Googlebot. [Google's crawlable-link documentation](https://developers.google.com/search/docs/crawling-indexing/links-crawlable) requires a valid `href`, so malformed anchors break discovery in the same way they undermine broader [internal linking](/en/rules/seo/internal-links).
+
+## Code Examples
+
+#
+
+## ❌ Avoid — JavaScript void href (not crawlable)
+
+```html
+<a href="javascript:void(0)" onclick="navigate('/products')">Products</a>
+<!-- Googlebot sees href="javascript:void(0)" and does not follow -->
+```
+
+### ❌ Avoid — missing href attribute
+
+```html
+<a onclick="goToPage('/about')">About Us</a>
+<!-- No href: Googlebot cannot follow this link -->
+```
+
+### ❌ Avoid — empty href
+
+```html
+<a href="">Home</a>
+<!-- Empty href: not a valid crawlable link -->
+```
+
+### ❌ Avoid — div/span navigation (common in SPAs)
+
+```html
+<div onclick="router.push('/contact')" class="nav-link">Contact</div>
+<!-- Not an <a> element: completely invisible to crawlers -->
+```
+
+### ✅ Correct — valid crawlable link
+
+```html
+<a href="/products">Products</a>
+<a href="https://example.com/about">About Us</a>
+<a href="/contact">Contact</a>
+```
+
+### ✅ Correct — JavaScript-enhanced link that stays crawlable
+
+```html
+<!-- href provides the URL for crawlers; JS enhances the UX -->
+<a href="/products/modal-details" onclick="openModal(event, '/products/modal-details')">
+  View Details
+</a>
+
+<script>
+function openModal(event, url) {
+  event.preventDefault()
+  // Open modal instead of navigating
+  showModal(url)
+}
+</script>
+```
+
+### ✅ Correct — fragment links with valid targets
+
+```html
+<!-- The fragment must match an existing id on the page -->
+<a href="#features">Jump to Features</a>
+
+<section id="features">  <!-- id="features" exists -->
+  <h2>Features</h2>
+</section>
+```
+
+### ✅ Correct — React Router / Next.js links
+
+```tsx
+// ✅ React Router — renders as <a href="/products">
+<Link to="/products">Products</Link>
+
+// ✅ Next.js — renders as <a href="/about">
+<Link href="/about">About Us</Link>
+
+// ❌ Avoid — useNavigate without a corresponding <a>
+<button onClick={() => navigate('/products')}>Products</button>
+// This is not crawlable; use <Link> instead
+```
+
+## Why It Matters
+
+- **Discovery failure**: Pages only linked via invalid `<a>` elements may never be discovered by Googlebot, even if the route exists in your frontend router.
+- **PageRank blocking**: Invalid links cannot pass PageRank to destination pages.
+- **Accessibility**: Invalid links also fail accessibility checks — screen readers and keyboard users cannot navigate them, and the underlying HTML behavior is covered in [MDN's anchor element reference](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/a).
+
+## Link Validity Rules (Google)
+
+Google's crawlers can follow links that:
+- Are `<a>` elements (not `<div>`, `<span>`, or `<button>` with click handlers)
+- Have an `href` attribute
+- Have an `href` value that is a valid relative or absolute URL (not `javascript:`, `void(0)`, or empty)
+
+## Exceptions
+
+- Staging, utility, login, account, or internal search pages may intentionally use different crawl or index signals if they are not meant to rank.
+- Temporary migration states can produce noisy intermediate signals; flag the live production URL pattern, not one-off transition artifacts.
+- When redirects, canonicals, robots directives, or indexability signals conflict, fix the strongest final signal first instead of reporting every downstream symptom as a separate blocker.
+
+## Standards
+
+- Use these references as the standard for the final search-facing HTML, metadata, and crawl behavior.
+- Check the implementation against Google Search Central: Crawlable links before treating the rule as satisfied.
+- Check the implementation against MDN: The anchor element before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Run a site crawl and filter for links that are not followed.
+
+### Manual Checks
+
+- Use browser DevTools to query: `document.querySelectorAll('a:not([href]), a[href=""], a[href^="javascript:"]')`
+- Review SPA navigation patterns — ensure all navigation uses `<Link>` or `<a href>` components, not raw `onClick` handlers.
+- Fix by adding real `href` values or replacing non-anchor elements with proper `<a>` elements.

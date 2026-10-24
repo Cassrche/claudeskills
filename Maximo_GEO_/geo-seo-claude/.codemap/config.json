@@ -1,0 +1,15 @@
+{
+  "only": [
+    "py",
+    "html",
+    "sh",
+    "css"
+  ],
+  "mode": "auto",
+  "budgets": {},
+  "routing": {
+    "retrieval": {}
+  },
+  "drift": {},
+  "guidance": {}
+}

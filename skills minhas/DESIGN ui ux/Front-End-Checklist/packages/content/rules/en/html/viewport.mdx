@@ -1,0 +1,249 @@
+---
+title: Set the responsive viewport meta tag
+description: The viewport meta tag is declared correctly for responsive design.
+categories:
+  - html
+  - performance
+  - css
+subcategory: meta
+priority: critical
+difficulty: beginner
+estimatedTime: 5
+tldr:
+  - 'Add `<meta name="viewport" content="width=device-width, initial-scale=1.0">`'
+  - Never use `maximum-scale=1` or `user-scalable=no` (breaks accessibility)
+  - Essential for mobile-responsive layouts
+whyItMatters: >-
+  Without the viewport meta tag, mobile browsers render pages at desktop width
+  (typically 980px) then shrink them, making text unreadable without zooming.
+prompts:
+  check: >-
+    Verify that this HTML document includes a proper viewport meta tag for
+    responsive design that controls how the page is displayed on mobile devices.
+  fix: >-
+    Add the viewport meta tag: <meta name="viewport"
+    content="width=device-width, initial-scale=1.0"> in the head section.
+  explain: >-
+    Explain how the viewport meta tag enables responsive design and why it's
+    essential for mobile-first web development.
+  codeReview: >-
+    Review templates, server-rendered HTML, and shared components that output
+    markup related to Set the responsive viewport meta tag. Flag exact elements,
+    attributes, and routes where the rendered HTML violates the rule.
+aiContext: >-
+  Use when reviewing templates, rendered HTML, or shared components related to
+  Set the responsive viewport meta tag. Validate the final browser-facing
+  markup, not just the source framework abstraction.
+sources:
+  - title: 'MDN: HTML'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML'
+    type: mdn
+    id: mdn-html
+    role: reference
+    authority: primary
+  - title: WHATWG HTML Living Standard
+    url: 'https://html.spec.whatwg.org/'
+    type: spec
+    id: whatwg-html-living-standard
+    role: standard
+    authority: primary
+resources:
+  - name: Nu Html Checker
+    url: 'https://validator.w3.org/nu/'
+    type: tool
+relatedRules:
+  - slug: charset
+    reason: Both rules sit in the `html/meta` area and are commonly reviewed together.
+  - slug: lang-attribute
+    reason: Both rules sit in the `html/meta` area and are commonly reviewed together.
+  - slug: viewport-zoom
+    reason: >-
+      Both rules intersect in real audits and often influence the same
+      implementation decisions.
+  - slug: lang-attribute
+    reason: Both rules sit in the `html/meta` area and are commonly reviewed together.
+---
+The viewport meta tag is essential for responsive web design, controlling how web pages are displayed on mobile devices.
+
+## Code Example
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Page</title>
+</head>
+<body>
+    <!-- Your responsive content -->
+</body>
+</html>
+```
+
+## Why It Matters
+
+- **Mobile Experience**: Ensures proper rendering on mobile devices
+- **Responsive Design**: Enables CSS media queries to work correctly
+- **Touch Interface**: Optimizes touch target sizes and interactions
+- **Performance**: Prevents unnecessary horizontal scrolling
+- **SEO**: Google considers mobile-friendliness as a ranking factor
+
+## Viewport Options
+
+#
+
+## Standard Responsive Design
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+```
+
+### Advanced Configuration
+```html
+<!-- Prevent zooming (use carefully - can harm accessibility) -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+<!-- Allow limited zooming -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=3.0, minimum-scale=0.5">
+
+<!-- Fixed width (rarely recommended) -->
+<meta name="viewport" content="width=375">
+```
+
+## Framework Examples
+
+### Next.js (App Router)
+```jsx
+// app/layout.js
+import { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  viewport: 'width=device-width, initial-scale=1.0'
+}
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  )
+}
+```
+
+### Next.js (Pages Router)
+```jsx
+// pages/_document.js
+import Document, { Html, Head, Main, NextScript } from 'next/document'
+
+export default class MyDocument extends Document {
+  render() {
+    return (
+      <Html lang="en">
+        <Head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        </Head>
+        <body>
+          <Main />
+          <NextScript />
+        </body>
+      </Html>
+    )
+  }
+}
+```
+
+### React (Helmet)
+```jsx
+import { Helmet } from 'react-helmet'
+
+function App() {
+  return (
+    <>
+      <Helmet>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      </Helmet>
+      <div>Your responsive content</div>
+    </>
+  )
+}
+```
+
+### Vue.js (Nuxt)
+```javascript
+// nuxt.config.js
+export default {
+  head: {
+    meta: [
+      { name: 'viewport', content: 'width=device-width, initial-scale=1.0' }
+    ]
+  }
+}
+```
+
+## Common Viewport Properties
+
+| Property | Description | Example |
+|----------|-------------|---------|
+| `width` | Sets viewport width | `width=device-width` |
+| `initial-scale` | Initial zoom level | `initial-scale=1.0` |
+| `maximum-scale` | Maximum zoom level | `maximum-scale=3.0` |
+| `minimum-scale` | Minimum zoom level | `minimum-scale=0.5` |
+| `user-scalable` | Allow user zooming | `user-scalable=yes` |
+
+## Best Practices
+
+✅ **Use Standard Settings**: For most responsive sites
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+```
+
+✅ **Allow Zooming**: Don't disable user-scalable unless absolutely necessary
+```html
+<!-- Good - allows accessibility zooming -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+```
+
+❌ **Don't Disable Zooming**: Harms accessibility
+```html
+<!-- Bad - prevents users from zooming for accessibility -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+```
+
+❌ **Don't Omit**: Missing viewport tag breaks mobile experience
+```html
+<!-- This will cause mobile display issues -->
+<!-- No viewport meta tag -->
+```
+
+## CSS Integration
+
+The viewport meta tag works with CSS media queries:
+
+```css
+/* Mobile-first responsive design */
+.container {
+  width: 100%;
+  padding: 1rem;
+}
+
+@media (min-width: 768px) {
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+}
+```
+
+## Accessibility Considerations
+
+- **Don't disable zooming**: Users with visual impairments need zoom functionality
+- **Test with screen readers**: Ensure responsive design works with assistive technology
+- **Touch targets**: Ensure interactive elements are properly sized for touch
+
+## Verification
+
+- **Chrome DevTools**: Device simulation mode
+- **Firefox DevTools**: Responsive design mode
+- **Mobile-Friendly Test**: [Google's Mobile-Friendly Test](https://search.google.com/test/mobile-friendly)
+- **Real Device Testing**: Always test on actual devices

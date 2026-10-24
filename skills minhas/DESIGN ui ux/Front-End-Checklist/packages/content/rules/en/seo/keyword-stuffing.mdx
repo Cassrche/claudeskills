@@ -1,0 +1,206 @@
+---
+title: Avoid keyword stuffing
+description: >-
+  Detects excessive keyword repetition in content, titles, or meta tags that
+  signals manipulative SEO
+categories:
+  - seo
+subcategory: content
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - >-
+    Keyword density above ~2–3% for any single term is a signal of keyword
+    stuffing — write for readers, not keyword counters
+  - >-
+    Repeating keywords unnaturally in titles, headers, alt text, or meta
+    descriptions triggers Google's spam filters
+  - >-
+    Google's algorithms (Panda, SpamBrain) penalise pages with manipulative
+    keyword density; natural language variation is rewarded
+whyItMatters: >-
+  Google's spam detection algorithms penalise pages that unnaturally repeat
+  keywords to manipulate rankings. Keyword-stuffed pages are demoted in search
+  results or removed from the index entirely. Natural, reader-focused writing
+  with topical variation outperforms keyword-dense content.
+aiContext: >-
+  Use when auditing content pages for over-optimisation, reviewing AI-generated
+  content that may repeat target phrases excessively, or checking meta tags and
+  alt text for unnatural keyword accumulation.
+prompts:
+  check: >-
+    Analyse the page's main content body, `<title>`, `<meta
+    name='description'>`, heading elements (H1–H6), and `<img alt>` attributes.
+    Flag: (1) Any single keyword or phrase appearing more than 3× in the title
+    tag. (2) Any keyword with a density above 3% of total word count. (3) Lists
+    of keywords with no context (e.g., 'cheap flights, affordable flights,
+    discount flights, best flight deals'). (4) Alt text that is a
+    comma-separated list of keywords instead of a description. (5) Hidden text
+    (white text on white background, or `display:none` containing keywords).
+  fix: >
+    1. Rewrite keyword-dense passages using natural language variation:
+       - Instead of repeating "SEO best practices" 8 times, use: "search engine optimisation", "ranking strategies", "organic search tips", "on-page SEO"
+    2. Remove keyword lists from meta descriptions — write a single natural
+    sentence.
+
+    3. Fix keyword-stuffed alt text: replace "cheap flights london paris
+    affordable flights" with "Passenger cabin view on London to Paris flight"
+
+    4. If AI-generated content was used, review for repetitive phrasing and
+    rewrite with varied terminology.
+
+    5. Check for hidden text using browser DevTools CSS computed styles — remove
+    any keyword content in hidden elements.
+
+    6. Test the page's readability with the Flesch Reading Ease score — awkward
+    keyword insertion lowers readability scores.
+  explain: >-
+    Google's Panda algorithm (now core to its main ranking system) and SpamBrain
+    spam detection specifically target content with unnatural keyword density.
+    Pages that appear to manipulate keyword frequency are demoted or removed
+    from results. Google's documentation explicitly cites 'stuffing keywords
+    into your content' as a violation of its quality guidelines. Natural writing
+    that covers a topic comprehensively, using synonyms and related terms,
+    outperforms keyword-dense content.
+  codeReview: >-
+    Extract text content from the page body (strip HTML tags). Tokenise into
+    words. Compute frequency of each unique word and common phrases (bigrams,
+    trigrams). Flag any word/phrase appearing more than 3% of total word count.
+    Also check `<title>`, `<meta name='description'>`, and `alt` attributes for
+    repeated keywords. Report top 5 most frequent terms and their density
+    percentages.
+relatedRules:
+  - slug: length
+    reason: Very short pages with keyword-dense content are doubly problematic
+  - slug: quality
+    reason: Content quality rules encompass avoiding keyword manipulation
+  - slug: anchor-text
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+  - slug: disclaimers
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+resources:
+  - title: 'Google Search Central: Spam policies — keyword stuffing'
+    url: >-
+      https://developers.google.com/search/docs/essentials/spam-policies#keyword-stuffing
+    type: guide
+  - title: 'Google Search Central: Creating helpful content'
+    url: >-
+      https://developers.google.com/search/docs/fundamentals/creating-helpful-content
+    type: guide
+sources:
+  - title: 'Google Search Central: Keyword stuffing spam policy'
+    url: >-
+      https://developers.google.com/search/docs/essentials/spam-policies#keyword-stuffing
+    type: guide
+    id: google-search-central-keyword-stuffing-spam-policy
+    role: search
+    authority: primary
+  - title: 'Google Search Central: Creating helpful, reliable content'
+    url: >-
+      https://developers.google.com/search/docs/fundamentals/creating-helpful-content
+    type: guide
+    id: google-search-central-creating-helpful-reliable-content
+    role: implementation
+    authority: primary
+---
+Keyword stuffing is the practice of overloading page content with target keywords to manipulate search rankings. [Google's keyword-stuffing spam policy](https://developers.google.com/search/policies/quality-guidelines/spam-policies#keyword-stuffing) explicitly prohibits it, and the same cleanup usually overlaps with broader [content quality](/en/rules/seo/quality) work.
+
+## Code Examples
+
+#
+
+## ❌ Avoid — unnatural keyword repetition
+
+```html
+<article>
+  <h1>Cheap Flights — Find Cheap Flights — Cheapest Flights Online</h1>
+  <p>Looking for cheap flights? Our cheap flights search finds the cheapest
+     cheap flights from hundreds of airlines. Get cheap flights now with
+     our cheap flight deals. Cheap flights have never been easier to find.</p>
+</article>
+```
+
+### ❌ Avoid — keyword-stuffed alt text
+
+```html
+<img src="flight.jpg"
+     alt="cheap flights london paris affordable flights discount flights best price flights">
+<!-- Should describe the image, not list keywords -->
+```
+
+### ❌ Avoid — hidden keyword list
+
+```html
+<div style="color: white; background: white; font-size: 1px;">
+  cheap flights discount tickets affordable travel best airline deals
+</div>
+<!-- Invisible text stuffed with keywords — a serious spam violation -->
+```
+
+### ✅ Correct — natural language with topical variation
+
+```html
+<article>
+  <h1>Find Affordable Flights — Compare Hundreds of Airlines</h1>
+  <p>Searching for the best airfare deals? Our flight comparison engine
+     scans hundreds of airlines and booking sites to surface the lowest
+     prices for your route. Whether you are booking last-minute or planning
+     months ahead, we help you travel for less.</p>
+</article>
+```
+
+### ✅ Correct — descriptive alt text
+
+```html
+<img src="flight.jpg"
+     alt="Economy cabin of a commercial aircraft with passengers boarding">
+```
+
+## Why It Matters
+
+- **Spam classification**: Google's SpamBrain and Panda systems detect unnatural keyword density and classify pages as low-quality or spammy.
+- **Ranking demotion**: Stuffed pages are ranked lower or removed from the index entirely.
+- **Reader experience**: Unnatural repetition makes content hard to read, increasing bounce rate — itself a negative signal.
+
+## What Counts as Keyword Stuffing
+
+Google's definition includes:
+- Repeating the same words or phrases so often that it sounds unnatural
+- Blocks of text listing phone numbers or cities without substantive context
+- Repeating keywords in hidden text or in metadata beyond natural usage
+- Alt text that is a list of keywords rather than a description of the image
+
+## Natural Keyword Density Guidelines
+
+| Metric | Target |
+|---|---|
+| Primary keyword density | Under 2–3% |
+| Secondary/related terms | Used naturally throughout |
+| Keyword in `<title>` | Once, near the beginning |
+| Keyword in H1 | Once, naturally incorporated |
+| Keyword in meta description | Once if natural |
+
+Use semantic variation: if targeting "content marketing", also use "content strategy", "blog marketing", "editorial calendar", "content distribution". Google's natural language understanding rewards topical depth over keyword repetition.
+
+## Exceptions
+
+- Necessary utility or compliance pages can be intentionally brief and should not be judged by the same editorial-depth expectations as ranking-focused content.
+- AI-assisted drafting is not a failure by itself; flag unsupported claims, missing editorial review, or low-originality output instead.
+- When a page has both trust-signal issues and crawl/index problems, make the page eligible to rank first and then improve the content quality signals.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

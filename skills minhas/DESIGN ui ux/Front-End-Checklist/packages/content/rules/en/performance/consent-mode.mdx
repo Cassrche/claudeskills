@@ -1,0 +1,153 @@
+---
+title: Implement Google Consent Mode v2
+description: >-
+  Adjust Google Tag behavior based on user consent to comply with privacy
+  regulations and maintain data insights.
+categories:
+  - performance
+subcategory: metrics
+priority: high
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - Adjust tag behavior based on user consent for privacy compliance
+  - Maintain data insights through modeling for non-consenting users
+  - Ensure the `gcd` parameter is present in pings to Google services
+whyItMatters: >-
+  Consent Mode v2 is essential for adhering to privacy regulations (like GDPR)
+  while maintaining the ability to measure conversion and analytics data in a
+  privacy-safe way.
+prompts:
+  check: >-
+    Verify that Google Consent Mode v2 is correctly implemented and sending the
+    appropriate consent states.
+  fix: >-
+    Update your GTM or gtag.js implementation to support the new `ad_user_data`
+    and `ad_personalization` consent types.
+  explain: >-
+    Explain the transition to Consent Mode v2 and why it's required for digital
+    advertising in certain regions.
+  codeReview: >-
+    Review the routes, assets, and loading behavior that affect Implement Google
+    Consent Mode v2. Flag exact files, requests, or rendering steps that add
+    unnecessary network, CPU, or layout cost, and describe the measurement
+    method used to confirm the issue.
+aiContext: >-
+  Use when auditing slow page loads, heavy assets, or rendering delays related
+  to Implement Google Consent Mode v2. Verify the actual bottleneck in DevTools,
+  Lighthouse, or field data before recommending changes.
+sources:
+  - title: 'web.dev: Learn Performance'
+    url: 'https://web.dev/learn/performance'
+    type: guide
+    id: web-dev-learn-performance
+    role: reference
+    authority: primary
+  - title: 'Chrome Developers: Lighthouse overview'
+    url: 'https://developer.chrome.com/docs/lighthouse/overview/'
+    type: guide
+    id: chrome-developers-lighthouse-overview
+    role: implementation
+    authority: primary
+resources:
+  - name: PageSpeed Insights
+    url: 'https://pagespeed.web.dev/'
+    type: tool
+relatedRules:
+  - slug: gtm-present
+    reason: >-
+      Both rules sit in the `performance/metrics` area and are commonly reviewed
+      together.
+  - slug: ttfb
+    reason: >-
+      Both rules sit in the `performance/metrics` area and are commonly reviewed
+      together.
+  - slug: browser-required
+    reason: >-
+      Both rules sit in the `performance/metrics` area and are commonly reviewed
+      together.
+  - slug: js-redirects
+    reason: >-
+      Both rules sit in the `performance/metrics` area and are commonly reviewed
+      together.
+---
+Google Consent Mode v2 is a mechanism that allows you to communicate your users' cookie or app identifier consent status to Google. Tags will adjust their behavior and respect users' choices.
+
+## Code Examples
+
+#
+
+## Setting Default Consent (gtag.js)
+This should be placed as high as possible in the `<head>`, before any GTM or gtag.js scripts.
+
+```html
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+
+  // Default all to denied
+  gtag('consent', 'default', {
+    'ad_storage': 'denied',
+    'ad_user_data': 'denied',
+    'ad_personalization': 'denied',
+    'analytics_storage': 'denied',
+    'wait_for_update': 500
+  });
+</script>
+```
+
+### Updating Consent after User Action
+When a user accepts cookies via your CMP (Consent Management Platform):
+
+```javascript
+function onConsentAccepted() {
+  gtag('consent', 'update', {
+    'ad_storage': 'granted',
+    'ad_user_data': 'granted',
+    'ad_personalization': 'granted',
+    'analytics_storage': 'granted'
+  });
+}
+```
+
+## Why It Matters
+
+- **Regulatory Compliance**: Required for businesses operating in the European Economic Area (EEA) to comply with the Digital Markets Act (DMA).
+- **Data Modeling**: When users don't consent, Consent Mode uses conversion modeling to fill in the gaps, providing a more complete view of performance.
+- **Privacy First**: Respects user choices by ensuring that advertising and analytics cookies are only used when explicit consent is granted.
+- **Functional Continuity**: Allows basic measurement to continue even without personal data collection.
+
+## Best Practices
+
+Validate the implementation with [Google Tag Assistant](https://tagassistant.google.com/) so you can confirm the consent state actually changes the requests sent after a user decision, not just the values stored in the page.
+
+✅ **Use a Certified CMP**: Use a Consent Management Platform that is certified by Google to ensure correct implementation.
+✅ **Default to Denied**: For users in the EEA, default consent states should be set to 'denied' until the user provides explicit consent.
+✅ **Update Promptly**: Ensure the consent update is sent immediately after the user interacts with the consent banner.
+✅ **Verify with Tag Assistant**: Use Google Tag Assistant to inspect pings and ensure the `gcd` and `gcs` parameters are correct.
+
+❌ **Don't Hardcode 'Granted'**: Never set consent to 'granted' by default for users in regulated regions.
+❌ **Don't Delay GTM Loading unnecessarily**: Use the `wait_for_update` parameter instead of delaying the entire GTM script load.
+
+## Tools & Validation
+
+- [Google Tag Assistant](https://tagassistant.google.com/): Debugging tool to verify consent signals.
+- **Chrome DevTools**: Inspect network pings to `google-analytics.com` for the `gcs` and `gcd` parameters.
+- [Tag Manager Debug Mode](https://support.google.com/tagmanager/answer/6107056): View consent state changes in real-time.
+
+## Standards
+
+- Use web.dev: Learn Performance as the standard for measuring the final production behavior, not just local synthetic output.
+- Use Chrome Developers: Lighthouse overview as the standard for measuring the final production behavior, not just local synthetic output.
+
+## Verification
+
+### Automated Checks
+
+- Measure the affected page or flow in Lighthouse, PageSpeed Insights, or DevTools and confirm the targeted metric improves.
+- Inspect the network waterfall or performance timeline to confirm the intended resource or execution change actually took effect.
+
+### Manual Checks
+
+- Verify the change on a throttled mobile profile, not just local desktop.
+- If this rule maps to a budget or Web Vital, confirm the page now stays within that threshold.

@@ -1,0 +1,197 @@
+---
+title: Weak Internal Links
+description: >-
+  Detects pages with very few dofollow internal links pointing to them,
+  indicating poor link equity distribution and crawl discoverability.
+categories:
+  - seo
+subcategory: technical
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - >-
+    Pages with only 1 internal dofollow link are difficult for search engines to
+    discover and poorly valued
+  - >-
+    Internal links pass PageRank — more quality internal links to a page signal
+    its importance
+  - >-
+    Orphan pages (0 internal links) may not be crawled at all unless they are in
+    the sitemap
+  - >-
+    Important pages (money pages, cornerstone content) should have at least 3–5
+    internal links from relevant pages
+whyItMatters: >-
+  Internal links are how search engines discover pages and how PageRank flows
+  through a site — pages with few internal links are effectively demoted in the
+  crawl priority queue.
+aiContext: >-
+  Applies to any site with more than 20 pages. Use when auditing site
+  architecture, investigating why certain pages underperform in search, or after
+  a site migration.
+prompts:
+  check: >-
+    Crawl the site and build an internal link graph. Identify pages that: (1)
+    receive 0 dofollow internal links (orphan pages), or (2) receive only 1
+    dofollow internal link. Cross-reference with performance data from Google
+    Search Console to identify underperforming important pages.
+  fix: >-
+    For pages with weak internal linking: identify 3–5 topically relevant pages
+    on the site and add contextual internal links from those pages to the
+    underlinked page. Use descriptive, keyword-relevant anchor text. Prioritize
+    linking from high-authority pages (homepage, cornerstone content).
+  explain: >-
+    Explain how internal links distribute PageRank across a site, why orphan and
+    weakly-linked pages are harder to discover and rank, and how to build a
+    deliberate internal linking strategy based on content hierarchy.
+  codeReview: >-
+    Review metadata generation, rendered HTML, structured data, and response
+    headers related to Weak Internal Links. Flag exact routes or templates where
+    search-facing output violates the rule, and describe how to verify the final
+    page output.
+sources:
+  - title: 'Google: Internal links'
+    url: >-
+      https://developers.google.com/search/docs/crawling-indexing/links-crawlable
+    type: guide
+    id: google-internal-links
+    role: search
+    authority: primary
+  - title: 'Google: How Google Search Works — Crawling'
+    url: 'https://developers.google.com/search/docs/fundamentals/how-search-works'
+    type: guide
+    id: google-how-google-search-works-crawling
+    role: implementation
+    authority: primary
+  - title: 'Google: Links and PageRank'
+    url: >-
+      https://developers.google.com/search/docs/fundamentals/how-search-works#ranking
+    type: guide
+    id: google-links-and-pagerank
+    role: implementation
+    authority: primary
+resources:
+  - name: Google Search Console
+    url: 'https://search.google.com/search-console/about'
+    type: tool
+relatedRules:
+  - slug: orphan-pages
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: internal-links
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: dead-end-pages
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: https-downgrade
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+---
+Internal links serve two purposes: they help search engines discover pages through crawling, and they distribute ranking authority (PageRank) across the site. Pages that receive few internal links are both harder to discover and treated as less important, which is why [Google's link guidance](https://developers.google.com/search/docs/crawling-indexing/links-crawlable) and your broader [dead-end page strategy](/en/rules/seo/dead-end-pages) should be reviewed together.
+
+## Code Example
+
+```html
+<!-- Dofollow (default) — passes PageRank -->
+<a href="/target-page">Anchor text</a>
+
+<!-- Nofollow — does NOT pass PageRank or crawl priority -->
+<a href="/target-page" rel="nofollow">Anchor text</a>
+```
+
+For internal linking purposes, only **dofollow** links pass ranking signals.
+
+## Why It Matters
+
+Internal links are how search engines discover pages and how PageRank flows through a site — pages with few internal links are effectively demoted in the crawl priority queue. Google's overview of [how crawling works](https://developers.google.com/search/docs/fundamentals/how-search-works) is useful context here because weak inlinks usually mean the page is both under-discovered and under-supported.
+
+## Link Strength Thresholds
+
+| Internal Links Pointing to Page | Assessment |
+|--------------------------------|-----------|
+| 0 | Orphan page — may not be crawled |
+| 1 | Very weak — crawlable but low priority |
+| 2–4 | Moderate — acceptable for supporting content |
+| 5+ | Good — meaningful signal of page importance |
+| 10+ | Strong — appropriate for key money pages |
+
+## Finding Weak Pages
+
+1. **Crawl the site** and build an inlink count for every URL
+2. **Filter pages with inlinks ≤ 1** that are indexable (no noindex, no blocked)
+3. **Cross-reference** with Google Search Console impressions/clicks to identify valuable underlinked pages
+4. **Prioritize** pages that rank on page 2–3 of Google results — a few more internal links may push them to page 1
+
+## Adding Internal Links Strategically
+
+#
+
+## ✅ Effective Internal Linking
+
+```html
+<!-- On a high-authority page like the blog index or homepage -->
+<p>
+  We've published a comprehensive guide on
+  <a href="/guides/core-web-vitals-optimization">Core Web Vitals optimization</a>
+  that covers all three metrics.
+</p>
+```
+
+- Anchor text is descriptive and keyword-relevant, which aligns with the same keyword-context principles behind [strong internal links](/en/rules/seo/internal-links)
+- Link placed in body content (not footer/nav, which are weighted less)
+- The linking page is itself well-linked and authoritative
+
+### ❌ Weak Internal Link Patterns
+
+```html
+<!-- Footer link — lower crawl/PageRank weight than body content -->
+<footer>
+  <a href="/guides/core-web-vitals-optimization">Core Web Vitals</a>
+</footer>
+
+<!-- Generic anchor text — misses keyword signal -->
+<a href="/guides/core-web-vitals-optimization">Click here</a>
+
+<!-- Nofollow internal link — passes no PageRank -->
+<a href="/important-page" rel="nofollow">Important Page</a>
+```
+
+## Cornerstone Content Strategy
+
+Identify 5–10 "cornerstone" pages (your most important content) and systematically link to them from related posts/pages. This creates a hub-and-spoke architecture where authority concentrates on your most valuable pages.
+
+```
+Homepage
+  ↓
+/guides/seo-fundamentals (cornerstone)
+  ↑ ↑ ↑ ↑ ↑
+/blog/title-tag-tips
+/blog/meta-description-guide
+/blog/robots-txt-explained
+/blog/sitemap-best-practices
+/blog/canonical-urls
+```
+
+## Exceptions
+
+- Staging, utility, login, account, or internal search pages may intentionally use different crawl or index signals if they are not meant to rank.
+- Temporary migration states can produce noisy intermediate signals; flag the live production URL pattern, not one-off transition artifacts.
+- When redirects, canonicals, robots directives, or indexability signals conflict, fix the strongest final signal first instead of reporting every downstream symptom as a separate blocker.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

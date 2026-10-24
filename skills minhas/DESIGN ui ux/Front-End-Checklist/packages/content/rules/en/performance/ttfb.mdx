@@ -1,0 +1,138 @@
+---
+title: Reduce Time to First Byte (TTFB)
+description: >-
+  Measures and optimizes server response time (TTFB) to ensure a fast initial
+  response
+categories:
+  - performance
+subcategory: metrics
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - >-
+    Optimize server-side logic and database queries to speed up response
+    generation
+  - Use a Content Delivery Network (CDN) to serve content closer to users
+  - Implement effective caching strategies at the server and edge levels
+whyItMatters: >-
+  TTFB is the foundation of page performance; if the server is slow to respond,
+  all subsequent loading stages are delayed.
+aiContext: >-
+  Use when auditing slow first responses on SSR pages, APIs, or cacheable HTML.
+  Distinguish origin compute time from network latency and CDN cache misses
+  before proposing a fix.
+relatedRules:
+  - slug: browser-caching
+    reason: >-
+      Edge and browser caching often reduce repeated origin hits that inflate
+      TTFB
+  - slug: http2
+    reason: >-
+      Transport-layer improvements reduce connection overhead alongside origin
+      optimisations
+  - slug: gtm-present
+    reason: >-
+      Both rules sit in the `performance/metrics` area and are commonly reviewed
+      together.
+  - slug: js-redirects
+    reason: >-
+      Both rules sit in the `performance/metrics` area and are commonly reviewed
+      together.
+sources:
+  - title: 'web.dev: Time to First Byte (TTFB)'
+    url: 'https://web.dev/articles/ttfb'
+    type: guide
+    id: web-dev-time-to-first-byte-ttfb
+    role: reference
+    authority: primary
+  - title: 'MDN: Time to first byte'
+    url: 'https://developer.mozilla.org/en-US/docs/Glossary/Time_to_first_byte'
+    type: mdn
+    id: mdn-time-to-first-byte
+    role: implementation
+    authority: primary
+resources:
+  - name: PageSpeed Insights
+    url: 'https://pagespeed.web.dev/'
+    type: tool
+prompts:
+  check: >-
+    Review the page's TTFB and identify any bottlenecks in the server-side
+    processing or network transmission.
+  fix: >-
+    Optimize the server's response time by improving database queries, caching
+    responses, and using a CDN.
+  explain: >-
+    Explain how TTFB impacts the entire page load process and why it is a
+    critical starting point for performance optimization.
+  codeReview: >-
+    Review server-rendered routes, API handlers, cache configuration, and
+    database access on the critical path. Flag uncached HTML, slow synchronous
+    work before the first byte, repeated upstream fetches, or expensive queries
+    that keep TTFB above roughly 800ms.
+---
+Time to First Byte (TTFB) is the time it takes for a user's browser to receive the first byte of page content from the server. It includes the network latency and the server's processing time.
+
+## Code Examples
+
+#
+
+## Setting Cache Headers
+```javascript
+// ✅ Good: Use Cache-Control to reduce TTFB for static content
+res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+```
+
+### Optimizing Database Queries (SQL)
+```sql
+-- ❌ Bad: Selecting everything
+SELECT * FROM users WHERE active = true;
+
+-- ✅ Good: Selecting only what's needed and using indexes
+SELECT id, name, email FROM users WHERE active = true;
+```
+
+### Using a CDN (Next.js Example)
+```javascript
+// next.config.js
+module.exports = {
+  images: {
+    domains: ['cdn.example.com'],
+  },
+}
+```
+
+## Why It Matters
+
+- **Foundational Metric**: Everything else in the page load process waits for the first byte to arrive.
+- **User Perception**: A high TTFB causes users to see a blank screen or loading spinner for longer, leading to frustration.
+- **SEO Impact**: Search engines like Google use TTFB as part of their ranking algorithms, particularly for Core Web Vitals.
+- **Server Load**: Optimizing TTFB often means reducing the server's resource usage, which can save on infrastructure costs.
+
+## Best Practices
+
+✅ **Leverage CDN Caching**: Cache as much as possible at the edge to avoid hitting your origin server.
+✅ **Optimize Server Logic**: Profile your backend code to find and fix slow functions.
+✅ **Efficient Database Access**: Ensure your database queries are optimized and indexed correctly.
+✅ **Static Site Generation (SSG)**: For content that doesn't change often, use SSG to serve static files instantly.
+
+## Tools & Validation
+
+- [Lighthouse](https://developers.google.com/web/tools/lighthouse) (check for "server-response-time")
+- [PageSpeed Insights](https://pagespeed.web.dev/)
+- Browser DevTools Network tab (look at the "TTFB" in the timing breakdown)
+- [WebPageTest](https://www.webpagetest.org/)
+- [KeyCDN TTFB Checker](https://tools.keycdn.com/performance)
+
+## Verification
+
+### Automated Checks
+
+- Capture a fresh request in DevTools, WebPageTest, or your APM and confirm `TTFB < 800ms` for key pages.
+- Inspect server logs or tracing spans for slow queries, upstream API calls, or expensive render steps before the first byte is sent.
+- Re-test from multiple geographic regions if you rely on a CDN or edge network.
+
+### Manual Checks
+
+- Compare cache-hit and cache-miss responses so you know whether the bottleneck is origin work or caching strategy.

@@ -1,0 +1,15 @@
+{
+  "only": [
+    "py",
+    "sh",
+    "yml",
+    "ps1"
+  ],
+  "mode": "auto",
+  "budgets": {},
+  "routing": {
+    "retrieval": {}
+  },
+  "drift": {},
+  "guidance": {}
+}

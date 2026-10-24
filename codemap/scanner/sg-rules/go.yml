@@ -1,0 +1,12 @@
+id: go-imports
+language: go
+rule:
+  pattern: '"$PATH"'
+  kind: interpreted_string_literal
+  inside:
+    kind: import_spec
+---
+id: go-functions
+language: go
+rule:
+  kind: function_declaration

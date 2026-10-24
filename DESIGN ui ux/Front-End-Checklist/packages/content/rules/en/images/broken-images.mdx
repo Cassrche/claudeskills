@@ -1,0 +1,275 @@
+---
+title: Fix broken images
+description: No images return 404 errors or display broken-image icons to users.
+categories:
+  - images
+subcategory: optimization
+priority: high
+difficulty: beginner
+estimatedTime: 15
+relatedRules:
+  - slug: error-images
+    reason: >-
+      Graceful fallbacks handle broken images when they cannot be fixed at the
+      source
+  - slug: alt-text
+    reason: >-
+      Broken images rely on alt text to convey meaning when the visual fails to
+      load
+  - slug: sprite-generation
+    reason: >-
+      Both rules sit in the `images/optimization` area and are commonly reviewed
+      together.
+  - slug: svg-inline
+    reason: >-
+      Both rules sit in the `images/optimization` area and are commonly reviewed
+      together.
+tools:
+  - name: Lighthouse
+    url: 'https://developer.chrome.com/docs/lighthouse/'
+  - name: Broken Link Checker
+    url: 'https://www.brokenlinkcheck.com/'
+  - name: Chrome DevTools Network tab
+    url: 'https://developer.chrome.com/docs/devtools/network/'
+resources:
+  - name: 'HTMLImageElement: error event — MDN Web Docs'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/error_event'
+    type: documentation
+    author: MDN
+  - name: Lazy loading images — web.dev
+    url: 'https://web.dev/articles/lazy-loading-images'
+    type: article
+    author: web.dev
+prompts:
+  check: >-
+    Scan all <img> src attributes and CSS background-image URLs in this
+    codebase. Identify: 1) Any relative or absolute paths that point to files
+    not present in the project. 2) Any <img> elements without an onerror handler
+    or fallback mechanism. 3) Hardcoded external image URLs that may become
+    unavailable. 4) Dynamic image paths constructed from user data without
+    existence checks. Report each broken or potentially broken image with its
+    file path and line number.
+  fix: >-
+    For each broken image: 1) Correct the file path if the image exists but the
+    path is wrong. 2) Add the missing image asset if it was omitted. 3) For
+    images that may fail at runtime, add an onerror handler:
+    onerror="this.src='/images/fallback.png'; this.onerror=null;". 4) For
+    React/Vue components, implement an onError callback that swaps the src to a
+    placeholder. 5) For external images, consider downloading and self-hosting
+    or using a CDN with fallback. Always set this.onerror=null to prevent
+    infinite error loops.
+  explain: >-
+    Explain why broken images degrade user experience and how browsers handle
+    them. A 404 response for an image shows the browser's broken-image icon,
+    causes a console error, and—if the image is the LCP element—delays Core Web
+    Vitals metrics. Search engines cannot index missing images, affecting image
+    SEO. Monitoring image errors proactively prevents broken experiences from
+    reaching users.
+  codeReview: >-
+    Review image assets, markup, and delivery configuration related to Fix
+    broken images. Flag exact files or components where format choice, sizing,
+    or loading behavior violates the rule, and describe how to confirm the fix
+    in DevTools.
+tldr:
+  - >-
+    Broken images show an icon and console error—validate all `<img src>` paths
+    at build time
+  - Use `onerror` handlers to swap broken `<img>` elements to fallback images
+  - Set `this.onerror=null` inside the handler to prevent infinite error loops
+  - Test with DevTools Network tab blocked requests to verify fallback behaviour
+whyItMatters: >-
+  A broken image shows an ugly placeholder icon, breaks visual layouts, and
+  communicates that the site is poorly maintained. If the broken image is the
+  Largest Contentful Paint element, it also harms LCP scores. On e-commerce
+  sites, a missing product image can directly reduce purchase intent.
+aiContext: >-
+  Use when reviewing image assets, markup, and CDN or build transforms related
+  to Fix broken images. Check encoded size, rendered size, loading strategy, and
+  above-the-fold impact together.
+sources:
+  - title: 'MDN: Responsive images'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Learn/HTML/Multimedia_and_embedding/Responsive_images
+    type: mdn
+    id: mdn-responsive-images
+    role: reference
+    authority: primary
+  - title: 'web.dev: Image performance'
+    url: 'https://web.dev/learn/performance/image-performance'
+    type: guide
+    id: web-dev-image-performance
+    role: implementation
+    authority: primary
+---
+Broken images degrade user trust and harm Core Web Vitals. Prevent them with path validation at build time and runtime fallback handlers.
+
+## Code Examples
+
+Use browser DevTools to identify broken images quickly.
+
+```bash
+# Check for 404 responses in the Network tab
+# Filter by type: Img — any red rows indicate broken images
+```
+
+```javascript
+// Programmatically detect broken images in the page
+const brokenImages = Array.from(document.querySelectorAll('img'))
+  .filter(img => !img.complete || img.naturalWidth === 0)
+
+console.log('Broken images:', brokenImages.map(img => img.src))
+```
+
+## Why It Matters
+
+A broken image shows an ugly placeholder icon, breaks visual layouts, and communicates that the site is poorly maintained. If the broken image is the Largest Contentful Paint element, it also harms LCP scores. On e-commerce sites, a missing product image can directly reduce purchase intent.
+
+## Runtime Fallback with onerror
+
+```html
+<!-- ❌ Bad: No fallback—shows broken-image icon -->
+<img src="product.jpg" alt="Blue running shoes">
+
+<!-- ✅ Good: Fallback image on error -->
+<img
+  src="product.jpg"
+  alt="Blue running shoes"
+  onerror="this.src='/images/product-placeholder.png'; this.onerror=null;"
+>
+```
+
+<Warning title="Prevent infinite loops">
+Always set `this.onerror=null` after applying the fallback. Without it, if the fallback image itself is also missing, the browser fires the error event again and loops indefinitely.
+</Warning>
+
+## React Component with Error Handling
+
+```tsx
+import { useState } from 'react'
+
+interface ImageWithFallbackProps {
+  src: string
+  fallbackSrc?: string
+  alt: string
+  width?: number
+  height?: number
+}
+
+function ImageWithFallback({
+  src,
+  fallbackSrc = '/images/placeholder.png',
+  alt,
+  width,
+  height,
+}: ImageWithFallbackProps) {
+  const [imgSrc, setImgSrc] = useState(src)
+  const [errored, setErrored] = useState(false)
+
+  function handleError() {
+    if (!errored) {
+      setImgSrc(fallbackSrc)
+      setErrored(true)
+    }
+  }
+
+  return (
+    <img
+      src={imgSrc}
+      alt={alt}
+      width={width}
+      height={height}
+      onError={handleError}
+    />
+  )
+}
+```
+
+## Build-Time Validation
+
+Catch broken image paths before they reach production.
+
+```javascript
+// scripts/check-images.js — run as part of CI
+const fs = require('fs')
+const path = require('path')
+const { globSync } = require('glob')
+
+const htmlFiles = globSync('dist/**/*.html')
+const imgSrcPattern = /<img[^>]+src="([^"]+)"/g
+
+let broken = []
+
+for (const file of htmlFiles) {
+  const html = fs.readFileSync(file, 'utf8')
+  let match
+
+  while ((match = imgSrcPattern.exec(html)) !== null) {
+    const src = match[1]
+    // Only check local paths
+    if (!src.startsWith('http') && !src.startsWith('data:')) {
+      const localPath = path.join('dist', src)
+      if (!fs.existsSync(localPath)) {
+        broken.push({ file, src })
+      }
+    }
+  }
+}
+
+if (broken.length > 0) {
+  console.error('Broken images found:')
+  broken.forEach(({ file, src }) => console.error(`  ${file}: ${src}`))
+  process.exit(1)
+}
+```
+
+## CSS Background Images
+
+```css
+/* ❌ Bad: No fallback colour if image fails */
+.hero {
+  background-image: url('/images/hero.jpg');
+}
+
+/* ✅ Good: Fallback colour ensures readable content if image fails */
+.hero {
+  background-color: #1a1a2e; /* Fallback if image doesn't load */
+  background-image: url('/images/hero.jpg');
+  background-size: cover;
+  background-position: center;
+}
+```
+
+## Monitoring Image Errors
+
+```typescript
+// Log image errors to an analytics service
+function trackImageError(src: string) {
+  // Replace with your analytics provider
+  if (typeof window !== 'undefined' && 'analytics' in window) {
+    (window as any).analytics.track('image_error', {
+      src,
+      page: window.location.pathname,
+    })
+  }
+}
+
+// Attach globally
+document.addEventListener('error', (event) => {
+  if (event.target instanceof HTMLImageElement) {
+    trackImageError(event.target.src)
+  }
+}, true) // useCapture=true so the listener catches non-bubbling errors
+```
+
+## Verification
+
+### Automated Checks
+
+- Open Chrome DevTools → Network tab → filter by "Img"
+- Run Lighthouse—"Image elements do not have explicit width and height" and network errors are flagged
+- Include the build-time script above in CI to prevent regressions
+
+### Manual Checks
+
+- Look for any requests shown in red (HTTP 4xx/5xx)
+- Use the "Block request URL" feature to simulate a broken image and verify your fallback appears

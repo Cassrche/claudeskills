@@ -1,0 +1,117 @@
+---
+title: Ensure tables have unique accessible names
+description: Checks that data tables have unique accessible names
+categories:
+  - accessibility
+subcategory: document-structure
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - Each data table must have a unique `<caption>` or `aria-label`
+  - Helps screen reader users distinguish between multiple tables
+  - Avoid repetitive or generic names like 'Table 1'
+whyItMatters: >-
+  When multiple tables are present, unique names allow users of assistive
+  technology to quickly identify and navigate to the data they need.
+prompts:
+  check: >-
+    Verify that every table has a unique accessible name via caption or ARIA
+    attributes.
+  fix: Add a unique `<caption>` or `aria-label` to the table.
+  explain: >-
+    Explain why unique table names are necessary for users who rely on screen
+    readers to navigate complex data.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Ensure tables
+    have unique accessible names. Flag exact elements, roles, labels, focus
+    behavior, or keyboard interactions that violate the rule, and note how to
+    verify the fix with browser accessibility tooling or assistive tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Ensure tables have unique accessible names. Check native
+  semantics first, then inspect keyboard behavior, focus flow, accessible names,
+  and screen-reader output where relevant.
+sources:
+  - title: 'W3C WAI: WCAG Overview'
+    url: 'https://www.w3.org/WAI/standards-guidelines/wcag/'
+    type: wcag
+    id: w3c-wai-wcag-overview
+    role: standard
+    authority: primary
+  - title: 'MDN: Accessibility'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility'
+    type: mdn
+    id: mdn-accessibility
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: accessible-tables
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+  - slug: th-has-data-cells
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+  - slug: duplicate-id-active
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+  - slug: listitem
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+---
+Accessible names for tables provide context for users of assistive technologies, especially when a page contains multiple tables.
+
+## Code Example
+
+```html
+<!-- ✅ GOOD: Using <caption> -->
+<table>
+  <caption>Monthly Sales Data (2023)</caption>
+  <thead>...</thead>
+  <tbody>...</tbody>
+</table>
+
+<!-- ✅ GOOD: Using aria-label -->
+<table aria-label="Employee Directory">
+  <thead>...</thead>
+  <tbody>...</tbody>
+</table>
+```
+
+## Why It Matters
+
+- **Navigation**: Screen reader users can pull up a list of tables; unique names help them choose the right one.
+- **Context**: Explains what the data represents before the user starts diving into rows and columns.
+- **Clarity**: Prevents confusion when similar-looking tables are used for different purposes.
+- **Compliance**: Supports WCAG requirements for providing names for structural elements.
+
+## Exceptions
+
+- Simple data tables can sometimes fail more from missing header relationships than from missing enhancements such as captions or mobile wrappers, so prioritize the strongest semantic issue.
+- Do not convert layout structures into data-table markup just to satisfy a rule; the correct fix may be to remove table semantics entirely.
+- When several table-accessibility issues overlap, resolve the header-cell relationship first because downstream announcements depend on it.
+
+## Standards
+
+- Align the implementation with W3C WAI: WCAG Overview and verify the rendered experience, not only the source code.
+- Align the implementation with MDN: Accessibility and verify the rendered experience, not only the source code.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

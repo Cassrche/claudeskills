@@ -1,0 +1,178 @@
+---
+title: Keep focused elements unobscured
+description: >-
+  Sticky headers, footers, banners, and overlays must not fully hide the
+  element that currently has keyboard focus.
+categories:
+  - accessibility
+  - css
+  - html
+subcategory: keyboard
+priority: high
+difficulty: intermediate
+estimatedTime: 20
+tldr:
+  - Sticky UI must not cover the focused control while keyboard users tab through the page
+  - Use `scroll-padding` or equivalent spacing when fixed headers or footers are present
+  - Test with cookie banners, chat widgets, and consent bars open
+  - Re-test at zoomed and mobile layouts where overlap problems usually appear
+whyItMatters: >-
+  A visible focus ring is not enough if the focused element sits behind a sticky
+  header or footer. Keyboard users need to see the actual focused control and
+  the focus indicator at the same time in order to continue the task.
+prompts:
+  check: >-
+    Audit keyboard focus with all sticky UI active. Check headers, footers,
+    cookie banners, promo bars, and chat launchers for cases where the focused
+    element scrolls underneath them.
+  fix: >-
+    Add layout spacing such as scroll-padding, reduce overlay height, or change
+    focus/scroll behavior so the focused element remains visible when tabbing.
+  explain: >-
+    Explain WCAG Focus Not Obscured, why fixed-position UI commonly breaks it,
+    and how scroll-padding and overlay layout choices prevent the issue.
+  codeReview: >-
+    Review sticky layout, focus styles, overlays, and keyboard navigation
+    related to Keep focused elements unobscured. Flag exact selectors,
+    breakpoints, or UI states where focused controls can be covered.
+aiContext: >-
+  Use when reviewing sticky navigation, consent banners, chat widgets, skip
+  links, or any fixed-position UI. Validate the actual tab order and viewport
+  behavior at realistic zoom levels.
+sources:
+  - title: 'WCAG 2.2 SC 2.4.11: Focus Not Obscured (Minimum)'
+    url: 'https://www.w3.org/TR/WCAG22/#focus-not-obscured-minimum'
+    type: wcag
+    id: wcag-2-2-sc-2-4-11-focus-not-obscured-minimum
+    role: standard
+    authority: primary
+  - title: 'W3C: Understanding SC 2.4.11 Focus Not Obscured (Minimum)'
+    url: 'https://www.w3.org/WAI/WCAG22/Understanding/focus-not-obscured-minimum.html'
+    type: wcag
+    id: w3c-understanding-sc-2-4-11-focus-not-obscured-minimum
+    role: implementation
+    authority: primary
+  - title: 'MDN: scroll-padding-top'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/CSS/scroll-padding-top'
+    type: mdn
+    id: mdn-scroll-padding-top
+    role: reference
+    authority: primary
+resources:
+  - name: Chrome DevTools
+    url: 'https://developer.chrome.com/docs/devtools/'
+    type: tool
+relatedRules:
+  - slug: focus-styles
+    reason: >-
+      A focus ring is only useful if the focused element and the ring remain
+      visible in the viewport.
+  - slug: skip-link
+    reason: >-
+      Skip links often reveal overlap bugs first because they jump focus near
+      sticky headers.
+  - slug: focus-management
+    reason: >-
+      Predictable focus movement and unobscured focus are both required for
+      keyboard users to complete a task.
+  - slug: interstitials
+    reason: >-
+      Consent banners and other overlays can both obscure content and hide the
+      currently focused element.
+---
+Keyboard focus must stay visible as users move through the interface. A sticky header, cookie banner, footer bar, or floating widget that sits on top of the focused control can make the page unusable even if the focus indicator itself is technically rendered.
+
+## Code Example
+
+```css
+/* Bad: fixed chrome with no spacing for keyboard-driven scrolling */
+.site-header {
+  position: sticky;
+  top: 0;
+  height: 72px;
+}
+
+.cookie-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  min-height: 88px;
+}
+```
+
+```css
+/* Better: reserve room for focused content */
+html {
+  scroll-padding-top: 80px;
+  scroll-padding-bottom: 96px;
+}
+
+.site-header {
+  position: sticky;
+  top: 0;
+}
+
+.cookie-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 96px;
+}
+```
+
+```html
+<!-- Better: a skip link target with enough top margin to stay visible -->
+<a class="skip-link" href="#main">Skip to main content</a>
+<main id="main" tabindex="-1">...</main>
+```
+
+## Why It Matters
+
+When keyboard users tab through a page, the browser scrolls the next focused element into view. If author-controlled UI keeps covering that element, users lose context and may not know what will activate when they press Enter or Space.
+
+- sticky bars can hide the target control
+- zoomed layouts make overlap problems far more frequent
+- consent banners and promo bars often appear only after load, so the bug is missed in static review
+- low-vision users relying on zoom are especially exposed to this failure mode
+
+## Best Practices
+
+### Reserve room for fixed UI
+
+If your layout uses fixed or sticky chrome, add appropriate `scroll-padding-top` and `scroll-padding-bottom` values on the scrolling container so browser-driven focus scrolling does not tuck controls underneath those regions.
+
+### Test with transient UI active
+
+Do not validate focus only in the clean layout. Re-test when these are present:
+
+- cookie consent banners
+- floating chat launchers
+- promo bars
+- sticky mobile toolbars
+- in-page anchored navigation
+
+### Re-test at zoom and narrow widths
+
+A layout that works at 100% zoom on desktop can still fail badly at 200% or 400% zoom, or on short mobile viewports where sticky UI consumes a larger percentage of the screen.
+
+## Exceptions
+
+- User-triggered temporary disclosures can change the visible area, but author-controlled persistent bars still must not fully hide the focused control.
+- If a focus movement opens a modal dialog, move focus into the dialog instead of leaving it behind the overlay.
+- Solving the issue by disabling focus outlines is not a valid fix. Keep the focus indicator and keep the focused control visible.
+
+## Verification
+
+### Automated Checks
+
+- Search for `position: fixed` and `position: sticky` UI that persists while the page scrolls.
+- Identify any scrolling container that needs `scroll-padding-top` or `scroll-padding-bottom`.
+
+### Manual Checks
+
+- Tab through the page with all sticky UI active.
+- Repeat at zoomed layouts and narrow viewports.
+- Pass if the focused element and its focus indicator remain visible.
+- Fail if a sticky header, footer, banner, or widget fully covers the focused control.

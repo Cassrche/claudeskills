@@ -1,0 +1,10 @@
+{
+  "extends": "./configs/config-typescript/base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@repo/design-system": ["./packages/design-system/src/design-system"],
+      "@repo/*": ["./packages/*/src", "./configs/*"]
+    }
+  }
+}

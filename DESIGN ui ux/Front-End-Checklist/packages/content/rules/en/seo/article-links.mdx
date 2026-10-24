@@ -1,0 +1,119 @@
+---
+title: Optimize article link density
+description: >-
+  Ensures articles have a healthy balance of internal and external links
+  relative to their length.
+categories:
+  - seo
+subcategory: content
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - >-
+    Include a balanced mix of internal and external links based on content
+    length
+  - Link to authoritative external sources to validate facts and data
+  - >-
+    Use internal links to connect related topics and keep users engaged on your
+    site
+whyItMatters: >-
+  A natural link profile within articles establishes authority, improves site
+  crawlability, and provides additional value to users by pointing them to
+  relevant resources.
+prompts:
+  check: >-
+    Review the article to ensure it contains a sufficient number of relevant
+    internal and external links.
+  fix: >-
+    Add 2-3 internal links to related content and 1-2 external links to
+    authoritative sources to back up your claims.
+  explain: >-
+    Explain the role of internal and external links in building a site's topical
+    authority and improving the user journey.
+  codeReview: >-
+    Review metadata generation, rendered HTML, structured data, and response
+    headers related to Optimize article link density. Flag exact routes or
+    templates where search-facing output violates the rule, and describe how to
+    verify the final page output.
+aiContext: >-
+  Use when auditing metadata, crawlability, structured data, or indexability
+  related to Optimize article link density. Verify the rendered HTML and HTTP
+  response rather than relying only on source files.
+sources:
+  - title: 'Google Search Central: Search Essentials'
+    url: 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide'
+    type: google
+    id: google-search-central-search-essentials
+    role: search
+    authority: primary
+  - title: Google Search Central documentation
+    url: 'https://developers.google.com/search/docs'
+    type: google
+    id: google-search-central-documentation
+    role: implementation
+    authority: primary
+resources:
+  - name: Google Search Console
+    url: 'https://search.google.com/search-console/about'
+    type: tool
+relatedRules:
+  - slug: citations
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+  - slug: editorial-policy
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+  - slug: ymyl-detection
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+  - slug: anchor-text
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+---
+Linking to other pages—both on your own site and on others—is a fundamental part of the web that search engines use to discover and rank content.
+
+## Code Example
+
+```html
+<article>
+  <p>According to a recent study by <a href="https://example-authority.com/study" rel="noopener noreferrer" target="_blank">Industry Research Group</a>, 70% of users prefer mobile-friendly websites.</p>
+  
+  <p>To help you optimize your site, check out our <a href="/blog/mobile-optimization">guide to mobile performance</a>.</p>
+</article>
+```
+
+## Why It Matters
+
+- **Topical Authority**: Linking to high-quality external sites shows your content is well-researched.
+- **Crawlability**: Internal links help search engine bots find and index deeper pages on your site.
+- **Reduced Bounce Rate**: Internal links encourage users to explore more of your site, increasing time-on-page.
+- **User Value**: Providing links to further reading or cited sources improves the overall helpfulness of your content.
+
+## Exceptions
+
+- Only add or enforce schema types that the page can truthfully support; irrelevant structured data is worse than no structured data.
+- A technically valid schema block can still be misleading if the page content does not visibly back it up; audit rendered content and schema together.
+- If indexability, canonical-url, or main content quality is wrong, fix that foundation before optimizing schema details.
+
+## Standards
+
+- Use these references as the standard for the final search-facing HTML, metadata, and crawl behavior.
+- Check the implementation against Google Search Central: Search Essentials before treating the rule as satisfied.
+- Check the implementation against Google Search Central documentation before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

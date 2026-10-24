@@ -1,0 +1,123 @@
+---
+title: Do not use aria-hidden on the document body
+description: >-
+  Ensures the document body is not set to aria-hidden, which would hide the
+  entire page from screen readers.
+categories:
+  - accessibility
+subcategory: aria
+priority: critical
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - The `<body>` element should never have `aria-hidden="true"`
+  - Hiding the body makes the entire page invisible to assistive technologies
+  - Often happens accidentally when managing modal states
+whyItMatters: >-
+  Setting `aria-hidden="true"` on the body effectively silences the entire
+  application for screen reader users, rendering the site completely unusable.
+prompts:
+  check: >-
+    Check if the `<body>` element has `aria-hidden="true"` applied at any point
+    in the lifecycle.
+  fix: >-
+    Remove `aria-hidden="true"` from the `<body>` and use it only on specific
+    background containers when modals are open.
+  explain: >-
+    Explain the catastrophic impact of hiding the body element from assistive
+    technologies.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Do not use
+    aria-hidden on the document body. Flag exact elements, roles, labels, focus
+    behavior, or keyboard interactions that violate the rule, and note how to
+    verify the fix with browser accessibility tooling or assistive tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Do not use aria-hidden on the document body. Check native
+  semantics first, then inspect keyboard behavior, focus flow, accessible names,
+  and screen-reader output where relevant.
+sources:
+  - title: WAI-ARIA 1.2
+    url: 'https://www.w3.org/TR/wai-aria-1.2/'
+    type: spec
+    id: wai-aria-1-2
+    role: standard
+    authority: primary
+  - title: 'MDN: ARIA'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA'
+    type: mdn
+    id: mdn-aria
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: aria-hidden-focus
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: decorative-elements
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-text
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-allowed-attr
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+---
+The `aria-hidden` attribute removes an element and all of its children from the accessibility tree. Applying it to the `<body>` tag makes your entire website non-existent for screen reader users.
+
+## Code Example
+
+```html
+<!-- ✅ Correct: Hidden attribute on background content only -->
+<body>
+  <div id="app-root" aria-hidden="true">
+    <!-- Main content hidden while modal is open -->
+  </div>
+  <div id="modal-portal">
+    <!-- Modal remains visible to AT -->
+  </div>
+</body>
+
+<!-- ❌ Incorrect: aria-hidden on body -->
+<body aria-hidden="true">
+  <h1>This whole page is invisible to a screen reader</h1>
+</body>
+```
+
+## Why It Matters
+
+- **Full Inaccessibility**: Hides every single piece of content and interactive element from screen readers.
+- **Broken Experience**: Users cannot navigate, read, or interact with any part of the application.
+- **Common Implementation Bug**: Frequently caused by automated scripts or libraries that try to "lock" the background when a modal is open but target the wrong element.
+- **Critical Failure**: This is considered a high-priority accessibility violation that prevents access to the entire service.
+
+## Exceptions
+
+- Prefer native HTML semantics over ARIA when both are possible; some apparent ARIA failures disappear when the underlying element is corrected.
+- A missing ARIA attribute is not automatically the strongest finding if the control is already semantically broken, unnamed, or keyboard-inaccessible.
+- Do not add ARIA only to satisfy the rule if the feature should instead be implemented with a native element or a simpler interaction pattern.
+
+## Standards
+
+- Align the implementation with WAI-ARIA 1.2 and verify the rendered experience, not only the source code.
+- Align the implementation with MDN: ARIA and verify the rendered experience, not only the source code.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

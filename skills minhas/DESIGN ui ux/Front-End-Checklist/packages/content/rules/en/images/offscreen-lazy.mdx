@@ -1,0 +1,331 @@
+---
+title: Lazy load offscreen images
+description: >-
+  Images below the visible viewport use loading="lazy" to defer download until
+  the user scrolls near them, reducing initial page load time.
+categories:
+  - images
+subcategory: performance
+priority: high
+difficulty: beginner
+estimatedTime: 10
+relatedRules:
+  - slug: dimensions
+    reason: >-
+      Lazy-loaded images must have width/height attributes to prevent layout
+      shift when they load
+  - slug: largest-contentful-paint
+    reason: >-
+      The LCP image must NOT be lazy-loaded—only below-fold images should defer
+      loading
+  - slug: srcset
+    reason: >-
+      Both rules sit in the `images/performance` area and are commonly reviewed
+      together.
+  - slug: dimensions
+    reason: Both rules affect images quality and are commonly reviewed together.
+tools:
+  - name: Lighthouse
+    url: 'https://developer.chrome.com/docs/lighthouse/'
+  - name: Chrome DevTools Coverage tab
+    url: 'https://developer.chrome.com/docs/devtools/coverage/'
+resources:
+  - name: Lazy loading images — MDN Web Docs
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Web/Performance/Guides/Lazy_loading
+    type: documentation
+    author: MDN
+  - name: Browser-level image lazy loading — web.dev
+    url: 'https://web.dev/articles/browser-level-image-lazy-loading'
+    type: article
+    author: web.dev
+  - name: The loading attribute — HTML Living Standard
+    url: >-
+      https://html.spec.whatwg.org/multipage/embedded-content.html#attr-img-loading
+    type: specification
+    author: WHATWG
+prompts:
+  check: >-
+    Scan all <img> elements in this codebase. Identify: 1) Any <img> elements
+    below the fold (not in the first viewport) that are missing loading="lazy".
+    2) Any <img> elements marked loading="lazy" that appear to be above the fold
+    (hero images, first product images, logos in headers). 3) Any <img> with
+    loading="eager" below the fold. Report the above-fold images that should NOT
+    have lazy loading separately from below-fold images that should have it. If
+    fold position cannot be inferred from the snippet, do not report missing
+    lazy loading as a defect.
+  fix: >-
+    For images that should use lazy loading: 1) Add loading="lazy" to all <img>
+    elements that appear below the fold. 2) Remove loading="lazy" from any hero,
+    logo, or first-visible image—these should load immediately. 3) Ensure all
+    lazy-loaded images have explicit width and height attributes to prevent CLS.
+    4) For the LCP image specifically, add fetchpriority="high" and remove
+    loading="lazy". Show the corrected HTML for each modified image.
+  explain: >-
+    Explain how native browser lazy loading works. The loading="lazy" attribute
+    tells the browser to defer image download until the image is within a
+    browser-defined distance from the viewport (typically 1250px on a slow
+    connection). This reduces the data transferred on initial load, lowers Time
+    to Interactive, and saves bandwidth for users who never scroll to those
+    images. Browser support is universal in modern browsers. The critical
+    caveat: never lazy-load the LCP image—it must load as fast as possible.
+  codeReview: >-
+    Review image assets, markup, and delivery configuration related to Lazy load
+    offscreen images. Flag exact files or components where format choice,
+    sizing, or loading behavior violates the rule, and describe how to confirm
+    the fix in DevTools.
+tldr:
+  - Add `loading="lazy"` to all `<img>` elements below the fold
+  - >-
+    Never lazy-load the LCP image (hero, first product image)—use
+    `fetchpriority="high"` instead
+  - >-
+    Always pair `loading="lazy"` with `width` and `height` attributes to prevent
+    CLS
+  - >-
+    Native `loading="lazy"` has universal support in all modern browsers—no
+    JavaScript polyfill needed
+  - >-
+    If fold position is unclear from the snippet, do not invent a lazy-loading
+    defect
+whyItMatters: >-
+  Lazy loading eliminates unnecessary image downloads on initial page load. A
+  page with 20 images below the fold may transfer several megabytes of data that
+  users who don't scroll will never see. Deferring these downloads reduces Time
+  to Interactive, improves LCP for above-fold content, and saves
+  bandwidth—particularly impactful for users on metered mobile connections.
+aiContext: >-
+  Use when reviewing image assets, markup, and CDN or build transforms related
+  to Lazy load offscreen images. Check encoded size, rendered size, loading
+  strategy, and above-the-fold impact together. Missing `loading="lazy"` is only
+  a valid finding when you can reasonably tell the image is offscreen or
+  non-critical.
+sources:
+  - title: 'MDN: Responsive images'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Learn/HTML/Multimedia_and_embedding/Responsive_images
+    type: mdn
+    id: mdn-responsive-images
+    role: reference
+    authority: primary
+  - title: 'web.dev: Image performance'
+    url: 'https://web.dev/learn/performance/image-performance'
+    type: guide
+    id: web-dev-image-performance
+    role: implementation
+    authority: primary
+---
+Native browser lazy loading (`loading="lazy"`) defers image downloads until the user scrolls near them, reducing initial page weight with a single attribute.
+
+## Code Example
+
+```html
+<!-- ❌ Bad: All images load immediately regardless of position -->
+<img src="product-1.jpg" alt="Product 1" width="400" height="300">
+<img src="product-2.jpg" alt="Product 2" width="400" height="300">
+<!-- ... 20 more product images -->
+
+<!-- ✅ Good: Above-fold hero loads eagerly, rest defer -->
+<!-- Hero image — above fold, must load immediately -->
+<img
+  src="hero.jpg"
+  alt="Hero image"
+  width="1200"
+  height="600"
+  fetchpriority="high"
+>
+
+<!-- Below-fold product images — defer until near viewport -->
+<img src="product-1.jpg" alt="Product 1" width="400" height="300" loading="lazy">
+<img src="product-2.jpg" alt="Product 2" width="400" height="300" loading="lazy">
+```
+
+## Why It Matters
+
+Lazy loading eliminates unnecessary image downloads on initial page load. A page with 20 images below the fold may transfer several megabytes of data that users who don't scroll will never see. Deferring these downloads reduces Time to Interactive, improves LCP for above-fold content, and saves bandwidth—particularly impactful for users on metered mobile connections.
+
+## Critical: Do Not Lazy-Load the LCP Image
+
+The Largest Contentful Paint (LCP) element is usually the first large image visible on the page. Lazy-loading it delays the most important metric.
+
+```html
+<!-- ❌ Bad: Lazy-loading the LCP image hurts LCP score -->
+<img
+  src="hero.jpg"
+  alt="Hero image"
+  loading="lazy"
+  width="1200"
+  height="600"
+>
+
+<!-- ✅ Good: LCP image loads immediately with high priority -->
+<img
+  src="hero.jpg"
+  alt="Hero image"
+  width="1200"
+  height="600"
+  fetchpriority="high"
+  decoding="async"
+>
+```
+
+## Pair with Explicit Dimensions
+
+Without `width` and `height`, lazy-loaded images cause layout shift (CLS) when they eventually load.
+
+```html
+<!-- ❌ Bad: No dimensions → layout shifts when image loads into view -->
+<img src="article-photo.jpg" alt="Article photo" loading="lazy">
+
+<!-- ✅ Good: Dimensions reserved, no shift when loading triggers -->
+<img
+  src="article-photo.jpg"
+  alt="Article photo"
+  width="800"
+  height="450"
+  loading="lazy"
+>
+```
+
+## picture Element with Lazy Loading
+
+Add `loading="lazy"` to the `<img>` element inside `<picture>`, not the `<source>` elements.
+
+```html
+<picture>
+  <source
+    type="image/avif"
+    srcset="photo-400.avif 400w, photo-800.avif 800w"
+    sizes="(max-width: 600px) 100vw, 50vw"
+  >
+  <source
+    type="image/webp"
+    srcset="photo-400.webp 400w, photo-800.webp 800w"
+    sizes="(max-width: 600px) 100vw, 50vw"
+  >
+  <img
+    src="photo-800.jpg"
+    srcset="photo-400.jpg 400w, photo-800.jpg 800w"
+    sizes="(max-width: 600px) 100vw, 50vw"
+    alt="Photo description"
+    width="800"
+    height="600"
+    loading="lazy"       <!-- Goes on the <img>, not <source> -->
+    decoding="async"
+  >
+</picture>
+```
+
+## Framework Examples
+
+<CodeTabs defaultTab="react">
+  <Tab value="react" label="React">
+
+```tsx
+interface ImageProps {
+  src: string
+  alt: string
+  width: number
+  height: number
+  priority?: boolean
+}
+
+function OptimizedImage({ src, alt, width, height, priority = false }: ImageProps) {
+  return (
+    <img
+      src={src}
+      alt={alt}
+      width={width}
+      height={height}
+      // priority images load eagerly with high fetchpriority
+      loading={priority ? 'eager' : 'lazy'}
+      fetchPriority={priority ? 'high' : 'auto'}
+      decoding="async"
+    />
+  )
+}
+
+// Usage
+<OptimizedImage src="hero.jpg" alt="Hero" width={1200} height={600} priority />
+<OptimizedImage src="product.jpg" alt="Product" width={400} height={300} />
+```
+
+  </Tab>
+  <Tab value="nextjs" label="Next.js">
+
+```tsx
+import Image from 'next/image'
+
+// next/image applies loading="lazy" by default
+// Use priority prop to disable lazy loading for LCP images
+function Gallery({ images }) {
+  return (
+    <div>
+      {images.map((img, index) => (
+        <Image
+          key={img.id}
+          src={img.src}
+          alt={img.alt}
+          width={800}
+          height={600}
+          priority={index === 0} // Only first image loads eagerly
+          sizes="(max-width: 768px) 100vw, 50vw"
+        />
+      ))}
+    </div>
+  )
+}
+```
+
+  </Tab>
+</CodeTabs>
+
+## How the Browser Determines "Near Viewport"
+
+The browser uses a distance threshold based on network speed. On a slow connection, the threshold is larger (loading starts sooner) to compensate for slower download speeds.
+
+Per the [HTML spec](https://html.spec.whatwg.org/multipage/embedded-content.html#attr-img-loading), the exact threshold is implementation-defined. Chromium's thresholds range from 1250px on a slow connection to 2500px on a fast connection.
+
+## Intersection Observer (Legacy Fallback)
+
+For environments that need custom lazy loading behaviour (e.g., custom intersection margins), use the Intersection Observer API. For most modern use cases, the native `loading="lazy"` attribute is sufficient.
+
+```javascript
+// Only needed if you need custom lazy loading behaviour
+// Native loading="lazy" is preferred for standard use cases
+const observer = new IntersectionObserver(
+  (entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const img = entry.target
+        img.src = img.dataset.src
+        if (img.dataset.srcset) {
+          img.srcset = img.dataset.srcset
+        }
+        observer.unobserve(img)
+      }
+    })
+  },
+  { rootMargin: '200px' } // Start loading 200px before entering viewport
+)
+
+document.querySelectorAll('img[data-src]').forEach(img => observer.observe(img))
+```
+
+## Support Notes
+
+- Image format and delivery behavior can vary by browser, CDN, and device characteristics, so verify the final bytes and rendered output on the supported browser matrix.
+- Add a fallback note when a modern format or loading behavior is not available for every required target browser.
+
+## Verification
+
+### Automated Checks
+
+- Open Chrome DevTools → Network → filter by "Img" → reload and scroll down—images should only appear in the Network waterfall as they enter the viewport
+- Run Lighthouse — the "Defer offscreen images" audit flags lazy-loadable images
+- Use the Coverage tab in DevTools to see how much data is deferred
+- Verify the LCP image is NOT marked `loading="lazy"` in the Lighthouse report
+
+### Manual Checks
+
+- Verify the rendered or user-facing behavior manually in a representative browser or runtime flow.

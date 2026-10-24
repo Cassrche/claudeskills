@@ -1,0 +1,51 @@
+---
+title: Privacy & Consent
+description: Review consent boundaries, data minimisation, and browser-side privacy controls before collecting user data.
+icon: shield
+rules:
+  - privacy/cookie-consent
+  - privacy/data-minimisation
+  - privacy/privacy-policy
+  - privacy/right-to-erasure
+  - privacy/third-party-cookies
+  - performance/consent-mode
+  - security/https
+  - security/referrer-policy
+  - security/content-security-policy
+  - security/form-https
+estimatedTime: '35 minutes'
+difficulty: intermediate
+order: 11
+featured: false
+---
+
+Privacy failures are usually integration failures: analytics, embeds, forms, storage, and consent banners all need to work together. This checklist gives you a focused pass on the browser-visible controls and policies that affect user trust and regulatory exposure.
+
+## Who It's For
+
+- Teams shipping analytics, embeds, personalization, or lead forms
+- Reviewers validating browser-visible consent and privacy behavior
+- Launch owners checking trust-sensitive flows before release
+
+## Done Looks Like
+
+You should finish knowing whether consent gates, storage behavior, privacy policy copy, and third-party scripts actually align in the browser.
+
+## What To Review
+
+- Whether consent choices actually gate tracking and third-party behavior
+- Whether you are collecting more data than the feature genuinely needs
+- Whether the user-facing privacy policy matches what the frontend does in practice
+- Whether form submissions and browser headers protect personal data in transit
+
+## Best Uses
+
+- Before launching new marketing, analytics, or personalization tooling
+- During regional compliance reviews
+- After adding signup flows, lead forms, or embedded third-party widgets
+
+## Review Tips
+
+1. Test the site both before and after giving consent.
+2. Inspect network requests and storage keys, not only the banner UI.
+3. Treat third-party scripts as part of the privacy review scope, not an exception to it.

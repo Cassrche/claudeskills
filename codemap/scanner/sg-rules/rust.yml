@@ -1,0 +1,99 @@
+id: rust-use-imports
+language: rust
+rule:
+  all:
+    - any:
+        - pattern: use $PATH;
+        - pattern: use $PATH::$$$_;
+        - pattern: pub use $PATH;
+        - pattern: pub use $PATH::$$$_;
+    - not:
+        inside:
+          kind: mod_item
+          stopBy: end
+---
+id: rust-use-imports-nested
+language: rust
+rule:
+  all:
+    - any:
+        - pattern: use $PATH;
+        - pattern: use $PATH::$$$_;
+        - pattern: pub use $PATH;
+        - pattern: pub use $PATH::$$$_;
+    - inside:
+        kind: mod_item
+        stopBy: end
+---
+id: rust-mod-imports
+language: rust
+rule:
+  any:
+    - pattern: mod $PATH;
+    - pattern: pub mod $PATH;
+---
+id: rust-path-module-imports
+language: rust
+rule:
+  all:
+    - pattern:
+        context: |
+          #[path = $TARGET]
+          mod __CONTEXT__;
+        selector: attribute_item
+    - precedes:
+        stopBy:
+          not:
+            kind: attribute_item
+        any:
+          - pattern: mod $PATH;
+          - pattern: pub mod $PATH;
+    - not:
+        inside:
+          kind: mod_item
+          stopBy: end
+---
+id: rust-path-imports
+language: rust
+rule:
+  pattern: $PATH::$$$REST
+---
+id: rust-askama-template-imports
+language: rust
+rule:
+  any:
+    - pattern:
+        context: |
+          #[template(path = $TARGET)]
+          struct __CONTEXT__;
+        selector: attribute_item
+    - pattern:
+        context: |
+          #[template(path = $TARGET, $$$REST)]
+          struct __CONTEXT__;
+        selector: attribute_item
+---
+id: rust-include-imports
+language: rust
+rule:
+  pattern: include!($PATH)
+---
+id: rust-embedded-file-imports
+language: rust
+rule:
+  any:
+    - pattern: include_str!($PATH)
+    - pattern: include_bytes!($PATH)
+---
+id: rust-cargo-rerun-imports
+language: rust
+rule:
+  pattern: println!($PATH)
+constraints:
+  PATH:
+    regex: 'cargo::?rerun-if-changed='
+---
+id: rust-functions
+language: rust
+rule:
+  kind: function_item

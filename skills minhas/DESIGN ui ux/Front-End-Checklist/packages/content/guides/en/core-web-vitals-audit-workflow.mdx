@@ -1,0 +1,89 @@
+---
+title: "How to run a practical Core Web Vitals audit before launch"
+description: "A repeatable workflow for auditing Core Web Vitals issues, prioritizing fixes, and connecting findings back to your checklist work."
+slug: "core-web-vitals-audit-workflow"
+type: "how-to"
+category: "performance"
+tags:
+  - "core web vitals"
+  - "performance"
+  - "audit"
+publishedAt: "2026-03-13"
+updatedAt: "2026-03-13"
+coverImage: "/guides/cover-core-web-vitals.svg"
+featured: true
+relatedRules:
+  - "performance/largest-contentful-paint"
+  - "performance/critical-request-chains"
+  - "performance/fetchpriority-attribute"
+relatedChecklists:
+  - "core-web-vitals"
+  - "launch-checklist"
+relatedGuides:
+  - "why-opinionated-checklists-still-beat-generic-best-practices"
+---
+
+If you wait until the end of a project to look at Core Web Vitals, the fixes usually get expensive. A better pattern is to run one short audit before launch, translate the findings into checklist work, and only then start polishing. This guide walks through that workflow.
+
+## TL;DR
+
+- Audit on a production-like build, not a local dev server.
+- Capture the slowest templates first: homepage, category page, and the heaviest detail page.
+- Turn each metric problem into checklist work tied to a rule, not a vague performance note.
+- Re-run the same pages after fixes so you can compare the before and after state.
+
+## Before You Start
+
+Use this workflow when the site already has stable layouts and realistic content. If the UI is still changing every day, focus on obvious regressions first and do the deeper audit once the release branch settles down.
+
+You should also decide which pages matter most. For most marketing or content sites, that means the homepage, one content listing page, and one representative detail page.
+
+## Steps
+
+### 1. Choose the right pages
+
+Pick the routes that represent the majority of your traffic or revenue path. If your team argues about what matters, start with the pages users actually land on from search and social.
+
+### 2. Record the metrics
+
+Run Lighthouse or Chrome DevTools on each page and capture LCP, CLS, INP, and the biggest blocking requests. Save the numbers somewhere visible so the team is looking at the same baseline.
+
+### 3. Map each issue to a checklist item
+
+Avoid writing notes like “images are heavy” or “JavaScript feels slow.” Instead, connect the finding to a concrete rule such as [Optimize Largest Contentful Paint](/rules/performance/largest-contentful-paint), [Reduce critical request chains](/rules/performance/critical-request-chains), or [Use the fetchpriority attribute strategically](/rules/performance/fetchpriority-attribute).
+
+### 4. Fix by impact, not by personal preference
+
+Go after the largest LCP and INP wins first. A fast font tweak that saves 30 milliseconds is not more important than an unoptimized hero image or a large blocking script.
+
+### 5. Re-test the same routes
+
+Re-run the audit on the exact same pages after the fixes land. That keeps the conversation grounded in evidence instead of gut feel.
+
+## Examples
+
+Here is a simple way to turn a raw finding into a trackable task:
+
+```text
+Finding: Homepage LCP is 3.8s because the hero image loads late.
+Rule link: /rules/performance/largest-contentful-paint
+Checklist impact: core-web-vitals
+Fix: preload or reprioritize the hero image, then retest on the production build.
+```
+
+For broader guidance on thresholds, keep the [web.dev Core Web Vitals documentation](https://web.dev/articles/vitals) close while you audit. It helps keep the team aligned on what counts as good enough versus clearly failing.
+
+## Common Mistakes
+
+- Auditing a local development build and trusting those numbers.
+- Looking only at averages instead of inspecting the worst page templates.
+- Filing performance work without linking it to the underlying checklist rule.
+- Declaring success after one fix without re-testing the same route.
+
+## Verification
+
+The workflow is working if you can point to three things: a baseline measurement, a rule-linked fix list, and a post-fix measurement on the same pages. If one of those is missing, you probably have a nice-looking audit and a weak execution loop.
+
+## Related Checklist
+
+Use the [Core Web Vitals checklist](/checklists/core-web-vitals) to turn the audit into a concrete sequence of fixes, and keep the [Launch checklist](/checklists/launch-checklist) nearby so the performance work stays connected to the broader release process.

@@ -1,0 +1,224 @@
+---
+title: Announce dynamic content with ARIA live regions
+description: >-
+  Dynamic content updates are announced to screen readers using appropriate ARIA
+  live regions.
+categories:
+  - accessibility
+subcategory: aria
+priority: high
+difficulty: intermediate
+estimatedTime: 20
+tldr:
+  - 'Use aria-live=''polite'' for non-urgent updates (cart count, status messages)'
+  - 'Use aria-live=''assertive'' only for critical alerts (errors, session expiry)'
+  - Use role='alert' or role='status' for semantic live regions
+  - The live region must exist in DOM before content changes
+whyItMatters: >-
+  Without live regions, screen reader users miss dynamic updates entirely—they
+  won't know their form submitted, their cart updated, or an error occurred.
+prompts:
+  check: >-
+    Verify that dynamic content changes (notifications, form errors, loading
+    states) use aria-live regions appropriately.
+  fix: >-
+    Add aria-live attributes with correct politeness levels (polite, assertive)
+    to containers with dynamic content.
+  explain: >-
+    Explain how ARIA live regions enable screen readers to announce content
+    changes without requiring user focus.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Announce
+    dynamic content with ARIA live regions. Flag exact elements, roles, labels,
+    focus behavior, or keyboard interactions that violate the rule, and note how
+    to verify the fix with browser accessibility tooling or assistive tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Announce dynamic content with ARIA live regions. Check
+  native semantics first, then inspect keyboard behavior, focus flow, accessible
+  names, and screen-reader output where relevant.
+sources:
+  - title: WAI-ARIA 1.2
+    url: 'https://www.w3.org/TR/wai-aria-1.2/'
+    type: spec
+    id: wai-aria-1-2
+    role: standard
+    authority: primary
+  - title: 'MDN: ARIA'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA'
+    type: mdn
+    id: mdn-aria
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: aria-valid-attr
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-required-children
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-treeitem-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: decorative-elements
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+---
+ARIA live regions announce dynamic content changes to screen readers without requiring focus to move.
+
+## Code Example
+
+```html
+<!-- Polite: Announced after current speech finishes -->
+<div aria-live="polite" id="status">
+  <!-- Content inserted here will be announced -->
+</div>
+
+<!-- Assertive: Interrupts current speech immediately -->
+<div aria-live="assertive" id="error">
+  <!-- Critical messages only -->
+</div>
+```
+
+## Why It Matters
+
+Without live regions, screen reader users miss dynamic updates entirely—they won't know their form submitted, their cart updated, or an error occurred.
+
+## Politeness Levels
+
+| Level | Use For | Example |
+|-------|---------|---------|
+| `polite` | Non-urgent updates | Cart count, search results |
+| `assertive` | Critical alerts | Errors, session expiry |
+| `off` | Disable announcements | Frequently updating content |
+
+## Semantic Live Regions
+
+```html
+<!-- role="alert" implies aria-live="assertive" -->
+<div role="alert">
+  Your session will expire in 2 minutes
+</div>
+
+<!-- role="status" implies aria-live="polite" -->
+<div role="status">
+  3 items added to cart
+</div>
+```
+
+## Common Use Cases
+
+### Form Validation Errors
+
+```tsx
+function FormField({ label, error }) {
+  const errorId = `${label}-error`
+
+  return (
+    <div>
+      <label>{label}</label>
+      <input aria-describedby={error ? errorId : undefined} />
+      {/* Live region for errors */}
+      <div role="alert" id={errorId}>
+        {error}
+      </div>
+    </div>
+  )
+}
+```
+
+### Loading States
+
+```tsx
+function SearchResults({ isLoading, results }) {
+  return (
+    <div>
+      {/* Status announcements */}
+      <div role="status" aria-live="polite">
+        {isLoading && 'Loading results...'}
+        {!isLoading && `${results.length} results found`}
+      </div>
+
+      <ul>
+        {results.map(item => <li key={item.id}>{item.name}</li>)}
+      </ul>
+    </div>
+  )
+}
+```
+
+### Toast Notifications
+
+```tsx
+function Toast({ message, type }) {
+  return (
+    <div
+      role={type === 'error' ? 'alert' : 'status'}
+      aria-live={type === 'error' ? 'assertive' : 'polite'}
+      className="toast"
+    >
+      {message}
+    </div>
+  )
+}
+```
+
+### Cart Updates
+
+```tsx
+function CartIcon({ count }) {
+  return (
+    <div>
+      <button aria-label={`Cart, ${count} items`}>
+        <ShoppingCartIcon />
+        <span>{count}</span>
+      </button>
+      {/* Announce changes */}
+      <div role="status" className="sr-only">
+        {count} items in cart
+      </div>
+    </div>
+  )
+}
+```
+
+## Important Rules
+
+```html
+<!-- ❌ Bad: Live region added with content -->
+<div aria-live="polite">New message!</div>
+
+<!-- ✅ Good: Live region exists, content added later -->
+<div aria-live="polite" id="messages"></div>
+<script>
+  // Content change triggers announcement
+  document.getElementById('messages').textContent = 'New message!'
+</script>
+```
+
+## Exceptions
+
+- Prefer native HTML semantics over ARIA when both are possible; some apparent ARIA failures disappear when the underlying element is corrected.
+- A missing ARIA attribute is not automatically the strongest finding if the control is already semantically broken, unnamed, or keyboard-inaccessible.
+- Do not add ARIA only to satisfy the rule if the feature should instead be implemented with a native element or a simpler interaction pattern.
+
+## Verification
+
+### Automated Checks
+
+- Use browser accessibility tooling, axe, Lighthouse, or equivalent automated checks against a representative rendered state.
+
+### Manual Checks
+
+- Enable screen reader (NVDA, VoiceOver)
+- Trigger dynamic content updates
+- Verify announcements occur at appropriate times
+- Check that assertive regions don't interrupt unnecessarily

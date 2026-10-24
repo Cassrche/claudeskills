@@ -1,0 +1,227 @@
+---
+title: Follow mocking best practices
+description: Use mocks strategically to isolate units under test without over-mocking.
+categories:
+  - testing
+subcategory: unit
+priority: medium
+difficulty: intermediate
+estimatedTime: 20
+tldr:
+  - >-
+    Mock external dependencies (APIs, databases, file system), not business
+    logic
+  - Always clean up mocks with jest.restoreAllMocks() in afterEach
+  - Use MSW for realistic API mocking without coupling to implementation
+  - 'Test behavior and outputs, not internal implementation details'
+whyItMatters: >-
+  Proper mocking isolates units under test while keeping tests
+  realistic—over-mocking creates false confidence when tests pass but production
+  breaks.
+relatedRules:
+  - slug: unit-tests
+    reason: Mocks are essential for unit testing
+  - slug: test-coverage
+    reason: Proper mocking improves test coverage
+  - slug: integration-testing
+    reason: Both rules affect testing quality and are commonly reviewed together.
+  - slug: mutation-testing
+    reason: Both rules affect testing quality and are commonly reviewed together.
+prompts:
+  check: >-
+    Review this test file for mocking patterns, checking for over-mocking,
+    missing mock cleanup, and proper mock implementation.
+  fix: >-
+    Improve mocking strategy by removing unnecessary mocks, adding proper
+    cleanup, and mocking at the right level of abstraction.
+  explain: >-
+    Explain mocking best practices including when to mock, what to mock, and
+    common mocking pitfalls.
+  codeReview: >-
+    Review tests, CI workflows, and enforcement points related to Follow mocking
+    best practices. Flag exact gaps where the rule is not automatically verified
+    or where failures do not block regressions.
+aiContext: >-
+  Use when reviewing CI coverage, automated checks, or test strategy related to
+  Follow mocking best practices. Focus on whether the rule is continuously
+  verified, not just documented.
+sources:
+  - title: Playwright Docs
+    url: 'https://playwright.dev/docs/intro'
+    type: guide
+    id: playwright-docs
+    role: reference
+    authority: primary
+  - title: Testing Library Guiding Principles
+    url: 'https://testing-library.com/docs/guiding-principles'
+    type: guide
+    id: testing-library-guiding-principles
+    role: implementation
+    authority: primary
+resources:
+  - name: Playwright
+    url: 'https://playwright.dev/'
+    type: tool
+---
+Effective mocking isolates the code under test while maintaining realistic test scenarios. Over-mocking leads to brittle tests that pass when they should fail.
+
+## Code Examples
+
+#
+
+## Module Mocking
+
+```javascript
+// Mock entire module
+jest.mock('./api', () => ({
+  fetchUser: jest.fn().mockResolvedValue({ id: 1, name: 'Test' })
+}))
+
+// Mock specific exports
+jest.mock('./utils', () => ({
+  ...jest.requireActual('./utils'),
+  formatDate: jest.fn().mockReturnValue('2024-01-01')
+}))
+```
+
+### Function Mocking
+
+```javascript
+import { fetchUser } from './api'
+
+jest.mock('./api')
+const mockFetchUser = fetchUser as jest.MockedFunction<typeof fetchUser>
+
+beforeEach(() => {
+  mockFetchUser.mockClear()
+})
+
+test('loads user data', async () => {
+  mockFetchUser.mockResolvedValueOnce({ id: 1, name: 'John' })
+
+  await loadUserProfile(1)
+
+  expect(mockFetchUser).toHaveBeenCalledWith(1)
+})
+```
+
+### Spy on Methods
+
+```javascript
+test('logs errors to console', () => {
+  const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+
+  handleError(new Error('Test'))
+
+  expect(consoleSpy).toHaveBeenCalledWith(
+    expect.stringContaining('Test')
+  )
+
+  consoleSpy.mockRestore()
+})
+```
+
+## Why It Matters
+
+Proper mocking isolates units under test while keeping tests realistic—over-mocking creates false confidence when tests pass but production breaks.
+
+## When to Mock
+
+| Mock | Do not Mock |
+|------|-------------|
+| External APIs | Pure functions |
+| Database calls | Business logic |
+| File system | Data transformations |
+| Time/Date | Simple utilities |
+| Network requests | React components (usually) |
+
+## Common Mistakes
+
+### Over-Mocking
+
+```javascript
+// ❌ Bad: Mocking the thing you're testing
+jest.mock('./validateEmail')
+test('validates email', () => {
+  // This tests nothing!
+  expect(validateEmail('test@test.com')).toBe(true)
+})
+
+// ✅ Good: Test the actual implementation
+test('validates email format', () => {
+  expect(validateEmail('test@test.com')).toBe(true)
+  expect(validateEmail('invalid')).toBe(false)
+})
+```
+
+### Missing Cleanup
+
+```javascript
+// ❌ Bad: Mocks leak between tests
+test('first test', () => {
+  jest.spyOn(Date, 'now').mockReturnValue(1000)
+  // Forgot to restore!
+})
+
+test('second test', () => {
+  // Date.now is still mocked!
+})
+
+// ✅ Good: Always cleanup
+afterEach(() => {
+  jest.restoreAllMocks()
+})
+```
+
+### Implementation Details
+
+```javascript
+// ❌ Bad: Testing implementation
+test('calls internal method', () => {
+  const spy = jest.spyOn(component, '_privateMethod')
+  component.doSomething()
+  expect(spy).toHaveBeenCalled()
+})
+
+// ✅ Good: Testing behavior
+test('updates UI when action completes', () => {
+  component.doSomething()
+  expect(screen.getByText('Success')).toBeInTheDocument()
+})
+```
+
+## MSW for API Mocking
+
+```javascript
+import { setupServer } from 'msw/node'
+import { rest } from 'msw'
+
+const server = setupServer(
+  rest.get('/api/user/:id', (req, res, ctx) => {
+    return res(ctx.json({ id: req.params.id, name: 'Test User' }))
+  })
+)
+
+beforeAll(() => server.listen())
+afterEach(() => server.resetHandlers())
+afterAll(() => server.close())
+
+test('fetches user data', async () => {
+  render(<UserProfile userId="1" />)
+
+  await screen.findByText('Test User')
+})
+```
+
+## Standards
+
+- Use these references as the standard for how the test or monitoring strategy should behave in the shipped workflow.
+- Check the implementation against Playwright Docs before treating the rule as satisfied.
+- Check the implementation against Testing Library Guiding Principles before treating the rule as satisfied.
+
+## Verification
+
+1. Run the relevant test or CI step locally and confirm it fails when the rule is violated.
+2. Ensure the automation blocks regressions instead of only printing warnings.
+3. Cover at least one representative high-risk flow, component, or route.
+4. Keep thresholds or assertions in version control so changes remain reviewable.

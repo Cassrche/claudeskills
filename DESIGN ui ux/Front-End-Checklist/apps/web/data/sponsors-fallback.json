@@ -1,0 +1,4 @@
+{
+  "_comment": "Optional fallback when GitHub/Open Collective APIs return no sponsors. Add entries to show sponsors in dev or when APIs are unavailable.",
+  "sponsors": []
+}

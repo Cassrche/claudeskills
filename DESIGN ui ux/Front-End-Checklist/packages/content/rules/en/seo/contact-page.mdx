@@ -1,0 +1,130 @@
+---
+title: Create a comprehensive Contact page
+description: >-
+  Checks for a dedicated contact page with multiple methods for users to reach
+  out.
+categories:
+  - seo
+subcategory: content
+priority: medium
+difficulty: beginner
+estimatedTime: 5
+tldr:
+  - >-
+    Provide multiple contact methods such as a functional email address, phone
+    number, or contact form
+  - >-
+    Include a physical address or map if applicable to establish local presence
+    and trust
+  - Ensure the contact page is easily discoverable from any page on the site
+whyItMatters: >-
+  A clear and accessible contact page is a major trust signal for E-E-A-T and
+  provides essential support for users, improving overall site credibility.
+prompts:
+  check: >-
+    Verify that the website has a dedicated Contact page with multiple, working
+    contact methods.
+  fix: >-
+    Create a `/contact` page and add a contact form, email address, and other
+    relevant contact information.
+  explain: >-
+    Explain why having a verifiable contact page is a critical factor for
+    business legitimacy and search rankings.
+  codeReview: >-
+    Review metadata generation, rendered HTML, structured data, and response
+    headers related to Create a comprehensive Contact page. Flag exact routes or
+    templates where search-facing output violates the rule, and describe how to
+    verify the final page output.
+aiContext: >-
+  Use when auditing metadata, crawlability, structured data, or indexability
+  related to Create a comprehensive Contact page. Verify the rendered HTML and
+  HTTP response rather than relying only on source files.
+sources:
+  - title: 'Google Search Central: Search Essentials'
+    url: 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide'
+    type: google
+    id: google-search-central-search-essentials
+    role: search
+    authority: primary
+  - title: Google Search Central documentation
+    url: 'https://developers.google.com/search/docs'
+    type: google
+    id: google-search-central-documentation
+    role: implementation
+    authority: primary
+resources:
+  - name: Google Search Console
+    url: 'https://search.google.com/search-console/about'
+    type: tool
+relatedRules:
+  - slug: about-page
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+  - slug: physical-address
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+  - slug: article-links
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+  - slug: author-byline
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+---
+A Contact page proves that there are real people behind the website who are willing to be held accountable and provide support.
+
+## Code Example
+
+```html
+<!-- Footer link for easy discovery -->
+<footer>
+  <nav aria-label="Support Navigation">
+    <a href="/contact">Contact Us</a>
+    <a href="/help">Help Center</a>
+  </nav>
+</footer>
+
+<!-- Typical /contact page structure -->
+<main>
+  <h1>Get in Touch</h1>
+  <section>
+    <h2>Email</h2>
+    <p><a href="mailto:support@example.com">support@example.com</a></p>
+  </section>
+  <section>
+    <h2>Office</h2>
+    <address>
+      123 Tech Lane<br>
+      San Francisco, CA 94105
+    </address>
+  </section>
+</main>
+```
+
+## Why It Matters
+
+- **Trustworthiness**: One of the simplest ways to prove a business is legitimate to both users and search engines.
+- **User Experience**: Provides a clear destination for users who have questions, complaints, or business inquiries.
+- **Local SEO**: Including a physical address and phone number (NAP) helps you rank better in local search results.
+- **E-E-A-T**: Supports the "Trust" pillar by showing that the organization is transparent and accessible.
+
+## Exceptions
+
+- Necessary utility or compliance pages can be intentionally brief and should not be judged by the same editorial-depth expectations as ranking-focused content.
+- AI-assisted drafting is not a failure by itself; flag unsupported claims, missing editorial review, or low-originality output instead.
+- When a page has both trust-signal issues and crawl/index problems, make the page eligible to rank first and then improve the content quality signals.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

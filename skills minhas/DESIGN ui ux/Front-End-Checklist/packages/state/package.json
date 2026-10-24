@@ -1,0 +1,36 @@
+{
+  "name": "@repo/state",
+  "version": "0.0.1",
+  "private": true,
+  "description": "State management with TanStack Store for Front-End Checklist",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "biome check .",
+    "test": "jest --passWithNoTests",
+    "test:watch": "jest --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@repo/config": "workspace:*",
+    "@repo/schemas": "workspace:*",
+    "@repo/storage": "workspace:*",
+    "@repo/types": "workspace:*",
+    "@tanstack/react-store": "^0.11.0",
+    "immer": "^11.1.8",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@repo/config-typescript": "workspace:^",
+    "@testing-library/react": "catalog:",
+    "@types/jest": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "jest": "catalog:",
+    "react": "catalog:",
+    "typescript": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "catalog:"
+  }
+}

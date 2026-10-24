@@ -1,0 +1,214 @@
+---
+title: Add Review schema markup
+description: >-
+  Validates Review and AggregateRating schema on product, service, and business
+  pages to enable star-rating rich results.
+categories:
+  - seo
+subcategory: technical
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - >-
+    Use `Review` schema on individual review pages and `AggregateRating` on
+    product/service pages to earn star-rating rich results
+  - >-
+    `AggregateRating` requires `ratingValue`, `ratingCount` or `reviewCount`,
+    and valid `bestRating` / `worstRating` values
+  - >-
+    Ratings must reflect genuine user reviews — Google penalises self-serving or
+    fabricated ratings
+  - Validate markup with Google's Rich Results Test before deploying
+whyItMatters: >-
+  Star ratings in search results increase click-through rates by up to 35%;
+  incorrect or missing schema means competitors with valid markup capture that
+  visibility advantage.
+aiContext: >-
+  Applies to product pages, local business pages, recipes, apps, books, and any
+  page that aggregates user reviews. Use when auditing rich result eligibility
+  for e-commerce or review sites.
+prompts:
+  check: >-
+    Inspect the page source or rendered DOM for JSON-LD blocks containing
+    `"@type": "Review"` or `"@type": "AggregateRating"`. Verify required
+    properties are present: `ratingValue`, `ratingCount`/`reviewCount`,
+    `bestRating`. Run the URL through Google's Rich Results Test.
+  fix: >-
+    Add a JSON-LD `<script>` block with `AggregateRating` nested inside the main
+    entity (Product, LocalBusiness, etc.). Populate `ratingValue` and
+    `ratingCount` from real review data. Remove any schema on pages with no
+    genuine user reviews.
+  explain: >-
+    Explain how Review and AggregateRating schema work, which page types are
+    eligible for star-rating rich results in Google Search, and why fabricated
+    ratings violate Google's structured data guidelines.
+  codeReview: >-
+    Review metadata generation, rendered HTML, structured data, and response
+    headers related to Add Review schema markup. Flag exact routes or templates
+    where search-facing output violates the rule, and describe how to verify the
+    final page output.
+sources:
+  - title: 'Google: Review snippet structured data'
+    url: >-
+      https://developers.google.com/search/docs/appearance/structured-data/review-snippet
+    type: guide
+    id: google-review-snippet-structured-data
+    role: search
+    authority: primary
+  - title: 'Schema.org: AggregateRating'
+    url: 'https://schema.org/AggregateRating'
+    type: spec
+    id: schema-org-aggregaterating
+    role: standard
+    authority: primary
+  - title: 'Schema.org: Review'
+    url: 'https://schema.org/Review'
+    type: spec
+    id: schema-org-review
+    role: standard
+    authority: primary
+  - title: 'Google: Rich Results Test'
+    url: 'https://search.google.com/test/rich-results'
+    type: guide
+    id: google-rich-results-test
+    role: implementation
+    authority: secondary
+resources:
+  - name: Google Search Console
+    url: 'https://search.google.com/search-console/about'
+    type: tool
+relatedRules:
+  - slug: product
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: json-ld-valid
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: structured-data
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: schema-noindex-conflict
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+---
+Review and AggregateRating schema markup allows Google to display star ratings directly in search results, creating a rich snippet that stands out from plain blue links.
+
+## Code Example
+
+```html
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Product",
+  "name": "Wireless Noise-Cancelling Headphones",
+  "image": "https://example.com/headphones.jpg",
+  "description": "Premium headphones with 30-hour battery life.",
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.7",
+    "reviewCount": "312",
+    "bestRating": "5",
+    "worstRating": "1"
+  }
+}
+</script>
+```
+
+## Why It Matters
+
+Star ratings in search results increase click-through rates by up to 35%; incorrect or missing schema means competitors with valid markup capture that visibility advantage.
+
+## Individual Review Schema
+
+```html
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Review",
+  "itemReviewed": {
+    "@type": "Product",
+    "name": "Wireless Headphones"
+  },
+  "author": {
+    "@type": "Person",
+    "name": "Jane Smith"
+  },
+  "datePublished": "2025-02-14",
+  "reviewBody": "Excellent sound quality and very comfortable for long sessions.",
+  "reviewRating": {
+    "@type": "Rating",
+    "ratingValue": "5",
+    "bestRating": "5"
+  }
+}
+</script>
+```
+
+## Required Properties for Rich Results
+
+#
+
+## AggregateRating (within a supported type)
+
+| Property | Required | Notes |
+|----------|----------|-------|
+| `ratingValue` | Yes | The average rating (numeric string) |
+| `ratingCount` or `reviewCount` | Yes | Total number of ratings |
+| `bestRating` | Recommended | Maximum possible rating (default: 5) |
+| `worstRating` | Recommended | Minimum possible rating (default: 1) |
+
+### Review
+
+| Property | Required | Notes |
+|----------|----------|-------|
+| `author` | Yes | `Person` or `Organization` |
+| `reviewRating` | Yes | A `Rating` with `ratingValue` |
+| `itemReviewed` | Yes | The thing being reviewed |
+
+## Supported Entity Types for Star Ratings
+
+Google shows star ratings for reviews of: `Product`, `Recipe`, `Movie`, `Book`, `Software`, `LocalBusiness`, `Course`, `Event`.
+
+## ❌ Policy Violations
+
+- Self-authored reviews ("Review your own business")
+- Reviews that don't reflect genuine user experiences
+- `AggregateRating` with `reviewCount: 0`
+- Markup on pages that don't display review content to users
+
+## Validation
+
+Use [Google's Rich Results Test](https://search.google.com/test/rich-results) to confirm:
+
+1. Schema is detected without errors
+2. The correct rich result type is eligible
+3. All required properties are present
+
+## Exceptions
+
+- Only add or enforce schema types that the page can truthfully support; irrelevant structured data is worse than no structured data.
+- A technically valid schema block can still be misleading if the page content does not visibly back it up; audit rendered content and schema together.
+- If indexability, canonical-url, or main content quality is wrong, fix that foundation before optimizing schema details.
+
+## Standards
+
+- Use these references as the standard for the final search-facing HTML, metadata, and crawl behavior.
+- Check the implementation against Google: Review snippet structured data before treating the rule as satisfied.
+- Check the implementation against Schema.org: AggregateRating before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

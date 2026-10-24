@@ -1,0 +1,193 @@
+---
+title: Optimize pages for back/forward cache
+description: >-
+  Pages avoid back/forward cache blockers such as unload listeners and restore
+  state correctly when a browser resumes them from memory.
+categories:
+  - performance
+  - javascript
+subcategory: navigation
+priority: high
+difficulty: advanced
+estimatedTime: 25
+tldr:
+  - Never add an `unload` listener - it is the most common bfcache blocker
+  - Use `pagehide` and `pageshow` instead of assuming every navigation reloads
+  - Refresh time-sensitive state when `pageshow.persisted` is `true`
+  - Keep `beforeunload` conditional and remove it when there are no unsaved changes
+  - Verify eligibility in DevTools instead of assuming a page is cacheable
+whyItMatters: >-
+  Back/forward cache turns many browser back and forward navigations into
+  near-instant restores because the entire page is resumed from memory instead
+  of being rebuilt from the network. Losing bfcache eligibility makes common
+  navigations feel far slower than they need to.
+prompts:
+  check: >-
+    Review this route for back/forward cache blockers. Search for unload or
+    unconditional beforeunload listeners, state that assumes every navigation is
+    a full reload, and resource lifecycles that break when the page is resumed
+    from memory.
+  fix: >-
+    Replace unload logic with pagehide and pageshow handlers, remove unnecessary
+    blockers, and refresh only the time-sensitive state that must change after a
+    bfcache restore.
+  explain: >-
+    Explain how the back/forward cache differs from HTTP caching, why unload
+    blocks it, and how pageshow/pagehide should be used instead.
+  codeReview: >-
+    Review route code, global listeners, analytics hooks, and data-refresh logic
+    related to Optimize pages for back/forward cache. Flag exact listeners,
+    APIs, or lifecycle assumptions that prevent a restore or leave stale state
+    after a restore.
+aiContext: >-
+  Use when reviewing navigation performance, browser lifecycle events, or
+  resume-from-memory behavior. Check the actual browser lifecycle and restore
+  path, not only static code patterns.
+sources:
+  - title: 'web.dev: Back/forward cache'
+    url: 'https://web.dev/articles/bfcache'
+    type: guide
+    id: web-dev-back-forward-cache
+    role: reference
+    authority: primary
+  - title: 'MDN: Window pagehide event'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/API/Window/pagehide_event'
+    type: mdn
+    id: mdn-window-pagehide-event
+    role: implementation
+    authority: primary
+  - title: 'MDN: Window pageshow event'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/API/Window/pageshow_event'
+    type: mdn
+    id: mdn-window-pageshow-event
+    role: reference
+    authority: primary
+resources:
+  - name: Chrome DevTools
+    url: 'https://developer.chrome.com/docs/devtools/'
+    type: tool
+relatedRules:
+  - slug: speculation-rules
+    reason: >-
+      Both rules improve navigation speed, but bfcache targets browser-managed
+      history navigation while speculation targets likely next navigation.
+  - slug: js-redirects
+    reason: >-
+      Navigation logic that forces extra reloads or redirects often works
+      against bfcache-friendly behavior.
+  - slug: error-handling
+    reason: >-
+      Resume paths need targeted recovery for stale or invalid state instead of
+      forcing a full page reload.
+  - slug: session-timeout-recovery
+    reason: >-
+      Both rules affect what happens when a user returns to previously entered
+      work after navigation or authentication.
+---
+Back/forward cache, usually shortened to bfcache, is a browser optimization that restores an earlier page from memory when the user clicks the back or forward button. The fastest history navigation is the one that does not need to re-run your app boot sequence at all.
+
+## Code Example
+
+```javascript
+// Bad: unload listeners commonly make a page ineligible for bfcache
+window.addEventListener('unload', () => {
+  navigator.sendBeacon('/analytics/leave')
+})
+
+// Good: pagehide runs for normal unloads and bfcache attempts
+window.addEventListener('pagehide', () => {
+  navigator.sendBeacon('/analytics/leave')
+})
+
+// Good: detect a restore and refresh only what is time-sensitive
+window.addEventListener('pageshow', async (event) => {
+  if (!event.persisted) return
+
+  await refreshUnreadCount()
+  closeTransientOverlays()
+})
+```
+
+## Why It Matters
+
+History navigation is common, especially on mobile. When a page is bfcache-eligible, the browser can resume it almost instantly. When it is not, the user pays for another round of network, parsing, and JavaScript execution just to get back to something they already saw moments earlier.
+
+- Faster perceived navigation for back and forward actions
+- Less network transfer because the page does not need to be rebuilt
+- Better UX on slower devices where full app startup is expensive
+- Fewer accidental regressions from lifecycle code that assumes every navigation is a hard reload
+
+## Best Practices
+
+### Never use `unload`
+
+If you only make one change, make it this one. The `unload` event is the clearest, most common bfcache blocker. Use `pagehide` for teardown work and `pageshow` for resume work instead.
+
+### Treat a restore differently from a fresh load
+
+Use `pageshow` and check `event.persisted`:
+
+```javascript
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    syncSessionExpiryBanner()
+    refreshCsrfTokenIfNeeded()
+  }
+})
+```
+
+Do not blindly hard-reload on every restore. Refresh only the state that can become stale, such as auth warnings, inbox counts, or short-lived tokens.
+
+### Keep `beforeunload` conditional
+
+If you need a navigation warning for unsaved work, add `beforeunload` only while the page is dirty and remove it immediately once the user saves:
+
+```javascript
+function toggleUnsavedChangesProtection(isDirty) {
+  if (isDirty) {
+    window.addEventListener('beforeunload', handleBeforeUnload)
+  } else {
+    window.removeEventListener('beforeunload', handleBeforeUnload)
+  }
+}
+```
+
+Persistent `beforeunload` usage makes restores less reliable and is usually a sign that the page is not tracking dirty state precisely enough.
+
+### Avoid long-lived work that survives badly across restores
+
+Pages restored from memory resume pending work. Keep page-level lifecycle code resilient:
+
+- close transient UI such as drawers, popovers, and stale toasts on restore when appropriate
+- revalidate short-lived data instead of assuming the in-memory copy is still current
+- avoid leaving important cleanup tied only to hard unload behavior
+
+## Thresholds
+
+- Pass if the route has no unconditional `unload` listeners and a back navigation restores from memory in the target browser.
+- Pass if time-sensitive state refreshes after `pageshow.persisted === true` without forcing a full reload.
+- Fail if history navigation always rebuilds the page because lifecycle code blocks bfcache eligibility.
+
+## Support Notes
+
+- bfcache behavior is browser-specific, so validate the real target browser matrix instead of assuming one engine's behavior applies everywhere.
+- Use the browser's back/forward cache diagnostics as the source of truth for eligibility and blockers on a given route.
+
+## Exceptions
+
+- Some routes genuinely need a conditional `beforeunload` warning while unsaved data exists, but it should not remain attached once the page is clean.
+- If a page handles sensitive or rapidly changing data, it may need targeted revalidation on restore. That still does not justify forcing every restore into a full reload.
+- Third-party libraries can attach lifecycle listeners on your behalf, so verify the effective runtime behavior in the browser instead of assuming your source files tell the whole story.
+
+## Verification
+
+### Automated Checks
+
+- Search the codebase and built output for `addEventListener('unload'` or equivalent unload hooks.
+- Run Lighthouse or equivalent diagnostics and confirm there are no unload-listener warnings on the route.
+
+### Manual Checks
+
+- Open the page in a browser, navigate to a second page, then use the back button.
+- Pass if the page restores immediately and your `pageshow` handler reports `event.persisted === true`.
+- Open DevTools and inspect the route with the browser's back/forward cache tooling to confirm the page is eligible and to see any blockers.

@@ -1,0 +1,240 @@
+---
+title: Avoid mixed content on HTTPS pages
+description: >-
+  An HTTPS page that loads resources over HTTP has mixed content — browsers
+  block or warn about these requests, breaking functionality and undermining
+  transport security.
+categories:
+  - security
+subcategory: transport
+priority: high
+difficulty: intermediate
+estimatedTime: 20
+tldr:
+  - >-
+    Active mixed content (scripts, iframes, stylesheets) is blocked outright by
+    all modern browsers
+  - >-
+    Passive mixed content (images, audio, video) triggers a security warning and
+    may be upgraded or blocked
+  - >-
+    Use `upgrade-insecure-requests` CSP directive to automatically upgrade HTTP
+    sub-resources to HTTPS
+  - 'Audit all hardcoded `http://` URLs in HTML, CSS, and JavaScript'
+  - >-
+    The `Content-Security-Policy: upgrade-insecure-requests` directive is the
+    most practical fix for legacy content
+whyItMatters: >-
+  Active mixed content (scripts loaded over HTTP into an HTTPS page) gives
+  network attackers the ability to execute arbitrary JavaScript on your page —
+  the same power as XSS, despite the page itself being served over HTTPS.
+aiContext: >-
+  Use when reviewing an HTTPS page for resources (scripts, images, stylesheets,
+  iframes) that are loaded over plain HTTP.
+prompts:
+  check: >-
+    Scan the page source and network requests for any HTTP resources loaded on
+    an HTTPS page. Check <script src>, <img src>, <link href>, <iframe src>, and
+    CSS url() values for http:// URLs. Also check the Content-Security-Policy
+    header for the upgrade-insecure-requests directive.
+  fix: >-
+    Replace all http:// resource URLs with https:// equivalents. If the resource
+    provider does not support HTTPS, host the resource yourself or find an
+    alternative. Add Content-Security-Policy: upgrade-insecure-requests as a
+    safety net for any remaining HTTP URLs.
+  explain: >-
+    Explain the difference between active and passive mixed content, why active
+    mixed content is blocked by browsers, and how the upgrade-insecure-requests
+    CSP directive works.
+  codeReview: >-
+    Review server config, headers, forms, and integration points related to
+    Avoid mixed content on HTTPS pages. Flag exact responses, cookies, or
+    browser behaviors that violate the rule, and verify them against the
+    effective production-like response.
+sources:
+  - title: 'MDN: Mixed Content'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/Security/Mixed_content'
+    type: mdn
+    id: mdn-mixed-content
+    role: reference
+    authority: primary
+  - title: 'web.dev: Fixing Mixed Content'
+    url: 'https://web.dev/articles/fixing-mixed-content'
+    type: web.dev
+    id: web-dev-fixing-mixed-content
+    role: implementation
+    authority: primary
+  - title: 'W3C: Mixed Content Level 2'
+    url: 'https://www.w3.org/TR/mixed-content/'
+    type: spec
+    id: w3c-mixed-content-level-2
+    role: standard
+    authority: primary
+resources:
+  - name: Mozilla Observatory
+    url: 'https://observatory.mozilla.org/'
+    type: tool
+relatedRules:
+  - slug: http-to-https
+    reason: >-
+      Both rules sit in the `security/transport` area and are commonly reviewed
+      together.
+  - slug: blocked-links
+    reason: >-
+      Both rules affect security quality and can fail in the same
+      implementation.
+  - slug: https
+    reason: >-
+      Both rules sit in the `security/transport` area and are commonly reviewed
+      together.
+  - slug: content-security-policy
+    reason: Both rules affect security quality and are commonly reviewed together.
+---
+Mixed content occurs when an HTTPS page loads resources over HTTP. The browser has established a secure channel to your server, but part of the page data arrives over an unencrypted connection — potentially modified by a network attacker.
+
+## Code Examples
+
+#
+
+## Active Mixed Content (Blocked)
+
+Resources that can access and modify the page DOM are classified as active mixed content and are **blocked** by all modern browsers:
+
+- `<script src="http://...">`
+- `<link rel="stylesheet" href="http://...">`
+- `<iframe src="http://...">`
+- `XMLHttpRequest` / `fetch()` to `http://` URLs
+- `<object data="http://...">`
+
+```html
+❌ Blocked — attacker can inject scripts into your HTTPS page
+<script src="http://cdn.example.com/analytics.js"></script>
+
+✅ Correct
+<script src="https://cdn.example.com/analytics.js"></script>
+```
+
+### Passive Mixed Content (Warned or Upgraded)
+
+Resources that cannot directly modify page content are passive mixed content. Modern browsers (Chrome 81+) auto-upgrade these to HTTPS and block them if the HTTPS version doesn't exist:
+
+- `<img src="http://...">`
+- `<audio src="http://...">`
+- `<video src="http://...">`
+
+```html
+⚠️ Will be upgraded to HTTPS by Chrome (blocked if no HTTPS version exists)
+<img src="http://example.com/photo.jpg" alt="Photo">
+
+✅ Correct
+<img src="https://example.com/photo.jpg" alt="Photo">
+```
+
+## Why It Matters
+
+Active mixed content (scripts loaded over HTTP into an HTTPS page) gives network attackers the ability to execute arbitrary JavaScript on your page — the same power as XSS, despite the page itself being served over HTTPS.
+
+## Fix: Update All HTTP URLs
+
+### Search for HTTP Resources
+
+```bash
+# Find http:// references in HTML, CSS, JS files
+grep -r 'http://' ./src --include="*.html" --include="*.css" --include="*.js" --include="*.jsx" --include="*.tsx"
+
+# Focus on resource attributes
+grep -rE 'src="http://|href="http://|url\(http://' ./src
+```
+
+### Common Locations
+
+1. **HTML templates** — `<script>`, `<link>`, `<img>`, `<iframe>` attributes
+2. **CSS files** — `url()` in `background-image`, `@import`, `@font-face`
+3. **JavaScript** — hardcoded API endpoints, CDN URLs
+4. **CMS content** — database-stored content with old HTTP asset URLs
+
+## Fix: CSP `upgrade-insecure-requests`
+
+The `upgrade-insecure-requests` directive tells the browser to upgrade all HTTP sub-resource requests to HTTPS before fetching them. This is especially useful when you have legacy content in a database with hardcoded HTTP asset URLs.
+
+```http
+Content-Security-Policy: upgrade-insecure-requests
+```
+
+```html
+<!-- Equivalent meta tag (not recommended for CSP security headers, but works for upgrade-insecure-requests) -->
+<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+```
+
+### Nginx
+
+```nginx
+add_header Content-Security-Policy "upgrade-insecure-requests" always;
+```
+
+### Next.js
+
+```javascript
+// next.config.js
+const nextConfig = {
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: 'upgrade-insecure-requests',
+          },
+        ],
+      },
+    ]
+  },
+}
+```
+
+<Warning title="upgrade-insecure-requests Is a Fallback, Not a Fix">
+`upgrade-insecure-requests` does not fix your HTML — it just attempts a last-minute upgrade at the browser level. The correct fix is to update the source URLs to HTTPS. Resources that have no HTTPS version will still fail even with this directive.
+</Warning>
+
+## Detecting Mixed Content
+
+### Browser DevTools
+
+Open Chrome or Firefox DevTools in the Console tab. [MDN's mixed content guide](https://developer.mozilla.org/en-US/docs/Web/Security/Mixed_content) and [web.dev's remediation guide](https://web.dev/articles/fixing-mixed-content) both show the same browser error pattern:
+
+```
+Mixed Content: The page at 'https://example.com' was loaded over HTTPS,
+but requested an insecure resource 'http://cdn.example.com/script.js'.
+This request has been blocked; the content must be served over HTTPS.
+```
+
+### Automated Tools
+
+- Why No Padlock? (free online scanner)
+- SSL Checker
+- Chrome Lighthouse audit (Network tab)
+
+```bash
+# Lighthouse CLI
+npx lighthouse https://example.com --only-categories=best-practices --output=json \
+  | jq '.audits["mixed-content"]'
+```
+
+## Exceptions
+
+- Local development or internal-only environments can differ, but production user-facing traffic should still satisfy the transport requirement strictly.
+- A redirect or HTTPS control that fails on one hostname, subdomain, or CDN edge path is still a real failure for users and crawlers reaching that surface.
+- Fix the strongest transport weakness first instead of treating every downstream symptom as a separate primary issue.
+
+## Verification
+
+### Automated Checks
+
+- Test the affected flow in a production-like environment, not just local development.
+- Document any intentional exceptions explicitly.
+
+### Manual Checks
+
+- Inspect the final HTTP response or browser behavior to confirm the control is actually enforced.
+- Verify third-party integrations or embeds still work after the restriction is applied.

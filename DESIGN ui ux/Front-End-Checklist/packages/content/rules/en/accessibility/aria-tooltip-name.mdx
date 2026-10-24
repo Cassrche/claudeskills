@@ -1,0 +1,126 @@
+---
+title: Provide accessible names for tooltips
+description: Checks that tooltip elements have accessible names
+categories:
+  - accessibility
+subcategory: aria
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - Tooltips must have an accessible name or be referenced by `aria-describedby`
+  - Ensure the tooltip content is actually accessible to assistive technology
+  - Verify that tooltips are correctly associated with their trigger elements
+whyItMatters: >-
+  Tooltips often contain essential information; if they aren't properly named or
+  associated with an element, that information remains hidden from screen reader
+  users.
+prompts:
+  check: >-
+    Verify that all elements with role="tooltip" have an accessible name or are
+    linked to a trigger element via aria-describedby.
+  fix: >-
+    Assign an accessible name to the tooltip or ensure it is correctly
+    referenced by the element it describes.
+  explain: >-
+    Explain how to correctly associate tooltips with triggers so that screen
+    readers announce the extra information.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Provide
+    accessible names for tooltips. Flag exact elements, roles, labels, focus
+    behavior, or keyboard interactions that violate the rule, and note how to
+    verify the fix with browser accessibility tooling or assistive tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Provide accessible names for tooltips. Check native
+  semantics first, then inspect keyboard behavior, focus flow, accessible names,
+  and screen-reader output where relevant.
+sources:
+  - title: WAI-ARIA 1.2
+    url: 'https://www.w3.org/TR/wai-aria-1.2/'
+    type: spec
+    id: wai-aria-1-2
+    role: standard
+    authority: primary
+  - title: 'MDN: ARIA'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA'
+    type: mdn
+    id: mdn-aria
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+  - name: Tooltip Pattern – UX Patterns for Developers
+    url: 'https://uxpatterns.dev/patterns/content-management/tooltip'
+    type: guide
+    description: >-
+      Comprehensive UX pattern guide covering anatomy, accessibility, best
+      practices, and implementation.
+relatedRules:
+  - slug: aria-treeitem-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-command-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-dialog-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-input-field-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+---
+Tooltips provide supplementary information and must be correctly associated with their trigger elements using ARIA attributes.
+
+## Code Example
+
+```html
+<!-- ✅ Correct: Trigger references tooltip via aria-describedby -->
+<button aria-describedby="tooltip-save">
+  Save
+</button>
+<div id="tooltip-save" role="tooltip">
+  Saves your current changes to the cloud
+</div>
+
+<!-- ✅ Correct: Tooltip with its own name -->
+<div role="tooltip" aria-label="Keyboard shortcuts info">
+  Press Ctrl+S to save
+</div>
+```
+
+## Why It Matters
+
+- **Information Equality**: Ensures that the "hidden" text in a tooltip is available to users who don't use a mouse.
+- **Trigger Awareness**: Helps users understand why a specific element is important or how to use it.
+- **WCAG Compliance**: Meets success criteria for content on hover or focus.
+- **Contextual Help**: Provides non-visual users with the same "hint" information available to sighted users.
+
+## Exceptions
+
+- Prefer native HTML semantics over ARIA when both are possible; some apparent ARIA failures disappear when the underlying element is corrected.
+- A missing ARIA attribute is not automatically the strongest finding if the control is already semantically broken, unnamed, or keyboard-inaccessible.
+- Do not add ARIA only to satisfy the rule if the feature should instead be implemented with a native element or a simpler interaction pattern.
+
+## Standards
+
+- Align the implementation with WAI-ARIA 1.2 and verify the rendered experience, not only the source code.
+- Align the implementation with MDN: ARIA and verify the rendered experience, not only the source code.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

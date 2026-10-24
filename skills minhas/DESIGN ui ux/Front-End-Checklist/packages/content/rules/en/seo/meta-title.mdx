@@ -1,0 +1,179 @@
+---
+title: Write a descriptive page title
+description: Validates page title presence and length
+categories:
+  - seo
+subcategory: meta-tags
+priority: high
+difficulty: beginner
+estimatedTime: 10
+tldr:
+  - Every page must have a unique &lt;title&gt; tag inside &lt;head&gt;
+  - Target 50–60 characters to avoid truncation in SERPs
+  - Put the primary keyword near the beginning of the title
+  - Avoid duplicate titles across pages
+whyItMatters: >-
+  The &lt;title&gt; tag is the most prominent element in search result listings
+  and browser tabs—it directly influences click-through rates and is a confirmed
+  Google ranking signal.
+aiContext: >-
+  Use when auditing page metadata or generating SEO-optimized titles. Applies to
+  every HTML page that should appear in search results.
+prompts:
+  check: >-
+    Check the &lt;head&gt; section for a &lt;title&gt; tag. Verify it is unique
+    (not duplicated on other pages), between 10 and 60 characters, and contains
+    the page's primary keyword.
+  fix: >-
+    Add or update the &lt;title&gt; tag in &lt;head&gt;. Write a descriptive
+    title of 50–60 characters that includes the primary keyword near the start
+    and is unique across the site. Do not stuff keywords.
+  explain: >-
+    The &lt;title&gt; tag appears as the clickable headline in search results
+    and browser tabs. It is a primary on-page SEO factor—Google uses it to
+    understand what the page is about and displays it to users deciding whether
+    to click.
+  codeReview: >-
+    Check the &lt;head&gt; for a &lt;title&gt; element. Verify: (1) exactly one
+    &lt;title&gt; tag exists, (2) text content is between 10 and 60 characters,
+    (3) the title is not identical to other pages' titles, (4) the primary
+    keyword appears in the first half of the title, (5) the title is not empty
+    or contains only a brand name.
+relatedRules:
+  - slug: title-unique
+    reason: >-
+      Presence, descriptiveness, and uniqueness must work together for strong
+      titles.
+  - slug: meta-description
+    reason: Title and description together form the SERP listing
+  - slug: h1
+    reason: H1 and title should be topically aligned
+resources:
+  - title: Google Search Console
+    url: 'https://search.google.com/search-console'
+    type: guide
+  - title: SERP Simulator
+    url: 'https://serpsim.com'
+    type: other
+sources:
+  - title: 'Google Search Central: Title links'
+    url: 'https://developers.google.com/search/docs/appearance/title-link'
+    type: guide
+    id: google-search-central-title-links
+    role: search
+    authority: primary
+  - title: 'MDN: The Title element'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/title'
+    type: mdn
+    id: mdn-the-title-element
+    role: reference
+    authority: primary
+---
+The `<title>` tag is the single most important on-page SEO element. It appears in browser tabs, bookmarks, and as the headline in search result listings.
+
+## Code Examples
+
+```html
+<!-- ✅ Good: Descriptive, ~55 chars, keyword-first -->
+<head>
+  <title>Sourdough Bread Recipe — Step-by-Step Guide | BakeCo</title>
+</head>
+```
+
+```html
+<!-- ❌ Bad: Too short and non-descriptive -->
+<head>
+  <title>Page</title>
+</head>
+
+<!-- ❌ Bad: Keyword-stuffed -->
+<head>
+  <title>Bread Bread Recipes Bread Baking Best Bread</title>
+</head>
+```
+
+## Why It Matters
+
+The &lt;title&gt; tag is the most prominent element in search result listings and browser tabs—it directly influences click-through rates and is a confirmed Google ranking signal.
+
+## Character Length Guidelines
+
+| Length | Result |
+|--------|--------|
+| < 10 characters | Too short — not descriptive |
+| 10–60 characters | Ideal — displays fully in SERPs |
+| 61–70 characters | May be truncated |
+| > 70 characters | Truncated in most search results |
+
+Note: Google measures in pixels (~600px max), so exact character count varies with the characters used.
+
+## Title Patterns by Page Type
+
+| Page Type | Pattern | Example |
+|-----------|---------|---------|
+| Homepage | Brand name + tagline | `BakeCo – Artisan Bread Recipes` |
+| Blog post | Topic + Brand | `How to Score Sourdough | BakeCo` |
+| Product page | Product name + key attribute | `Cast Iron Dutch Oven 5.5 Qt – BakeCo` |
+| Category | Category name + Brand | `Sourdough Recipes | BakeCo` |
+
+## Next.js Implementation
+
+```tsx
+// app/blog/[slug]/page.tsx
+import { Metadata } from 'next'
+
+export async function generateMetadata({ params }): Promise<Metadata> {
+  const post = await getPost(params.slug)
+  return {
+    title: `${post.title} | BakeCo`,
+  }
+}
+```
+
+```tsx
+// app/layout.tsx — default title template
+export const metadata: Metadata = {
+  title: {
+    template: '%s | BakeCo',
+    default: 'BakeCo – Artisan Bread Recipes',
+  },
+}
+```
+
+## Common Mistakes
+
+```html
+<!-- ❌ Bad: Missing title entirely -->
+<head>
+  <meta charset="UTF-8" />
+  <!-- no <title> -->
+</head>
+
+<!-- ✅ Good: Unique title per page -->
+<head>
+  <title>Sourdough Starter Guide | BakeCo</title>
+</head>
+
+<!-- ❌ Bad: Same title on every page -->
+<head>
+  <title>BakeCo</title>  <!-- used on every page -->
+</head>
+```
+
+## Exceptions
+
+- Utility or intentionally noindex pages may keep minimal metadata when richer search presentation is not a goal.
+- Template-driven pages can look repetitive in isolation; confirm the fully rendered production output before flagging duplication or omission.
+- If a page is intentionally redirected or excluded from indexation, resolve that crawlability decision before treating metadata polish as the primary issue.
+
+## Verification
+
+### Automated Checks
+
+- View page source and search for `<title>`
+- Check SERP preview with a tool like [SERP Simulator](https://serpsim.com/)
+- Use Google Search Console → Coverage → check for duplicate title warnings
+
+### Manual Checks
+
+- Verify character count (aim for 50–60)

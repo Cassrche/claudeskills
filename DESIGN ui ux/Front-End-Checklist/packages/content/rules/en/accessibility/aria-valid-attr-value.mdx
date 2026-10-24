@@ -1,0 +1,119 @@
+---
+title: Use valid values for ARIA attributes
+description: Checks for valid values in ARIA attributes
+categories:
+  - accessibility
+subcategory: aria
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - Ensure ARIA attribute values (like `aria-expanded="true"`) are valid
+  - Avoid using "yes/no" where "true/false" is required
+  - Check that IDs referenced in `aria-labelledby` or `aria-owns` actually exist
+whyItMatters: >-
+  Invalid attribute values cause ARIA properties to be ignored or misinterpreted
+  by assistive technologies, leading to a broken or confusing user experience.
+prompts:
+  check: >-
+    Validate that all ARIA attribute values conform to the allowed types
+    (boolean, integer, ID list, etc.).
+  fix: >-
+    Correct any invalid ARIA attribute values to match the expected format
+    defined in the ARIA specification.
+  explain: >-
+    Explain why precise attribute values are necessary for browsers to correctly
+    communicate element states to assistive technology.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Use valid
+    values for ARIA attributes. Flag exact elements, roles, labels, focus
+    behavior, or keyboard interactions that violate the rule, and note how to
+    verify the fix with browser accessibility tooling or assistive tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Use valid values for ARIA attributes. Check native
+  semantics first, then inspect keyboard behavior, focus flow, accessible names,
+  and screen-reader output where relevant.
+sources:
+  - title: WAI-ARIA 1.2
+    url: 'https://www.w3.org/TR/wai-aria-1.2/'
+    type: spec
+    id: wai-aria-1-2
+    role: standard
+    authority: primary
+  - title: 'MDN: ARIA'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA'
+    type: mdn
+    id: mdn-aria
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: duplicate-id-aria
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-required-attr
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-required-parent
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-tooltip-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+---
+ARIA attributes only work correctly when they use the specific types of values (tokens, booleans, IDs, etc.) expected by the specification.
+
+## Code Example
+
+```html
+<!-- ✅ Correct: Standard ARIA values -->
+<button aria-expanded="true">Close</button>
+<div aria-hidden="false">Visible content</div>
+<div aria-valuenow="50">Progress</div>
+
+<!-- ❌ Incorrect: Using non-standard values -->
+<button aria-expanded="yes">Close</button> <!-- Use 'true' -->
+<div aria-hidden="no">Visible content</div> <!-- Use 'false' -->
+<div aria-valuenow="half">Progress</div> <!-- Use a number -->
+
+<!-- ❌ Incorrect: Broken ID references -->
+<div aria-labelledby="non-existent-id">Missing label</div>
+```
+
+## Why It Matters
+
+- **State Accuracy**: Assistive technologies might fail to report the correct state (e.g., whether a menu is expanded) if the value is invalid.
+- **User Interface Reliability**: Broken ID references mean that labels or descriptions will never be announced.
+- **Interoperability**: Correct values ensure that your accessibility features work across different browsers and screen readers.
+- **Standardization**: Following the spec prevents "custom" values that don't adhere to universal accessibility rules.
+
+## Exceptions
+
+- Prefer native HTML semantics over ARIA when both are possible; some apparent ARIA failures disappear when the underlying element is corrected.
+- A missing ARIA attribute is not automatically the strongest finding if the control is already semantically broken, unnamed, or keyboard-inaccessible.
+- Do not add ARIA only to satisfy the rule if the feature should instead be implemented with a native element or a simpler interaction pattern.
+
+## Standards
+
+- Align the implementation with WAI-ARIA 1.2 and verify the rendered experience, not only the source code.
+- Align the implementation with MDN: ARIA and verify the rendered experience, not only the source code.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

@@ -1,0 +1,84 @@
+name: frontendchecklist
+displayName: Front-End Checklist
+description: >
+  Frontend code review MCP server with 385 quality-gated rules for React,
+  Next.js, HTML, CSS, JavaScript, accessibility, performance, SEO, security,
+  images, privacy, i18n, and testing. Review pasted code, audit live sites,
+  search rule guidance, and run launch-ready MCP workflows from the
+  Front-End Checklist corpus.
+homepage: https://frontendchecklist.io
+documentationUrl: https://frontendchecklist.io/en/mcp
+license: MIT
+
+runtime: container
+
+startCommand:
+  type: http
+  url: https://mcp.frontendchecklist.io
+  configSchema:
+    type: object
+    properties: {}
+  exampleConfig: {}
+
+tools:
+  - name: review_code
+    description: Review frontend HTML/CSS/JS/React/Next.js code against relevant rules
+  - name: audit_url
+    description: Fetch a public URL and audit its frontend HTML automatically
+  - name: get_workflow
+    description: Get an ordered accessibility, SEO, security, performance, or launch workflow
+  - name: get_checklist_rules
+    description: Get full rule details for all rules in a checklist
+  - name: get_rule
+    description: Get complete details and guidance for a specific rule
+  - name: search_rules
+    description: Search rules by keyword, category, or priority
+  - name: check_rule
+    description: Get the verification prompt for a specific rule
+  - name: fix_rule
+    description: Get remediation guidance for a specific rule
+  - name: explain_rule
+    description: Get an explanation of why a rule matters
+  - name: list_categories
+    description: List available rule categories with counts
+  - name: get_quick_reference
+    description: Get a compact priority-filtered checklist view
+
+prompts:
+  - name: review_code_prompt
+    description: Compose a guided code review workflow around the review_code tool
+  - name: explain_rule_prompt
+    description: Compose an educational explanation workflow for a rule
+  - name: fix_rule_prompt
+    description: Compose a remediation workflow for a rule
+  - name: audit_url_prompt
+    description: Compose a live-site audit workflow for a URL
+  - name: workflow_prompt
+    description: Compose a curated checklist workflow
+
+resources:
+  - uriTemplate: frontendchecklist://rules/{slug}
+    description: Read a single frontend rule as normalized markdown
+  - uriTemplate: frontendchecklist://checklists/{slug}
+    description: Read a curated checklist as ordered markdown
+
+categories:
+  - developer-tools
+  - code-quality
+  - accessibility
+  - frontend
+  - testing
+
+tags:
+  - html
+  - css
+  - javascript
+  - accessibility
+  - seo
+  - security
+  - performance
+  - web-development
+  - react
+  - nextjs
+  - best-practices
+  - code-review

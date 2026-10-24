@@ -1,0 +1,281 @@
+---
+title: Provide meaningful alt text for images
+description: >-
+  Every informative image has a descriptive alt attribute; decorative images use
+  alt="" to be ignored by screen readers.
+categories:
+  - images
+subcategory: accessibility
+priority: critical
+difficulty: beginner
+estimatedTime: 15
+relatedRules:
+  - slug: figure-figcaption
+    reason: Captions complement alt text for complex images with visible descriptions
+  - slug: error-images
+    reason: >-
+      Fallback images also need alt text to remain accessible when primary
+      images fail
+  - slug: dimensions
+    reason: Both rules affect images quality and are commonly reviewed together.
+tools:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/'
+  - name: WAVE Web Accessibility Evaluator
+    url: 'https://wave.webaim.org/'
+  - name: Lighthouse Accessibility Audit
+    url: 'https://developer.chrome.com/docs/lighthouse/'
+resources:
+  - name: alt attribute — MDN Web Docs
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/img#alt'
+    type: documentation
+    author: MDN
+  - name: An alt Decision Tree — W3C WAI
+    url: 'https://www.w3.org/WAI/tutorials/images/decision-tree/'
+    type: guide
+    author: W3C WAI
+  - name: Images Concepts — W3C WAI Tutorial
+    url: 'https://www.w3.org/WAI/tutorials/images/'
+    type: guide
+    author: W3C WAI
+  - name: WCAG 2.1 SC 1.1.1 Non-text Content
+    url: 'https://www.w3.org/WAI/WCAG21/Understanding/non-text-content.html'
+    type: documentation
+    author: W3C
+prompts:
+  check: >-
+    Scan all <img> elements in the codebase. Verify: 1) Every <img> has an alt
+    attribute (missing alt is an error). 2) Decorative images use alt="". 3)
+    Informative images have descriptive text that conveys the image's
+    meaning—not just its file name. 4) Images that are links describe the
+    destination. 5) Images of text reproduce the text in alt. Flag any <img>
+    without alt, with alt matching the filename (e.g., alt="photo1.jpg"), or
+    with generic values like alt="image" or alt="photo".
+  fix: >-
+    For each image missing or with poor alt text: 1) Informative images—describe
+    what the image conveys, not just what it shows (e.g., alt="Bar chart showing
+    40% increase in sales Q3 2024" not alt="chart"). 2) Decorative images—add
+    alt="" so screen readers skip them. 3) Linked images—describe the link
+    destination (e.g., alt="Visit our Twitter profile"). 4) Images of text—copy
+    the text verbatim into alt. 5) Complex images (charts, infographics)—provide
+    a short alt plus a longer description via aria-describedby or a visible
+    caption.
+  explain: >-
+    Explain WCAG 2.1 Success Criterion 1.1.1 Non-text Content: every image must
+    have a text alternative. Screen readers announce the alt attribute
+    aloud—without it, users who are blind or have low vision cannot understand
+    the page. Bad alt text (like alt="image") is no better than no alt text.
+    Decorative images must use alt="" explicitly so screen readers skip them
+    entirely—omitting alt causes some screen readers to announce the filename.
+  codeReview: >-
+    Review image assets, markup, and delivery configuration related to Provide
+    meaningful alt text for images. Flag exact files or components where format
+    choice, sizing, or loading behavior violates the rule, and describe how to
+    confirm the fix in DevTools.
+tldr:
+  - >-
+    Every `<img>` must have an `alt` attribute—omitting it entirely violates
+    WCAG 2.1 SC 1.1.1
+  - Decorative images use `alt=""` so screen readers ignore them
+  - 'Alt text should describe the image''s *purpose*, not just its appearance'
+  - 'Linked images: alt describes the link destination, not the visual'
+whyItMatters: >-
+  Approximately 2.2 billion people worldwide have vision impairment. Screen
+  readers read the alt attribute aloud—without meaningful alt text, users who
+  are blind receive no information about image content. Missing alt text also
+  fails WCAG 2.1 Success Criterion 1.1.1, which is a Level A (minimum)
+  requirement. Search engines also rely on alt text to index image content.
+aiContext: >-
+  Use when reviewing image assets, markup, and CDN or build transforms related
+  to Provide meaningful alt text for images. Check encoded size, rendered size,
+  loading strategy, and above-the-fold impact together.
+sources:
+  - title: 'MDN: Responsive images'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Learn/HTML/Multimedia_and_embedding/Responsive_images
+    type: mdn
+    id: mdn-responsive-images
+    role: reference
+    authority: primary
+  - title: 'web.dev: Image performance'
+    url: 'https://web.dev/learn/performance/image-performance'
+    type: guide
+    id: web-dev-image-performance
+    role: implementation
+    authority: primary
+---
+
+The `alt` attribute is the primary accessibility mechanism for images. Every `<img>` must have an `alt` attribute. Its value depends on the image's role.
+
+<Tip>
+Use the [W3C alt decision tree](https://www.w3.org/WAI/tutorials/images/decision-tree/) to determine the correct alt value for any image type.
+</Tip>
+
+## Code Example
+
+Images that convey meaning need descriptive alt text explaining what the image communicates.
+
+```html
+<!-- ❌ Bad: Missing alt -->
+<img src="revenue-chart.png">
+
+<!-- ❌ Bad: Filename as alt -->
+<img src="revenue-chart.png" alt="revenue-chart.png">
+
+<!-- ❌ Bad: Generic alt -->
+<img src="revenue-chart.png" alt="chart">
+
+<!-- ✅ Good: Describes what the image conveys -->
+<img
+  src="revenue-chart.png"
+  alt="Bar chart showing Q3 2024 revenue increased 40% year-over-year, reaching $2.4M"
+>
+```
+
+## Why It Matters
+
+Approximately 2.2 billion people worldwide have vision impairment. Screen readers read the alt attribute aloud—without meaningful alt text, users who are blind receive no information about image content. Missing alt text also fails WCAG 2.1 Success Criterion 1.1.1, which is a Level A (minimum) requirement. Search engines also rely on alt text to index image content.
+
+## Decorative Images
+
+Images used purely for visual decoration carry no information and should be hidden from assistive technology.
+
+```html
+<!-- ❌ Bad: No alt attribute—screen reader may announce the filename -->
+<img src="decorative-swirl.png">
+
+<!-- ✅ Good: Empty alt hides image from screen readers -->
+<img src="decorative-swirl.png" alt="">
+
+<!-- ✅ Good: Or use CSS background images for decoration -->
+<div class="decorative-swirl" aria-hidden="true"></div>
+```
+
+## Images Used as Links
+
+When an `<img>` is inside an `<a>`, the alt text must describe the link destination, not the visual appearance.
+
+```html
+<!-- ❌ Bad: Describes appearance, not destination -->
+<a href="https://twitter.com/example">
+  <img src="twitter-logo.svg" alt="Blue bird logo">
+</a>
+
+<!-- ✅ Good: Describes the link destination -->
+<a href="https://twitter.com/example">
+  <img src="twitter-logo.svg" alt="Follow us on Twitter">
+</a>
+```
+
+## Images of Text
+
+If an image contains text (e.g., a logo, banner, or screenshot), reproduce that text verbatim in alt.
+
+```html
+<!-- ✅ Good: Alt reproduces the text shown in the image -->
+<img src="sale-banner.png" alt="Summer Sale — 50% off all items">
+
+<!-- ✅ Good: Logo with company name -->
+<img src="logo.svg" alt="Acme Corp">
+```
+
+## Complex Images (Charts, Diagrams)
+
+For complex visuals, provide a brief alt plus a longer description accessible to all users.
+
+```html
+<!-- Using aria-describedby to link to a visible description -->
+<figure>
+  <img
+    src="org-chart.png"
+    alt="Company organisational chart"
+    aria-describedby="org-chart-desc"
+  >
+  <figcaption id="org-chart-desc">
+    The chart shows three departments reporting to the CEO: Engineering (12 staff),
+    Marketing (8 staff), and Operations (5 staff).
+  </figcaption>
+</figure>
+```
+
+## Framework Examples
+
+<CodeTabs defaultTab="react">
+  <Tab value="react" label="React">
+
+```tsx
+interface ImageProps {
+  src: string
+  alt: string
+  decorative?: boolean
+}
+
+function AccessibleImage({ src, alt, decorative = false }: ImageProps) {
+  return (
+    <img
+      src={src}
+      // Decorative images use empty string; informative images use descriptive text
+      alt={decorative ? '' : alt}
+    />
+  )
+}
+
+// Usage
+<AccessibleImage src="hero.jpg" alt="Team members collaborating in a modern office" />
+<AccessibleImage src="divider.png" decorative />
+```
+
+  </Tab>
+  <Tab value="nextjs" label="Next.js">
+
+```tsx
+import Image from 'next/image'
+
+// Next.js Image requires alt; use "" for decorative
+function HeroBanner() {
+  return (
+    <>
+      {/* Informative */}
+      <Image
+        src="/hero.jpg"
+        alt="Product team celebrating a successful launch"
+        width={1200}
+        height={600}
+        priority
+      />
+
+      {/* Decorative */}
+      <Image
+        src="/wave-divider.svg"
+        alt=""
+        width={1200}
+        height={60}
+        aria-hidden="true"
+      />
+    </>
+  )
+}
+```
+
+  </Tab>
+</CodeTabs>
+
+## Standards
+
+- Use these references as the standard for the final image format, delivery, accessibility, and rendering behavior.
+- Check the implementation against MDN: Responsive images before treating the rule as satisfied.
+- Check the implementation against web.dev: Image performance before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Run axe DevTools or WAVE on the page—both flag missing or empty non-decorative alt attributes
+- Use Lighthouse Accessibility audit—"Images do not have alternate text" is a scored item
+
+### Manual Checks
+
+- Enable a screen reader (VoiceOver, NVDA, or JAWS) and navigate through images with the `G` key
+- Inspect the Network tab: for any image URL, verify the corresponding `<img>` has a meaningful `alt`
+- **CAPTCHA images** — provide alt describing the purpose, not the characters (e.g., `alt="CAPTCHA: type the characters shown"`), and offer an audio alternative per WCAG 1.1.1
+- **SVG icons with adjacent text labels** — if the icon's meaning is already conveyed by visible text, use `aria-hidden="true"` on the SVG instead of alt

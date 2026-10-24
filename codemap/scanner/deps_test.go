@@ -1,0 +1,962 @@
+package scanner
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"reflect"
+	"sort"
+	"strings"
+	"testing"
+)
+
+func TestParseGoMod(t *testing.T) {
+	gomod := `module example.com/myapp
+
+go 1.21
+
+require (
+	github.com/foo/bar v1.0.0
+	github.com/baz/qux v2.0.0
+	// This is a comment
+	golang.org/x/text v0.3.0
+)
+
+require github.com/indirect/dep v1.0.0 // indirect
+`
+
+	deps := parseGoMod(gomod)
+
+	expected := []string{
+		"github.com/foo/bar",
+		"github.com/baz/qux",
+		"golang.org/x/text",
+	}
+
+	if len(deps) != len(expected) {
+		t.Errorf("Expected %d deps, got %d: %v", len(expected), len(deps), deps)
+	}
+
+	for i, exp := range expected {
+		if i < len(deps) && deps[i] != exp {
+			t.Errorf("Dep %d: expected %q, got %q", i, exp, deps[i])
+		}
+	}
+}
+
+func TestParseGoModEmpty(t *testing.T) {
+	gomod := `module example.com/myapp
+
+go 1.21
+`
+	deps := parseGoMod(gomod)
+	if len(deps) != 0 {
+		t.Errorf("Expected no deps, got %v", deps)
+	}
+}
+
+func TestParseRequirements(t *testing.T) {
+	requirements := `# Python dependencies
+flask==2.0.0
+requests>=2.25.0
+numpy~=1.21.0
+pandas
+scikit-learn[extra]
+pytest<7.0.0
+
+# Comment line
+django>3.0,<4.0
+`
+
+	deps := parseRequirements(requirements)
+
+	expected := []string{
+		"flask",
+		"requests",
+		"numpy",
+		"pandas",
+		"scikit-learn",
+		"pytest",
+		"django",
+	}
+
+	if len(deps) != len(expected) {
+		t.Errorf("Expected %d deps, got %d: %v", len(expected), len(deps), deps)
+	}
+
+	for i, exp := range expected {
+		if i < len(deps) && deps[i] != exp {
+			t.Errorf("Dep %d: expected %q, got %q", i, exp, deps[i])
+		}
+	}
+}
+
+func TestParseRequirementsEmpty(t *testing.T) {
+	requirements := `# Just comments
+# No actual deps
+`
+	deps := parseRequirements(requirements)
+	if len(deps) != 0 {
+		t.Errorf("Expected no deps, got %v", deps)
+	}
+}
+
+func TestParsePackageJson(t *testing.T) {
+	packageJson := `{
+  "name": "my-app",
+  "version": "1.0.0",
+  "dependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "axios": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "jest": "^29.0.0"
+  }
+}`
+
+	deps := parsePackageJson(packageJson)
+
+	expected := []string{"react", "react-dom", "axios", "typescript", "jest"}
+
+	if len(deps) != len(expected) {
+		t.Errorf("Expected %d deps, got %d: %v", len(expected), len(deps), deps)
+	}
+
+	// Check all expected deps are present (order may vary)
+	depsMap := make(map[string]bool)
+	for _, d := range deps {
+		depsMap[d] = true
+	}
+
+	for _, exp := range expected {
+		if !depsMap[exp] {
+			t.Errorf("Expected dep %q not found in %v", exp, deps)
+		}
+	}
+}
+
+func TestParsePackageJsonEmpty(t *testing.T) {
+	packageJson := `{
+  "name": "my-app",
+  "version": "1.0.0"
+}`
+	deps := parsePackageJson(packageJson)
+	if len(deps) != 0 {
+		t.Errorf("Expected no deps, got %v", deps)
+	}
+}
+
+func TestParsePodfile(t *testing.T) {
+	podfile := `platform :ios, '14.0'
+
+target 'MyApp' do
+  use_frameworks!
+
+  pod 'Alamofire', '~> 5.0'
+  pod 'SwiftyJSON'
+  pod "Kingfisher", "~> 7.0"
+  pod 'SnapKit', :git => 'https://github.com/SnapKit/SnapKit.git'
+
+end
+`
+
+	deps := parsePodfile(podfile)
+
+	expected := []string{"Alamofire", "SwiftyJSON", "Kingfisher", "SnapKit"}
+
+	if len(deps) != len(expected) {
+		t.Errorf("Expected %d deps, got %d: %v", len(expected), len(deps), deps)
+	}
+
+	depsMap := make(map[string]bool)
+	for _, d := range deps {
+		depsMap[d] = true
+	}
+
+	for _, exp := range expected {
+		if !depsMap[exp] {
+			t.Errorf("Expected dep %q not found in %v", exp, deps)
+		}
+	}
+}
+
+func TestParsePackageSwift(t *testing.T) {
+	packageSwift := `// swift-tools-version:5.5
+import PackageDescription
+
+let package = Package(
+    name: "MyPackage",
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.0.0"),
+        .package(url: "https://github.com/vapor/vapor.git", from: "4.0.0"),
+    ],
+    targets: [
+        .target(name: "MyTarget", dependencies: ["ArgumentParser", "Vapor"]),
+    ]
+)
+`
+
+	deps := parsePackageSwift(packageSwift)
+
+	expected := []string{"swift-argument-parser", "vapor"}
+
+	if len(deps) != len(expected) {
+		t.Errorf("Expected %d deps, got %d: %v", len(expected), len(deps), deps)
+	}
+
+	depsMap := make(map[string]bool)
+	for _, d := range deps {
+		depsMap[d] = true
+	}
+
+	for _, exp := range expected {
+		if !depsMap[exp] {
+			t.Errorf("Expected dep %q not found in %v", exp, deps)
+		}
+	}
+}
+
+func TestReadExternalDeps(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a go.mod file
+	gomod := `module example.com/test
+
+go 1.21
+
+require (
+	github.com/test/dep v1.0.0
+)
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(gomod), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a requirements.txt
+	requirements := `flask==2.0.0
+requests
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "requirements.txt"), []byte(requirements), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	deps, err := ReadExternalDeps(context.Background(), tmpDir, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Check Go deps
+	if goDeps, ok := deps["go"]; !ok {
+		t.Error("Expected go deps")
+	} else if len(goDeps) != 1 || goDeps[0] != "github.com/test/dep" {
+		t.Errorf("Unexpected go deps: %v", goDeps)
+	}
+
+	// Check Python deps
+	if pyDeps, ok := deps["python"]; !ok {
+		t.Error("Expected python deps")
+	} else {
+		sort.Strings(pyDeps)
+		expected := []string{"flask", "requests"}
+		sort.Strings(expected)
+		if !reflect.DeepEqual(pyDeps, expected) {
+			t.Errorf("Expected python deps %v, got %v", expected, pyDeps)
+		}
+	}
+}
+
+func TestReadExternalDepsIgnoresNodeModules(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create package.json in node_modules (should be ignored)
+	nodeModules := filepath.Join(tmpDir, "node_modules", "some-pkg")
+	if err := os.MkdirAll(nodeModules, 0755); err != nil {
+		t.Fatal(err)
+	}
+	ignoredPackageJson := `{
+  "dependencies": {
+    "ignored": "1.0.0"
+  }
+}`
+	if err := os.WriteFile(filepath.Join(nodeModules, "package.json"), []byte(ignoredPackageJson), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a real package.json at root (multi-line for parser compatibility)
+	rootPackageJson := `{
+  "dependencies": {
+    "real-dep": "1.0.0"
+  }
+}`
+	if err := os.WriteFile(filepath.Join(tmpDir, "package.json"), []byte(rootPackageJson), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	deps, err := ReadExternalDeps(context.Background(), tmpDir, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Should only have the root package.json deps
+	if jsDeps, ok := deps["javascript"]; ok {
+		for _, d := range jsDeps {
+			if d == "ignored" {
+				t.Error("node_modules/package.json should be ignored")
+			}
+		}
+		found := false
+		for _, d := range jsDeps {
+			if d == "real-dep" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected real-dep from root package.json, got: %v", jsDeps)
+		}
+	} else {
+		t.Errorf("Expected javascript deps, got: %v", deps)
+	}
+}
+
+func TestDetectPathAliases(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a tsconfig.json with path aliases
+	tsconfig := `{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@modules/*": ["src/modules/*"],
+      "@shared/*": ["src/shared/*"],
+      "@utils": ["src/utils/index"]
+    }
+  }
+}`
+	if err := os.WriteFile(filepath.Join(tmpDir, "tsconfig.json"), []byte(tsconfig), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	paths, baseURL := detectPathAliases(tmpDir)
+
+	if baseURL != "." {
+		t.Errorf("Expected baseUrl '.', got %q", baseURL)
+	}
+
+	if len(paths) != 3 {
+		t.Errorf("Expected 3 path aliases, got %d: %v", len(paths), paths)
+	}
+
+	if targets, ok := paths["@modules/*"]; !ok {
+		t.Error("Expected @modules/* alias")
+	} else if len(targets) != 1 || targets[0] != "src/modules/*" {
+		t.Errorf("Expected @modules/* -> src/modules/*, got %v", targets)
+	}
+
+	if targets, ok := paths["@shared/*"]; !ok {
+		t.Error("Expected @shared/* alias")
+	} else if len(targets) != 1 || targets[0] != "src/shared/*" {
+		t.Errorf("Expected @shared/* -> src/shared/*, got %v", targets)
+	}
+}
+
+func TestDetectPathAliasesWithExtends(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create base tsconfig
+	baseConfig := `{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@base/*": ["src/base/*"]
+    }
+  }
+}`
+	if err := os.WriteFile(filepath.Join(tmpDir, "tsconfig.base.json"), []byte(baseConfig), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create extending tsconfig
+	tsconfig := `{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "paths": {
+      "@app/*": ["src/app/*"]
+    }
+  }
+}`
+	if err := os.WriteFile(filepath.Join(tmpDir, "tsconfig.json"), []byte(tsconfig), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	paths, baseURL := detectPathAliases(tmpDir)
+
+	if baseURL != "." {
+		t.Errorf("Expected baseUrl '.', got %q", baseURL)
+	}
+
+	// Should have both parent and child paths
+	if len(paths) != 2 {
+		t.Errorf("Expected 2 path aliases (merged), got %d: %v", len(paths), paths)
+	}
+
+	if _, ok := paths["@app/*"]; !ok {
+		t.Error("Expected @app/* alias from child config")
+	}
+
+	if _, ok := paths["@base/*"]; !ok {
+		t.Error("Expected @base/* alias from parent config")
+	}
+}
+
+func TestDetectPathAliasesJsconfig(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create jsconfig.json (used in JavaScript projects without TypeScript)
+	jsconfig := `{
+  "compilerOptions": {
+    "baseUrl": "src",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  }
+}`
+	if err := os.WriteFile(filepath.Join(tmpDir, "jsconfig.json"), []byte(jsconfig), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	paths, baseURL := detectPathAliases(tmpDir)
+
+	if baseURL != "src" {
+		t.Errorf("Expected baseUrl 'src', got %q", baseURL)
+	}
+
+	if len(paths) != 1 {
+		t.Errorf("Expected 1 path alias, got %d: %v", len(paths), paths)
+	}
+}
+
+func TestResolvePathAlias(t *testing.T) {
+	// Build a simple file index
+	files := []FileInfo{
+		{Path: "src/modules/auth/index.ts"},
+		{Path: "src/modules/auth/login.ts"},
+		{Path: "src/shared/utils/helpers.ts"},
+		{Path: "src/utils/index.ts"},
+	}
+	idx := buildFileIndex(files, "")
+
+	pathAliases := map[string][]string{
+		"@modules/*": {"src/modules/*"},
+		"@shared/*":  {"src/shared/*"},
+		"@utils":     {"src/utils/index"},
+	}
+
+	tests := []struct {
+		name     string
+		imp      string
+		expected string
+	}{
+		{"wildcard alias", "@modules/auth/login", "src/modules/auth/login.ts"},
+		{"wildcard with index", "@modules/auth", "src/modules/auth/index.ts"},
+		{"nested wildcard", "@shared/utils/helpers", "src/shared/utils/helpers.ts"},
+		{"exact alias", "@utils", "src/utils/index.ts"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := resolvePathAlias(tt.imp, pathAliases, ".", idx, "typescript")
+			if len(result) == 0 {
+				t.Errorf("Expected to resolve %q, got no results", tt.imp)
+				return
+			}
+			if result[0] != tt.expected {
+				t.Errorf("Expected %q to resolve to %q, got %q", tt.imp, tt.expected, result[0])
+			}
+		})
+	}
+}
+
+func TestResolvePathAliasNoMatch(t *testing.T) {
+	files := []FileInfo{
+		{Path: "src/modules/auth/index.ts"},
+	}
+	idx := buildFileIndex(files, "")
+
+	pathAliases := map[string][]string{
+		"@modules/*": {"src/modules/*"},
+	}
+
+	// Import that doesn't match any alias
+	result := resolvePathAlias("lodash", pathAliases, ".", idx, "typescript")
+	if len(result) != 0 {
+		t.Errorf("Expected no results for non-alias import, got %v", result)
+	}
+
+	// Import that matches alias but file doesn't exist
+	result = resolvePathAlias("@modules/nonexistent", pathAliases, ".", idx, "typescript")
+	if len(result) != 0 {
+		t.Errorf("Expected no results for non-existent file, got %v", result)
+	}
+}
+
+func TestDepsBuildFileIndex(t *testing.T) {
+	handlerPath := filepath.FromSlash("pkg/service/handler.go")
+	files := []FileInfo{
+		{Path: "main.go"},
+		{Path: handlerPath},
+		{Path: filepath.FromSlash("src/modules/auth/index.ts")},
+	}
+
+	idx := buildFileIndex(files, "example.com/project")
+
+	handlerDir := filepath.Dir(handlerPath)
+	if got := idx.byDir[handlerDir]; len(got) != 1 || got[0] != handlerPath {
+		t.Fatalf("expected %q in byDir, got %v", handlerPath, got)
+	}
+	handlerNoExt := strings.TrimSuffix(handlerPath, filepath.Ext(handlerPath))
+	if got := tryExactMatch(handlerNoExt, idx, "go"); len(got) != 1 || got[0] != handlerPath {
+		t.Fatalf("expected extensionless import to resolve handler.go, got %v", got)
+	}
+	handlerSuffix := filepath.Join("service", "handler.go")
+	if got := idx.suffixMatches(handlerSuffix); len(got) != 1 || got[0] != handlerPath {
+		t.Fatalf("expected suffix match for service/handler.go, got %v", got)
+	}
+	if got := idx.goPkgs["example.com/project/pkg/service"]; len(got) != 1 || got[0] != handlerPath {
+		t.Fatalf("expected go package index for pkg/service, got %v", got)
+	}
+}
+
+func TestDepsNormalizeImport(t *testing.T) {
+	tests := []struct {
+		name string
+		imp  string
+		want string
+	}{
+		{name: "trims quotes", imp: "\"pkg/util\"", want: "pkg/util"},
+		{name: "python dotted path", imp: "app.core.config", want: filepath.Join("app", "core", "config")},
+		{name: "crate path", imp: "crate::net::http", want: filepath.Join("net", "http")},
+		{name: "super path", imp: "super::service::api", want: filepath.Join("super", "service", "api")},
+		{name: "already slash path", imp: "src/util", want: "src/util"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeImport(tt.imp)
+			if got != tt.want {
+				t.Fatalf("normalizeImport(%q): want %q, got %q", tt.imp, tt.want, got)
+			}
+		})
+	}
+}
+
+func TestDepsResolveRelative(t *testing.T) {
+	handlerPath := filepath.FromSlash("pkg/api/handler.go")
+	typesPath := filepath.FromSlash("pkg/common/types.go")
+	loggerPath := filepath.FromSlash("pkg/log/logger.go")
+
+	files := []FileInfo{
+		{Path: handlerPath},
+		{Path: typesPath},
+		{Path: loggerPath},
+	}
+	idx := buildFileIndex(files, "")
+
+	tests := []struct {
+		name    string
+		imp     string
+		fromDir string
+		want    []string
+	}{
+		{name: "same directory file", imp: "./handler", fromDir: filepath.FromSlash("pkg/api"), want: []string{handlerPath}},
+		{name: "parent directory file", imp: "../common/types", fromDir: filepath.FromSlash("pkg/api"), want: []string{typesPath}},
+		{name: "two levels up", imp: "../../log/logger", fromDir: filepath.FromSlash("pkg/api/internal"), want: []string{loggerPath}},
+		{name: "missing file", imp: "./missing", fromDir: "pkg/api", want: nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveRelative(tt.imp, tt.fromDir, idx, "go")
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("resolveRelative(%q, %q): want %v, got %v", tt.imp, tt.fromDir, tt.want, got)
+			}
+		})
+	}
+}
+
+func TestDepsFuzzyResolve(t *testing.T) {
+	goHandler := filepath.FromSlash("pkg/service/handler.go")
+	tsLogin := filepath.FromSlash("src/modules/auth/login.ts")
+	tsHelper := filepath.FromSlash("src/shared/utils/helpers.ts")
+	pyConfig := filepath.FromSlash("app/core/config.py")
+
+	files := []FileInfo{
+		{Path: goHandler},
+		{Path: tsLogin},
+		{Path: tsHelper},
+		{Path: pyConfig},
+	}
+	idx := buildFileIndex(files, "example.com/project")
+	aliases := map[string][]string{
+		"@modules/*": {filepath.FromSlash("src/modules/*")},
+	}
+
+	tests := []struct {
+		name      string
+		imp       string
+		fromFile  string
+		goModule  string
+		pathAlias map[string][]string
+		baseURL   string
+		want      []string
+	}{
+		{
+			name:      "go package lookup",
+			imp:       "example.com/project/pkg/service",
+			fromFile:  "cmd/main.go",
+			goModule:  "example.com/project",
+			pathAlias: nil,
+			baseURL:   "",
+			want:      []string{goHandler},
+		},
+		{
+			name:      "relative import",
+			imp:       "../service/handler",
+			fromFile:  filepath.FromSlash("pkg/api/router.go"),
+			goModule:  "example.com/project",
+			pathAlias: nil,
+			baseURL:   "",
+			want:      []string{goHandler},
+		},
+		{
+			name:      "alias import",
+			imp:       "@modules/auth/login",
+			fromFile:  filepath.FromSlash("src/app.ts"),
+			goModule:  "example.com/project",
+			pathAlias: aliases,
+			baseURL:   ".",
+			want:      []string{tsLogin},
+		},
+		{
+			name:      "bare typescript import remains external",
+			imp:       "src/shared/utils/helpers",
+			fromFile:  filepath.FromSlash("src/app.ts"),
+			goModule:  "example.com/project",
+			pathAlias: nil,
+			baseURL:   "",
+			want:      nil,
+		},
+		{
+			name:      "suffix import",
+			imp:       "core.config",
+			fromFile:  filepath.FromSlash("app/main.py"),
+			goModule:  "example.com/project",
+			pathAlias: nil,
+			baseURL:   "",
+			want:      []string{pyConfig},
+		},
+		{
+			name:      "no match",
+			imp:       "github.com/external/lib",
+			fromFile:  "main.go",
+			goModule:  "example.com/project",
+			pathAlias: nil,
+			baseURL:   "",
+			want:      nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := fuzzyResolve(tt.imp, tt.fromFile, idx, tt.goModule, tt.pathAlias, tt.baseURL)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("fuzzyResolve(%q): want %v, got %v", tt.imp, tt.want, got)
+			}
+		})
+	}
+}
+
+func TestDepsDetectModule(t *testing.T) {
+	tests := []struct {
+		name       string
+		goModBody  string
+		writeGoMod bool
+		want       string
+	}{
+		{
+			name: "module found",
+			goModBody: strings.Join([]string{
+				"module example.com/project",
+				"",
+				"go 1.22",
+			}, "\n"),
+			writeGoMod: true,
+			want:       "example.com/project",
+		},
+		{
+			name:       "missing go.mod",
+			writeGoMod: false,
+			want:       "",
+		},
+		{
+			name: "go.mod without module",
+			goModBody: strings.Join([]string{
+				"go 1.22",
+			}, "\n"),
+			writeGoMod: true,
+			want:       "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if tt.writeGoMod {
+				err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(tt.goModBody), 0o644)
+				if err != nil {
+					t.Fatalf("write go.mod: %v", err)
+				}
+			}
+
+			got := detectModule(dir)
+			if got != tt.want {
+				t.Fatalf("detectModule(): want %q, got %q", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestDepsFileGraphHubAndConnectedFiles(t *testing.T) {
+	fg := &FileGraph{
+		Imports: map[string][]string{
+			"a.go": {"hub.go", "c.go"},
+			"b.go": {"hub.go"},
+		},
+		Importers: map[string][]string{
+			"hub.go": {"a.go", "b.go", "d.go"},
+			"a.go":   {"x.go"},
+		},
+	}
+
+	if !fg.IsHub("hub.go") {
+		t.Fatal("expected hub.go to be treated as hub")
+	}
+	if fg.IsHub("a.go") {
+		t.Fatal("did not expect a.go to be treated as hub")
+	}
+
+	hubs := fg.HubFiles()
+	if len(hubs) != 1 || hubs[0] != "hub.go" {
+		t.Fatalf("expected only hub.go as hub, got %v", hubs)
+	}
+
+	connected := fg.ConnectedFiles("a.go")
+	sort.Strings(connected)
+	want := []string{"c.go", "hub.go", "x.go"}
+	if !reflect.DeepEqual(connected, want) {
+		t.Fatalf("expected connected files %v, got %v", want, connected)
+	}
+}
+
+func TestDepsDetectLanguage(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		want string
+	}{
+		{name: "go file", path: "main.go", want: "go"},
+		{name: "typescript upper extension", path: "comp.TSX", want: "typescript"},
+		{name: "scala", path: "build.sc", want: "scala"},
+		{name: "unknown extension", path: "README.md", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := DetectLanguage(tt.path)
+			if got != tt.want {
+				t.Fatalf("DetectLanguage(%q): want %q, got %q", tt.path, tt.want, got)
+			}
+		})
+	}
+}
+
+func TestParseCsproj(t *testing.T) {
+	csproj := `<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageReference Include='Serilog' Version='3.0.0' />
+  </ItemGroup>
+</Project>`
+
+	deps := parseCsproj(csproj)
+
+	expected := []string{"Newtonsoft.Json", "Microsoft.Extensions.Logging", "Serilog"}
+
+	if len(deps) != len(expected) {
+		t.Errorf("Expected %d deps, got %d: %v", len(expected), len(deps), deps)
+	}
+
+	depsMap := make(map[string]bool)
+	for _, d := range deps {
+		depsMap[d] = true
+	}
+	for _, exp := range expected {
+		if !depsMap[exp] {
+			t.Errorf("Expected dep %q not found in %v", exp, deps)
+		}
+	}
+}
+
+func TestParseCsprojEmpty(t *testing.T) {
+	csproj := `<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+  </PropertyGroup>
+</Project>`
+
+	deps := parseCsproj(csproj)
+	if len(deps) != 0 {
+		t.Errorf("Expected no deps, got %v", deps)
+	}
+}
+
+func TestParsePackagesConfig(t *testing.T) {
+	config := `<?xml version="1.0" encoding="utf-8"?>
+<packages>
+  <package id="Newtonsoft.Json" version="13.0.3" targetFramework="net48" />
+  <package id="NUnit" version="3.14.0" targetFramework="net48" />
+  <package id='log4net' version='2.0.15' />
+</packages>`
+
+	deps := parsePackagesConfig(config)
+
+	expected := []string{"Newtonsoft.Json", "NUnit", "log4net"}
+
+	if len(deps) != len(expected) {
+		t.Errorf("Expected %d deps, got %d: %v", len(expected), len(deps), deps)
+	}
+
+	depsMap := make(map[string]bool)
+	for _, d := range deps {
+		depsMap[d] = true
+	}
+	for _, exp := range expected {
+		if !depsMap[exp] {
+			t.Errorf("Expected dep %q not found in %v", exp, deps)
+		}
+	}
+}
+
+func TestReadExternalDepsCsharp(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	csproj := `<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Serilog" Version="3.0.0" />
+  </ItemGroup>
+</Project>`
+	if err := os.WriteFile(filepath.Join(tmpDir, "MyApp.csproj"), []byte(csproj), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	deps, err := ReadExternalDeps(context.Background(), tmpDir, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	csDeps, ok := deps["csharp"]
+	if !ok {
+		t.Fatal("Expected csharp deps")
+	}
+	sort.Strings(csDeps)
+	expected := []string{"Newtonsoft.Json", "Serilog"}
+	sort.Strings(expected)
+	if !reflect.DeepEqual(csDeps, expected) {
+		t.Errorf("Expected csharp deps %v, got %v", expected, csDeps)
+	}
+}
+
+func TestReadExternalDepsPackagesConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	config := `<?xml version="1.0" encoding="utf-8"?>
+<packages>
+  <package id="Newtonsoft.Json" version="13.0.3" targetFramework="net48" />
+  <package id="NUnit" version="3.14.0" targetFramework="net48" />
+</packages>`
+	if err := os.WriteFile(filepath.Join(tmpDir, "packages.config"), []byte(config), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	deps, err := ReadExternalDeps(context.Background(), tmpDir, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	csDeps, ok := deps["csharp"]
+	if !ok {
+		t.Fatal("Expected csharp deps from packages.config")
+	}
+	sort.Strings(csDeps)
+	expected := []string{"Newtonsoft.Json", "NUnit"}
+	sort.Strings(expected)
+	if !reflect.DeepEqual(csDeps, expected) {
+		t.Errorf("Expected csharp deps %v, got %v", expected, csDeps)
+	}
+}
+
+func TestParsePubspecFlutterDependencies(t *testing.T) {
+	pubspec := `name: example_app
+environment:
+  sdk: ^3.8.0
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.1.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  provider: ^6.1.0
+dependency_overrides:
+  local_package:
+    path: ../local_package
+  provider: ^6.1.1
+`
+
+	got := parsePubspec(pubspec)
+	want := []string{"flutter", "flutter_test", "local_package", "provider"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("parsePubspec() = %#v, want %#v", got, want)
+	}
+}
+
+func TestReadExternalDepsFindsPubspec(t *testing.T) {
+	root := t.TempDir()
+	pubspec := "name: example_app\ndependencies:\n  flutter:\n    sdk: flutter\n  riverpod: ^3.0.0\n"
+	if err := os.WriteFile(filepath.Join(root, "pubspec.yaml"), []byte(pubspec), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	deps, err := ReadExternalDeps(context.Background(), root, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"flutter", "riverpod"}
+	if !reflect.DeepEqual(deps["dart"], want) {
+		t.Fatalf("Dart dependencies = %#v, want %#v", deps["dart"], want)
+	}
+}
+
+func TestParsePubspecRejectsMalformedYAML(t *testing.T) {
+	if got := parsePubspec("dependencies: ["); got != nil {
+		t.Fatalf("parsePubspec() = %#v, want nil for malformed YAML", got)
+	}
+}

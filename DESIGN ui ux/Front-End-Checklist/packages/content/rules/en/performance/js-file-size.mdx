@@ -1,0 +1,137 @@
+---
+title: Optimize JavaScript bundle size
+description: >-
+  Checks for JavaScript files that exceed recommended size limits to ensure fast
+  interaction
+categories:
+  - performance
+subcategory: assets
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - Keep individual JS bundles under 200KB (compressed)
+  - Large bundles delay Time to Interactive (TTI) and First Input Delay (FID)
+  - Use code-splitting and tree-shaking to reduce unused code
+whyItMatters: >-
+  Excessive JavaScript increases parse and execution time, especially on low-end
+  devices, leading to sluggish user experiences and high data costs.
+prompts:
+  check: >-
+    Review the JavaScript bundle sizes and identify any files exceeding 200KB
+    (Gzip/Brotli).
+  fix: >-
+    Implement code-splitting, tree-shaking, and dependency audits to reduce the
+    size of the JavaScript bundles.
+  explain: >-
+    Explain how large JavaScript files impact the main thread and delay user
+    interactivity (FID/TTI).
+  codeReview: >-
+    Review the routes, assets, and loading behavior that affect Optimize
+    JavaScript bundle size. Flag exact files, requests, or rendering steps that
+    add unnecessary network, CPU, or layout cost, and describe the measurement
+    method used to confirm the issue.
+aiContext: >-
+  Use when auditing slow page loads, heavy assets, or rendering delays related
+  to Optimize JavaScript bundle size. Verify the actual bottleneck in DevTools,
+  Lighthouse, or field data before recommending changes.
+sources:
+  - title: 'web.dev: Learn Performance'
+    url: 'https://web.dev/learn/performance'
+    type: guide
+    id: web-dev-learn-performance
+    role: reference
+    authority: primary
+  - title: 'Chrome Developers: Lighthouse overview'
+    url: 'https://developer.chrome.com/docs/lighthouse/overview/'
+    type: guide
+    id: chrome-developers-lighthouse-overview
+    role: implementation
+    authority: primary
+resources:
+  - name: PageSpeed Insights
+    url: 'https://pagespeed.web.dev/'
+    type: tool
+relatedRules:
+  - slug: page-weight
+    reason: >-
+      Both rules sit in the `performance/assets` area and are commonly reviewed
+      together.
+  - slug: css-file-size
+    reason: >-
+      Both rules sit in the `performance/assets` area and are commonly reviewed
+      together.
+  - slug: compression
+    reason: >-
+      Both rules sit in the `performance/assets` area and are commonly reviewed
+      together.
+  - slug: http-requests
+    reason: >-
+      Both rules sit in the `performance/assets` area and are commonly reviewed
+      together.
+---
+Excessive JavaScript is one of the biggest contributors to poor web performance. Unlike images, which only need to be decoded, JavaScript must be downloaded, parsed, compiled, and executed.
+
+## Code Examples
+
+#
+
+## Using Dynamic Imports (Next.js/React)
+```jsx
+import dynamic from 'next/dynamic'
+
+const HeavyComponent = dynamic(() => import('./HeavyComponent'), {
+  loading: () => <p>Loading...</p>,
+})
+
+export default function Page() {
+  return (
+    <div>
+      <HeavyComponent />
+    </div>
+  )
+}
+```
+
+### Tree Shaking (ES Modules)
+```javascript
+// ✅ Good: Import only what you need
+import { format } from 'date-fns';
+
+// ❌ Bad: Import the whole library
+import _ from 'lodash'; 
+// Use instead: import debounce from 'lodash/debounce';
+```
+
+## Why It Matters
+
+- **Main Thread Blocking**: JavaScript execution happens on the main thread, blocking user interactions.
+- **Device Disparity**: A 1MB script might take 1s to parse on a flagship phone but 10s on a budget device.
+- **Data Usage**: Larger files consume more of the user's data plan, which is critical for users on metered connections.
+- **SEO Impact**: Slow interaction metrics (FID/INP) are part of Google's Core Web Vitals and can affect search rankings.
+
+## Best Practices
+
+✅ **Code Splitting**: Break large bundles into smaller, page-specific chunks.
+✅ **Tree Shaking**: Ensure your build tool (Webpack, Vite, Rollup) is removing unused exports.
+✅ **Audit Dependencies**: Use tools like `bundle-analyzer` to find "heavy" libraries.
+✅ **Compression**: Always serve JS with Gzip or Brotli compression.
+
+## Tools & Validation
+
+- [BundleAnalyzer](https://www.npmjs.com/package/webpack-bundle-analyzer)
+- [Lighthouse](https://developers.google.com/web/tools/lighthouse)
+- [BundlePhobia](https://bundlephobia.com/)
+- Browser DevTools Coverage tab
+
+## Verification
+
+### Automated Checks
+
+- Measure the affected page or flow in Lighthouse, PageSpeed Insights, or DevTools and confirm the targeted metric improves.
+- Inspect the network waterfall or performance timeline to confirm the intended resource or execution change actually took effect.
+
+### Manual Checks
+
+- Verify the change on a throttled mobile profile, not just local desktop.
+- If this rule maps to a budget or Web Vital, confirm the page now stays within that threshold.

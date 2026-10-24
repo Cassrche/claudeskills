@@ -1,0 +1,187 @@
+---
+title: Load non-critical code on user interaction
+description: >-
+  Defer JavaScript modules, widgets, and third-party code until the user signals
+  intent through a click, focus, hover, or similar interaction.
+categories:
+  - performance
+subcategory: loading
+priority: high
+difficulty: intermediate
+estimatedTime: 20
+tldr:
+  - >-
+    Move non-essential code behind clicks, focus, hovers, or explicit user
+    actions
+  - Use dynamic import() so the code is absent from the initial route bundle
+  - Show immediate UI feedback while the deferred chunk loads
+  - >-
+    Use this for chat widgets, editors, maps, filters, and export flows that are
+    not needed on first paint
+whyItMatters: >-
+  Users should not pay the download, parse, and execution cost for features they
+  may never use. Import-on-interaction shrinks initial JavaScript, reduces
+  main-thread work during page load, and keeps the first view focused on content
+  that matters immediately.
+aiContext: >-
+  Use when reviewing slow initial loads caused by optional features. Prioritize
+  code that is expensive to download or execute and not required for the first
+  viewport, first input, or core task completion.
+prompts:
+  check: >-
+    Inspect this route or component for heavy modules, widgets, or third-party
+    scripts that load on first render but are only needed after a user clicks,
+    focuses, hovers, or opens a panel.
+  fix: >-
+    Move the non-critical dependency behind a user-triggered dynamic import(),
+    add immediate loading feedback, and ensure the initial render still works
+    without the deferred feature.
+  explain: >-
+    Explain import-on-interaction, why it improves initial performance, and
+    which features are safe to defer until the user shows intent.
+  codeReview: >-
+    Inspect event handlers, modal triggers, drawers, editors, maps, export
+    actions, and third-party widgets. Flag code that is included in the initial
+    bundle even though it is only needed after a user interaction, and verify
+    the fix keeps the initial path lighter without degrading the triggered flow.
+sources:
+  - title: 'Patterns.dev: Import On Interaction'
+    url: 'https://www.patterns.dev/vanilla/import-on-interaction/'
+    type: guide
+    id: patterns-dev-import-on-interaction
+    role: reference
+    authority: secondary
+  - title: 'MDN: import()'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/import
+    type: mdn
+    id: mdn-import
+    role: reference
+    authority: primary
+  - title: 'web.dev: Code splitting with dynamic imports in Next.js'
+    url: 'https://web.dev/articles/code-splitting-with-dynamic-imports-in-nextjs'
+    type: guide
+    id: web-dev-code-splitting-with-dynamic-imports-in-next-js
+    role: implementation
+    authority: primary
+resources:
+  - name: PageSpeed Insights
+    url: 'https://pagespeed.web.dev/'
+    type: tool
+  - name: Chrome DevTools Coverage
+    url: 'https://developer.chrome.com/docs/devtools/coverage/'
+    type: reference
+relatedRules:
+  - slug: third-party-scripts
+    reason: >-
+      Many third-party integrations should move behind explicit user intent
+      instead of loading on first render
+  - slug: resource-hints
+    reason: >-
+      Prefetch can complement interaction-based loading when the next action is
+      likely
+  - slug: lazy-loading
+    reason: >-
+      Both rules defer non-critical work, but this one targets JavaScript and
+      widgets rather than media alone
+  - slug: import-on-visibility
+    reason: >-
+      Both rules sit in the `performance/loading` area and are commonly reviewed
+      together.
+---
+Import-on-interaction delays code loading until the user does something that proves the feature is relevant. It is especially useful for features that are expensive but optional on the initial view.
+## Code Examples
+
+#
+
+## Plain JavaScript Dynamic Import
+
+```javascript
+// ❌ Bad: Heavy code is loaded for every visitor
+import { openProductConfigurator } from './product-configurator.js'
+
+document.querySelector('#configure').addEventListener('click', () => {
+  openProductConfigurator()
+})
+
+// ✅ Good: Load only when the user asks for it
+document.querySelector('#configure').addEventListener('click', async () => {
+  showConfiguratorSkeleton()
+
+  const { openProductConfigurator } = await import('./product-configurator.js')
+  openProductConfigurator()
+})
+```
+
+### Load a Third-Party Widget After Intent
+
+```javascript
+const chatButton = document.querySelector('#open-chat')
+
+chatButton.addEventListener('click', async () => {
+  chatButton.disabled = true
+  chatButton.textContent = 'Loading chat...'
+
+  const { bootChat } = await import('./chat-loader.js')
+  await bootChat()
+})
+```
+
+### React Example
+
+```tsx
+import { useState } from 'react'
+
+export function ExportButton() {
+  const [loading, setLoading] = useState(false)
+
+  async function handleExport() {
+    setLoading(true)
+
+    const { exportReport } = await import('./export-report')
+    await exportReport()
+
+    setLoading(false)
+  }
+
+  return (
+    <button onClick={handleExport} disabled={loading}>
+      {loading ? 'Preparing export...' : 'Export report'}
+    </button>
+  )
+}
+```
+
+## Why It Matters
+
+- **Smaller initial bundles**: Users do not download feature code they may never use.
+- **Less main-thread work**: Deferring parse and execution work reduces competition with critical rendering and input handling.
+- **Better prioritisation**: The browser can focus on content, LCP resources, and essential app logic before optional features.
+- **Cleaner third-party strategy**: Widgets like chat, reviews, maps, and rich editors often belong behind explicit intent instead of first paint.
+
+## When to Use It
+
+Use import-on-interaction for:
+
+- Chat widgets
+- Rich text editors
+- Map embeds
+- Export and print flows
+- Advanced filters, configurators, and comparison tools
+
+Avoid it for:
+
+- Navigation needed on the first screen
+- The primary purchase or sign-in action
+- Above-the-fold media or content needed for LCP
+- Code required before the first user interaction can succeed
+
+## Verification
+
+Use [Chrome DevTools Coverage](https://developer.chrome.com/docs/devtools/coverage/) or a waterfall trace to confirm the deferred module is actually absent from the initial path, not just moved to a different eager bundle.
+
+1. Confirm the deferred module is absent from the initial route bundle or first-load network waterfall.
+2. Trigger the interaction and verify the import request starts immediately and the UI shows a loading state within roughly `100ms`.
+3. Re-test the same flow and confirm repeat interactions reuse the cached chunk without another full download.
+4. Measure the route before and after the change and confirm the initial JavaScript cost or main-thread work decreases.
+5. Verify the interaction still feels responsive on a throttled mobile profile and does not create new long tasks above `50ms` before the deferred feature starts loading.

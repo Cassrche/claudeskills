@@ -1,0 +1,238 @@
+---
+title: Prioritize loading critical images
+description: Hero and above-the-fold images are preloaded with high fetch priority for LCP.
+categories:
+  - images
+  - performance
+subcategory: loading
+priority: high
+difficulty: beginner
+estimatedTime: 15
+tldr:
+  - Use fetchpriority='high' on LCP images
+  - Preload hero images in document head
+  - Remove loading='lazy' from above-the-fold images
+  - Critical images directly impact LCP Core Web Vital
+whyItMatters: >-
+  The Largest Contentful Paint (LCP) is often an image—prioritizing its load can
+  improve LCP by 20-40%, directly impacting Core Web Vitals and SEO.
+prompts:
+  check: >-
+    Identify which images are critical for initial render and ensure they load
+    with high priority.
+  fix: Add fetchpriority='high' to critical images and use preload for hero images.
+  explain: >-
+    Explain how prioritizing critical images improves Largest Contentful Paint
+    (LCP).
+  codeReview: >-
+    Review image assets, markup, and delivery configuration related to
+    Prioritize loading critical images. Flag exact files or components where
+    format choice, sizing, or loading behavior violates the rule, and describe
+    how to confirm the fix in DevTools.
+aiContext: >-
+  Use when reviewing image assets, markup, and CDN or build transforms related
+  to Prioritize loading critical images. Check encoded size, rendered size,
+  loading strategy, and above-the-fold impact together.
+sources:
+  - title: 'MDN: Responsive images'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Learn/HTML/Multimedia_and_embedding/Responsive_images
+    type: mdn
+    id: mdn-responsive-images
+    role: reference
+    authority: primary
+  - title: 'web.dev: Image performance'
+    url: 'https://web.dev/learn/performance/image-performance'
+    type: guide
+    id: web-dev-image-performance
+    role: implementation
+    authority: primary
+resources:
+  - name: Squoosh
+    url: 'https://squoosh.app/'
+    type: tool
+relatedRules:
+  - slug: offscreen-lazy
+    reason: Both rules affect images quality and can fail in the same implementation.
+  - slug: dimensions
+    reason: >-
+      Both rules sit in the `images/loading` area and are commonly reviewed
+      together.
+  - slug: fetchpriority-attribute
+    reason: >-
+      Both rules sit in the `images/loading` area and are commonly reviewed
+      together.
+  - slug: lazy-loading
+    reason: >-
+      Both rules sit in the `images/loading` area and are commonly reviewed
+      together.
+---
+Critical images should load before non-essential content to optimize LCP.
+
+## Code Example
+
+```html
+<head>
+  <!-- Preload hero image for fastest loading -->
+  <link
+    rel="preload"
+    as="image"
+    href="/images/hero.webp"
+    type="image/webp"
+    fetchpriority="high"
+  >
+
+  <!-- With responsive images -->
+  <link
+    rel="preload"
+    as="image"
+    href="/images/hero-mobile.webp"
+    media="(max-width: 768px)"
+    type="image/webp"
+  >
+  <link
+    rel="preload"
+    as="image"
+    href="/images/hero-desktop.webp"
+    media="(min-width: 769px)"
+    type="image/webp"
+  >
+</head>
+```
+
+## Why It Matters
+
+The Largest Contentful Paint (LCP) is often an image—prioritizing its load can improve LCP by 20-40%, directly impacting Core Web Vitals and SEO.
+
+## Identifying Critical Images
+
+| Location | Priority | Action |
+|----------|----------|--------|
+| Hero/banner | Highest | Preload + fetchpriority="high" |
+| Above the fold | High | fetchpriority="high", no lazy loading |
+| Below the fold | Normal | loading="lazy" |
+| Footer images | Low | loading="lazy", decoding="async" |
+
+## Fetch Priority Attribute
+
+```html
+<!-- ❌ Bad: LCP image loads with normal priority -->
+<img src="hero.webp" alt="Hero image">
+
+<!-- ✅ Good: LCP image loads with high priority -->
+<img
+  src="hero.webp"
+  alt="Hero image"
+  fetchpriority="high"
+  width="1200"
+  height="600"
+>
+
+<!-- ❌ Bad: Critical image lazy loaded -->
+<img src="hero.webp" alt="Hero" loading="lazy">
+
+<!-- ✅ Good: Critical image loads eagerly (default) -->
+<img src="hero.webp" alt="Hero" loading="eager" fetchpriority="high">
+```
+
+## Next.js Image Priority
+
+```tsx
+import Image from 'next/image'
+
+function HeroSection() {
+  return (
+    <section>
+      {/* priority prop adds fetchpriority and disables lazy loading */}
+      <Image
+        src="/hero.webp"
+        alt="Welcome to our site"
+        width={1200}
+        height={600}
+        priority
+        quality={85}
+      />
+    </section>
+  )
+}
+
+// Below-the-fold images use default lazy loading
+function ContentSection() {
+  return (
+    <Image
+      src="/content-image.webp"
+      alt="Content"
+      width={800}
+      height={400}
+      // No priority = lazy loaded by default
+    />
+  )
+}
+```
+
+## React Component with Priority
+
+```tsx
+interface OptimizedImageProps {
+  src: string
+  alt: string
+  width: number
+  height: number
+  priority?: boolean
+}
+
+function OptimizedImage({ src, alt, width, height, priority }: OptimizedImageProps) {
+  return (
+    <img
+      src={src}
+      alt={alt}
+      width={width}
+      height={height}
+      loading={priority ? 'eager' : 'lazy'}
+      decoding={priority ? 'sync' : 'async'}
+      fetchPriority={priority ? 'high' : 'auto'}
+    />
+  )
+}
+```
+
+## Background Images
+
+```css
+/* Preload critical background image */
+.hero {
+  background-image: url('/hero.webp');
+}
+```
+
+```html
+<head>
+  <!-- Preload background image -->
+  <link rel="preload" as="image" href="/hero.webp">
+</head>
+```
+
+## Measuring LCP
+
+```javascript
+// Identify LCP element
+new PerformanceObserver((entryList) => {
+  const entries = entryList.getEntries()
+  const lastEntry = entries[entries.length - 1]
+  console.log('LCP element:', lastEntry.element)
+  console.log('LCP time:', lastEntry.startTime)
+}).observe({ type: 'largest-contentful-paint', buffered: true })
+```
+
+## Verification
+
+### Automated Checks
+
+- Run Lighthouse—check LCP time and element
+- Use Chrome DevTools Network tab with "Priority" column visible
+
+### Manual Checks
+
+- Verify hero image loads before below-fold content
+- Check preload hints appear in document head
+- Confirm critical images don't have `loading="lazy"`

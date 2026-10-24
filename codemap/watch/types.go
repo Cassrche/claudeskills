@@ -1,0 +1,89 @@
+package watch
+
+import (
+	"sync"
+	"time"
+
+	"codemap/scanner"
+	"codemap/topology"
+)
+
+// Event represents a file change event with timestamp and structural context
+type Event struct {
+	Time      time.Time `json:"time"`
+	Op        string    `json:"op"`             // CREATE, WRITE, REMOVE, RENAME
+	Path      string    `json:"path"`           // relative path
+	Language  string    `json:"lang,omitempty"` // go, py, js, etc.
+	Lines     int       `json:"lines,omitempty"`
+	Delta     int       `json:"delta,omitempty"` // line count change (+/-)
+	SizeDelta int64     `json:"size_delta,omitempty"`
+	Dirty     bool      `json:"dirty,omitempty"` // uncommitted changes
+	// Structural context from deps
+	Importers        int           `json:"importers,omitempty"`   // how many files import this
+	Imports          int           `json:"imports,omitempty"`     // how many files this imports
+	IsHub            bool          `json:"is_hub,omitempty"`      // importers >= 3
+	RelatedHot       []string      `json:"related_hot,omitempty"` // connected files also edited recently
+	ModuleIDs        []topology.ID `json:"module_ids,omitempty"`
+	ModuleDependents int           `json:"module_dependents,omitempty"`
+}
+
+// FileState tracks lightweight per-file state for delta calculations
+type FileState struct {
+	Lines   int
+	Size    int64
+	ModTime int64
+}
+
+// DepContext holds pre-computed dependency context for a file
+type DepContext struct {
+	Imports   []string // files this file imports
+	Importers []string // files that import this file
+}
+
+// Graph holds the live code graph state
+type Graph struct {
+	mu               sync.RWMutex
+	Root             string
+	Files            map[string]*scanner.FileInfo // path -> file info
+	ConfiguredFiles  map[string]struct{}          // paths included by the active project filters
+	FileGraph        *scanner.FileGraph           // internal file-to-file dependencies
+	Topology         *topology.Graph              // independent project/module topology
+	TopologyIdentity topology.CacheIdentity       // cache identity for the current topology
+	DepCtx           map[string]*DepContext       // path -> dependency context (precomputed)
+	State            map[string]*FileState        // path -> line/size cache for deltas
+	Events           []Event
+	WorkingSet       *WorkingSet // session working set
+	LastScan         time.Time
+	IsGitRepo        bool
+	HasDeps          bool // whether deps were successfully computed
+	GraphState       GraphState
+	graphGeneration  uint64
+}
+
+// State represents the daemon state that hooks can read
+type State struct {
+	Root                string                `json:"root,omitempty"`
+	CanonicalRoot       string                `json:"canonical_root,omitempty"`
+	DaemonInstance      string                `json:"daemon_instance,omitempty"`
+	Generation          uint64                `json:"generation,omitempty"`
+	UpdatedAt           time.Time             `json:"updated_at"`
+	FileCount           int                   `json:"file_count"`
+	ConfiguredFileCount *int                  `json:"configured_file_count,omitempty"`
+	Hubs                []string              `json:"hubs"`
+	Importers           map[string][]string   `json:"importers"`     // file -> files that import it
+	Imports             map[string][]string   `json:"imports"`       // file -> files it imports
+	RecentEvents        []Event               `json:"recent_events"` // last 50 events for timeline
+	WorkingSet          *WorkingSet           `json:"working_set,omitempty"`
+	Coverage            scanner.GraphCoverage `json:"coverage,omitempty"`
+	Graph               *GraphState           `json:"graph,omitempty"`
+}
+
+// ConfiguredCount returns the persisted count for the active project filters.
+// Old state files did not include this field, so callers can distinguish them
+// from a current state that legitimately contains zero configured files.
+func (s *State) ConfiguredCount() (int, bool) {
+	if s == nil || s.ConfiguredFileCount == nil {
+		return 0, false
+	}
+	return *s.ConfiguredFileCount, true
+}

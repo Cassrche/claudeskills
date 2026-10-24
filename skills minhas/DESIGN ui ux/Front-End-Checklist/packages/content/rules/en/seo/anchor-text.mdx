@@ -1,0 +1,119 @@
+---
+title: Use descriptive anchor text
+description: >-
+  Checks for descriptive, keyword-rich anchor text that provides context for
+  users and search engines.
+categories:
+  - seo
+subcategory: content
+priority: medium
+difficulty: beginner
+estimatedTime: 5
+tldr:
+  - >-
+    Use descriptive text for links instead of generic phrases like 'click here'
+    or 'read more'
+  - >-
+    Ensure the anchor text provides clear context about the linked page's
+    content
+  - Avoid over-optimizing with excessive keyword stuffing in your internal links
+whyItMatters: >-
+  Descriptive anchor text helps search engines understand the context of the
+  linked page and significantly improves accessibility for users using screen
+  readers.
+prompts:
+  check: >-
+    Verify that all links in the content use descriptive anchor text that
+    accurately describes the target page.
+  fix: >-
+    Replace generic link text like 'click here' with descriptive phrases that
+    include relevant keywords for the destination page.
+  explain: >-
+    Explain how descriptive anchor text improves both SEO crawlability and web
+    accessibility for disabled users.
+  codeReview: >-
+    Review metadata generation, rendered HTML, structured data, and response
+    headers related to Use descriptive anchor text. Flag exact routes or
+    templates where search-facing output violates the rule, and describe how to
+    verify the final page output.
+aiContext: >-
+  Use when auditing metadata, crawlability, structured data, or indexability
+  related to Use descriptive anchor text. Verify the rendered HTML and HTTP
+  response rather than relying only on source files.
+sources:
+  - title: 'Google Search Central: Search Essentials'
+    url: 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide'
+    type: google
+    id: google-search-central-search-essentials
+    role: search
+    authority: primary
+  - title: Google Search Central documentation
+    url: 'https://developers.google.com/search/docs'
+    type: google
+    id: google-search-central-documentation
+    role: implementation
+    authority: primary
+resources:
+  - name: Google Search Console
+    url: 'https://search.google.com/search-console/about'
+    type: tool
+relatedRules:
+  - slug: keyword-stuffing
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+  - slug: llm-parsability
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+  - slug: link-text
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+  - slug: article-links
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+---
+Anchor text is the clickable text in a hyperlink. It should provide a clear indication of what the user will find when they click the link.
+
+## Code Example
+
+```html
+<!-- ✅ Good: Descriptive and contextual -->
+<p>For more information, read our <a href="/seo-guide">complete guide to SEO best practices</a>.</p>
+
+<!-- ❌ Bad: Generic and provides no context -->
+<p>To learn more about our SEO services, <a href="/seo-guide">click here</a>.</p>
+```
+
+## Why It Matters
+
+- **Search Context**: Tells search engines what the linked page is about, helping it rank for those terms.
+- **Accessibility**: Screen reader users often navigate via a list of links; descriptive text makes this list meaningful.
+- **User Trust**: Users are more likely to click a link when they know exactly where it leads.
+- **Internal Navigation**: Helps distribute authority throughout your site by creating a logical web of related content.
+
+## Exceptions
+
+- Utility or intentionally noindex pages may keep minimal metadata when richer search presentation is not a goal.
+- Template-driven pages can look repetitive in isolation; confirm the fully rendered production output before flagging duplication or omission.
+- If a page is intentionally redirected or excluded from indexation, resolve that crawlability decision before treating metadata polish as the primary issue.
+
+## Standards
+
+- Use these references as the standard for the final search-facing HTML, metadata, and crawl behavior.
+- Check the implementation against Google Search Central: Search Essentials before treating the rule as satisfied.
+- Check the implementation against Google Search Central documentation before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

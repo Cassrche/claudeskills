@@ -1,0 +1,210 @@
+---
+title: Maintain test coverage thresholds
+description: >-
+  Set and enforce minimum code coverage thresholds to ensure adequate test
+  coverage.
+categories:
+  - testing
+subcategory: best-practices
+priority: medium
+difficulty: beginner
+estimatedTime: 15
+tldr:
+  - 'Set global thresholds: 70% branches, 80% lines/functions/statements'
+  - Apply stricter thresholds (90%+) to critical utility code
+  - 'Exclude generated code, type definitions, and config files'
+  - 'Focus on meaningful coverage—test behavior, not just lines'
+whyItMatters: >-
+  Coverage thresholds prevent code quality from degrading over time by failing
+  builds when test coverage drops below safe levels.
+relatedRules:
+  - slug: unit-tests
+    reason: Unit tests contribute to coverage metrics
+  - slug: integration-testing
+    reason: Integration tests also count toward coverage
+  - slug: mutation-testing
+    reason: >-
+      Both rules sit in the `testing/best-practices` area and are commonly
+      reviewed together.
+  - slug: error-monitoring
+    reason: >-
+      Both rules sit in the `testing/best-practices` area and are commonly
+      reviewed together.
+prompts:
+  check: >-
+    Review this project's test coverage configuration to ensure minimum
+    thresholds are set and enforced in CI/CD.
+  fix: >-
+    Configure coverage thresholds in Jest, Vitest, or your testing framework,
+    and add coverage checks to CI/CD.
+  explain: >-
+    Explain how to set up test coverage thresholds and what coverage levels are
+    appropriate for different types of code.
+  codeReview: >-
+    Review tests, CI workflows, and enforcement points related to Maintain test
+    coverage thresholds. Flag exact gaps where the rule is not automatically
+    verified or where failures do not block regressions.
+aiContext: >-
+  Use when reviewing CI coverage, automated checks, or test strategy related to
+  Maintain test coverage thresholds. Focus on whether the rule is continuously
+  verified, not just documented.
+sources:
+  - title: Playwright Docs
+    url: 'https://playwright.dev/docs/intro'
+    type: guide
+    id: playwright-docs
+    role: reference
+    authority: primary
+  - title: Testing Library Guiding Principles
+    url: 'https://testing-library.com/docs/guiding-principles'
+    type: guide
+    id: testing-library-guiding-principles
+    role: implementation
+    authority: primary
+resources:
+  - name: Playwright
+    url: 'https://playwright.dev/'
+    type: tool
+---
+Test coverage thresholds prevent code quality from degrading over time by failing builds when coverage drops below acceptable levels.
+
+## Code Example
+
+```javascript
+// jest.config.js
+module.exports = {
+  collectCoverageFrom: [
+    'src/**/*.{js,jsx,ts,tsx}',
+    '!src/**/*.d.ts',
+    '!src/**/*.stories.{js,jsx,ts,tsx}',
+    '!src/**/index.{js,ts}' // Re-exports only
+  ],
+  coverageThreshold: {
+    global: {
+      branches: 70,
+      functions: 80,
+      lines: 80,
+      statements: 80
+    },
+    // Stricter thresholds for critical code
+    './src/utils/': {
+      branches: 90,
+      functions: 95,
+      lines: 95,
+      statements: 95
+    }
+  },
+  coverageReporters: ['text', 'lcov', 'html']
+}
+```
+
+## Why It Matters
+
+Coverage thresholds prevent code quality from degrading over time by failing builds when test coverage drops below safe levels.
+
+## Recommended Thresholds
+
+| Coverage Type | Minimum | Good | Excellent |
+|---------------|---------|------|-----------|
+| Statements | 60% | 80% | 90%+ |
+| Branches | 60% | 75% | 85%+ |
+| Functions | 70% | 85% | 95%+ |
+| Lines | 60% | 80% | 90%+ |
+
+## Vitest Configuration
+
+```typescript
+// vitest.config.ts
+import { defineConfig } from 'vitest/config'
+
+export default defineConfig({
+  test: {
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      thresholds: {
+        lines: 80,
+        branches: 70,
+        functions: 80,
+        statements: 80
+      },
+      exclude: [
+        'node_modules/',
+        'test/',
+        '**/*.d.ts',
+        '**/*.config.{js,ts}'
+      ]
+    }
+  }
+})
+```
+
+## CI/CD Integration
+
+#
+
+## GitHub Actions
+
+```yaml
+name: Tests
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      - run: npm ci
+      - run: npm test -- --coverage --coverageReporters=text-lcov > coverage.lcov
+
+      # Upload to Codecov
+      - uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.lcov
+          fail_ci_if_error: true
+
+      # Or upload to Coveralls
+      - uses: coverallsapp/github-action@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+## Best Practices
+
+### Focus on Meaningful Coverage
+
+```javascript
+// ✅ Good: Test behavior, not just lines
+test('validates email format', () => {
+  expect(isValidEmail('user@example.com')).toBe(true)
+  expect(isValidEmail('invalid')).toBe(false)
+  expect(isValidEmail('')).toBe(false)
+  expect(isValidEmail('user@.com')).toBe(false)
+})
+
+// ❌ Bad: Just hitting lines without meaningful assertions
+test('calls isValidEmail', () => {
+  isValidEmail('test@test.com')
+  // No assertions!
+})
+```
+
+### Exclude Generated Code
+
+```javascript
+// jest.config.js
+collectCoverageFrom: [
+  'src/**/*.{ts,tsx}',
+  '!src/**/*.generated.ts',
+  '!src/graphql/types.ts',
+  '!src/**/__mocks__/**'
+]
+```
+
+## Verification
+
+1. Run the relevant test or CI step locally and confirm it fails when the rule is violated.
+2. Ensure the automation blocks regressions instead of only printing warnings.
+3. Cover at least one representative high-risk flow, component, or route.
+4. Keep thresholds or assertions in version control so changes remain reviewable.

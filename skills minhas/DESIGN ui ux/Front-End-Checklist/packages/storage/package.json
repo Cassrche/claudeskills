@@ -1,0 +1,27 @@
+{
+  "name": "@repo/storage",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Client storage abstraction for Front-End Checklist",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "biome check .",
+    "test": "jest --watchman=false --passWithNoTests",
+    "test:ci": "jest --watchman=false --ci --passWithNoTests",
+    "test:coverage": "jest --watchman=false --coverage --ci --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@repo/config": "workspace:*",
+    "@repo/schemas": "workspace:*",
+    "@repo/types": "workspace:*",
+    "idb": "^8.0.3"
+  },
+  "devDependencies": {
+    "@repo/config-typescript": "workspace:^",
+    "@types/node": "catalog:",
+    "jest": "catalog:",
+    "typescript": "catalog:"
+  }
+}

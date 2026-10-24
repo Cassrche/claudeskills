@@ -1,0 +1,193 @@
+---
+title: Ensure ARIA roles contain required child roles
+description: >-
+  Elements with certain ARIA roles must contain the required child roles or the
+  widget structure will be broken for assistive technologies.
+categories:
+  - accessibility
+subcategory: aria
+priority: high
+difficulty: intermediate
+estimatedTime: 15
+tldr:
+  - >-
+    Container roles mandate specific owned child roles: `tablist` → `tab`,
+    `list`/`listbox` → `listitem`/`option`, `menu`/`menubar` → `menuitem`,
+    `tree` → `treeitem`, `grid`/`rowgroup` → `row`
+  - >-
+    Missing required children break the accessibility tree so screen readers
+    cannot enumerate items or announce counts
+  - >-
+    Use `role='none'` or `role='presentation'` on purely structural wrapper
+    elements inside the container to avoid invalid nesting
+  - Applies to WAI-ARIA 1.2 required owned elements for composite widget roles
+whyItMatters: >-
+  Screen readers like NVDA and VoiceOver navigate composite widgets (menus,
+  tabs, trees) by moving between the required child roles. If a `tablist`
+  contains `<div>` elements instead of `role='tab'`, the user hears no tabs at
+  all. JAWS announces 'list of 5 items' only when `role='listitem'` children
+  exist inside `role='list'`. Without correct nesting, the entire widget becomes
+  opaque to keyboard-only and screen reader users.
+aiContext: >-
+  Applies to custom ARIA widgets using composite roles: tablist, list, listbox,
+  menu, menubar, tree, treegrid, grid, rowgroup, row, radiogroup. Use when
+  reviewing components built with div/span elements that replace native HTML
+  list, select, or nav elements.
+prompts:
+  check: >-
+    Identify all elements with ARIA container roles (tablist, list, listbox,
+    menu, menubar, tree, treegrid, grid, rowgroup, radiogroup). For each, verify
+    it contains the required owned child roles per the WAI-ARIA spec: tablist
+    must own tab elements; list must own listitem; listbox must own option;
+    menu/menubar must own menuitem, menuitemcheckbox, or menuitemradio; tree
+    must own treeitem; grid must own row (which owns gridcell); radiogroup must
+    own radio. Flag any container roles missing required children.
+  fix: >-
+    For each container role missing its required children: (1) Add the correct
+    role to each child element — e.g., add `role='tab'` to each tab button
+    inside `role='tablist'`. (2) If wrapper `<div>` elements exist between the
+    container and the required children for layout purposes, add `role='none'`
+    or `role='presentation'` to those wrappers. (3) Prefer native HTML
+    equivalents where possible: `<ul>`/`<li>` instead of
+    `role='list'`/`role='listitem'`, `<select>`/`<option>` instead of
+    `role='listbox'`/`role='option'`.
+  explain: >-
+    WAI-ARIA 1.2 defines 'required owned elements' for composite widget roles —
+    these are the child roles a container must contain for the widget to be
+    valid. Screen readers build their understanding of a widget from this
+    structure. A `tablist` without `tab` children means a screen reader user in
+    Forms Mode will find nothing to navigate between. A `menu` without
+    `menuitem` children will not be announced as a menu at all in some ATs. This
+    is distinct from aria-required-parent, which checks the inverse direction.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Ensure ARIA
+    roles contain required child roles. Flag exact elements, roles, labels,
+    focus behavior, or keyboard interactions that violate the rule, and note how
+    to verify the fix with browser accessibility tooling or assistive tech.
+sources:
+  - title: 'WAI-ARIA 1.2: Required Owned Elements'
+    url: 'https://www.w3.org/TR/wai-aria-1.2/#mustContain'
+    type: spec
+    id: wai-aria-1-2-required-owned-elements
+    role: standard
+    authority: primary
+  - title: 'WAI-ARIA 1.2: Role Definitions'
+    url: 'https://www.w3.org/TR/wai-aria-1.2/#role_definitions'
+    type: spec
+    id: wai-aria-1-2-role-definitions
+    role: standard
+    authority: primary
+  - title: 'WCAG 2.1 SC 4.1.2: Name, Role, Value'
+    url: 'https://www.w3.org/TR/WCAG21/#name-role-value'
+    type: wcag
+    id: wcag-2-1-sc-4-1-2-name-role-value
+    role: standard
+    authority: primary
+  - title: 'MDN: ARIA roles'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles'
+    type: mdn
+    id: mdn-aria-roles
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: aria-required-parent
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: listitem
+    reason: >-
+      Both rules affect accessibility quality and can fail in the same
+      implementation.
+  - slug: decorative-elements
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-allowed-attr
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+---
+Complex ARIA widgets often require a specific nesting structure where a parent role must contain children with specific roles. The WAI-ARIA spec calls these [required owned elements](https://www.w3.org/TR/wai-aria-1.2/#mustContain), and getting them wrong often goes hand-in-hand with [required parent role](/en/rules/accessibility/aria-required-parent) failures.
+## Code Example
+
+```html
+<!-- ✅ Correct: tablist owns tab children -->
+<div role="tablist" aria-label="Settings sections">
+  <button role="tab" aria-selected="true" aria-controls="panel-1" id="tab-1">General</button>
+  <button role="tab" aria-selected="false" aria-controls="panel-2" id="tab-2">Security</button>
+</div>
+<div role="tabpanel" id="panel-1" aria-labelledby="tab-1">General settings content</div>
+<div role="tabpanel" id="panel-2" aria-labelledby="tab-2" hidden>Security settings content</div>
+
+<!-- ✅ Correct: listbox owns option children -->
+<ul role="listbox" aria-label="Select a country">
+  <li role="option" aria-selected="false">France</li>
+  <li role="option" aria-selected="true">Germany</li>
+  <li role="option" aria-selected="false">Spain</li>
+</ul>
+
+<!-- ❌ Incorrect: tablist contains divs, not tab roles -->
+<div role="tablist">
+  <div class="tab active">General</div>
+  <div class="tab">Security</div>
+</div>
+
+<!-- ✅ Using role="none" on layout wrappers inside a menu -->
+<ul role="menu">
+  <li role="none">
+    <a href="/profile" role="menuitem">Profile</a>
+  </li>
+  <li role="none">
+    <a href="/settings" role="menuitem">Settings</a>
+  </li>
+</ul>
+```
+
+## Why It Matters
+
+- **Navigation Logic**: Screen readers allow users to jump between items in a list or tabs in a tablist based on these roles.
+- **Item Count**: Assistive technology announces the count of items (e.g., "tab 1 of 3") only when the required child roles exist.
+- **Widget Mode**: NVDA and JAWS enter a special interaction mode (Application Mode / Forms Mode) for composite widgets — this mode only activates when the widget structure is valid.
+- **Keyboard Patterns**: Arrow key navigation inside menus, trees, and grids depends on the AT finding the correct child roles to move between.
+
+## Required Parent → Child Relationships
+
+| Container Role | Required Child Roles |
+|---|---|
+| `tablist` | `tab` |
+| `list` | `listitem` |
+| `listbox` | `group` or `option` |
+| `menu` / `menubar` | `menuitem`, `menuitemcheckbox`, or `menuitemradio` |
+| `radiogroup` | `radio` |
+| `tree` | `treeitem` |
+| `treegrid` | `row` |
+| `grid` | `row` or `rowgroup` |
+| `row` (in grid/treegrid) | `cell`, `gridcell`, `columnheader`, `rowheader` |
+
+## Exceptions
+
+- Prefer native HTML semantics over ARIA when both are possible; some apparent ARIA failures disappear when the underlying element is corrected.
+- A missing ARIA attribute is not automatically the strongest finding if the control is already semantically broken, unnamed, or keyboard-inaccessible.
+- Do not add ARIA only to satisfy the rule if the feature should instead be implemented with a native element or a simpler interaction pattern.
+
+## Standards
+
+- Align the implementation with WAI-ARIA 1.2: Required Owned Elements and verify the rendered experience, not only the source code.
+- Align the implementation with WAI-ARIA 1.2: Role Definitions and verify the rendered experience, not only the source code.
+- Align the implementation with WCAG 2.1 SC 4.1.2: Name, Role, Value and verify the rendered experience, not only the source code.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

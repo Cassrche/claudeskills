@@ -1,0 +1,181 @@
+---
+title: Meta Tags in Body
+description: Detects meta tags incorrectly placed in document body
+categories:
+  - seo
+subcategory: meta-tags
+priority: high
+difficulty: beginner
+estimatedTime: 5
+tldr:
+  - 'All <meta> tags must appear inside <head>, never inside <body>'
+  - 'Browsers may ignore or move misplaced meta tags, making them ineffective'
+  - Crawlers like Googlebot only process meta tags found in <head>
+  - Validate with HTML validator or inspect parsed DOM to confirm placement
+whyItMatters: >-
+  Meta tags placed in the document body are ignored by search engines and most
+  browsers—directives like noindex or canonical-url are silently ineffective,
+  causing pages to be indexed or de-indexed unexpectedly.
+aiContext: >-
+  Use when auditing HTML document structure. Applies to any page where meta tags
+  (noindex, canonical-url, description, viewport, OG tags) may have been injected
+  into the body by CMS plugins, widgets, or JavaScript rendering.
+prompts:
+  check: >-
+    Parse the HTML and check whether any <meta> elements appear outside
+    <head>—i.e., inside <body> or after the </head> closing tag. Flag each
+    misplaced tag by name/property.
+  fix: >-
+    Move all <meta> tags into the <head> section before </head>. If they are
+    injected by a script after the DOM is built, refactor the injection to
+    target document.head instead of document.body.
+  explain: >-
+    Meta tags are document-level metadata and must live in <head>. When placed
+    in <body>, they fall outside the metadata model of the document—search
+    engines and browsers do not honour them, so directives like noindex or
+    canonical-url will have no effect.
+  codeReview: >-
+    Parse the rendered HTML and check the DOM structure. Find all <meta>
+    elements. For each one, traverse up the parent chain — if any ancestor is
+    <body> or if the element appears after </head> in the source, flag it. Pay
+    special attention to: meta name='robots', meta name='description', meta
+    property='og:*', and link rel='canonical' placed in body.
+relatedRules:
+  - slug: meta-title
+    reason: <title> must also be in <head>
+  - slug: canonical-url
+    reason: Canonical tags placed in <body> are also ignored
+  - slug: noindex-in-sitemap
+    reason: noindex directives in body won't be respected
+  - slug: robots-meta
+    reason: >-
+      Both rules sit in the `seo/meta-tags` area and are commonly reviewed
+      together.
+resources:
+  - title: W3C Markup Validator
+    url: 'https://validator.w3.org/'
+    type: guide
+sources:
+  - title: 'HTML Living Standard: The meta element'
+    url: 'https://html.spec.whatwg.org/multipage/semantics.html#the-meta-element'
+    type: spec
+    id: html-living-standard-the-meta-element
+    role: standard
+    authority: primary
+  - title: 'MDN: <meta> — The metadata element'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/meta'
+    type: mdn
+    id: mdn-meta-the-metadata-element
+    role: reference
+    authority: primary
+  - title: 'Google Search Central: Robots meta tag'
+    url: >-
+      https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag
+    type: guide
+    id: google-search-central-robots-meta-tag
+    role: search
+    authority: primary
+---
+The `<meta>` element is a metadata element defined in the HTML specification as valid only within `<head>`. Placing meta tags in `<body>` makes them invisible to search engines and may trigger HTML parse errors.
+
+## Code Examples
+
+```html
+<!-- ✅ Good: All meta tags inside <head> -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="index, follow" />
+  <meta name="description" content="Page description here." />
+  <meta property="og:title" content="Page Title" />
+  <link rel="canonical" href="https://example.com/page" />
+  <title>Page Title</title>
+</head>
+<body>
+  <!-- page content only -->
+</body>
+</html>
+```
+
+```html
+<!-- ❌ Bad: meta tags scattered in <body> -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Page Title</title>
+</head>
+<body>
+  <meta name="robots" content="noindex" />   <!-- IGNORED by Google -->
+  <meta property="og:title" content="..." /> <!-- IGNORED by Facebook -->
+  <div id="content">...</div>
+</body>
+</html>
+```
+
+## Why It Matters
+
+Meta tags placed in the document body are ignored by search engines and most browsers—directives like noindex or canonical-url are silently ineffective, causing pages to be indexed or de-indexed unexpectedly.
+
+## Why This Happens
+
+- CMS plugins inject meta tags via JavaScript after the DOM loads, targeting `document.body`
+- Template includes are assembled in the wrong order
+- Dynamic rendering injects tags with `innerHTML` into a container inside `<body>`
+- Copy-pasted snippets are added to the wrong section of a template
+
+## Fixing JavaScript Injection
+
+```js
+// ❌ Bad: injecting into body
+document.body.innerHTML += '<meta name="robots" content="noindex">';
+
+// ✅ Good: inject into head
+const meta = document.createElement('meta');
+meta.name = 'robots';
+meta.content = 'noindex';
+document.head.appendChild(meta);
+```
+
+## Framework-Specific Notes
+
+**Next.js**: Use the `metadata` export or `<Head>` component — never place `<meta>` tags directly in JSX outside those abstractions.
+
+**Nuxt**: Use `useHead()` or the `<Head>` component from `@unhead/vue`.
+
+**WordPress**: Use `wp_head` action hook; never `wp_footer` or manual body injection.
+
+## Detection
+
+```bash
+# Check rendered HTML for meta tags outside <head>
+# Look for <meta> tags that appear after </head> or inside <body>
+curl -s https://example.com/ | grep -o '<body.*<meta[^>]*>' | head
+```
+
+Use the [W3C Markup Validator](https://validator.w3.org/) or browser DevTools → Elements tab to inspect where meta tags are actually rendered in the DOM.
+
+## Exceptions
+
+- Utility or intentionally noindex pages may keep minimal metadata when richer search presentation is not a goal.
+- Template-driven pages can look repetitive in isolation; confirm the fully rendered production output before flagging duplication or omission.
+- If a page is intentionally redirected or excluded from indexation, resolve that crawlability decision before treating metadata polish as the primary issue.
+
+## Standards
+
+- Use these references as the standard for the final search-facing HTML, metadata, and crawl behavior.
+- Check the implementation against HTML Living Standard: The meta element before treating the rule as satisfied.
+- Check the implementation against MDN: `&lt;meta&gt;` — The metadata element before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

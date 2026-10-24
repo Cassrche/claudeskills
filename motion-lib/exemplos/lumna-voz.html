@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lumna Voz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Nunito:wght@500;600;700;800&display=block" rel="stylesheet">
+<style>
+/* Hallmark · macrostructure: motion spot atmosférico com celular, 6 tempos · genre: atmospheric · theme: studied-DNA
+ * DNA de movimento: referência do usuário (Kou_video) · cores e ícone: lumna.org (#2459f5, gradiente do ícone #087fe2 → #39d6c6)
+ * dials: ENERGY 2 / RHYTHM 3 / MOTION 3 · motivo: tudo entra por desfoque até ficar nítido, como foco de câmera
+ * conflito declarado: gate 47 (sem moldura de aparelho desenhada) cede ao pedido explícito do dono por um celular com o app
+ * telas do app: textos e caso clínico tirados de lumna.org; barras e nota são estado de demonstração
+ * Hallmark · pre-emit critique: P5 H5 E4 S4 R4 V5
+ */
+:root {
+  --color-night: #04070f;
+  --color-blue: #2459f5;
+  --color-icon-a: #087fe2;
+  --color-icon-b: #0755b5;
+  --color-icon-c: #39d6c6;
+  --color-volt: #ffc93d;
+  --color-text: #f7f9ff;
+  --color-text-2: #8d9ab8;
+  --color-chip: rgba(255, 255, 255, 0.1);
+
+  /* aparelho */
+  --color-frame-hi: #707989;
+  --color-frame: #2a2f39;
+  --color-frame-lo: #13161c;
+  --color-bezel: #030405;
+
+  /* app (claro, como a marca) */
+  --color-app-bg: #f2f5fc;
+  --color-app-card: #ffffff;
+  --color-app-ink: #0e1633;
+  --color-app-ink-2: #5f6b88;
+  --color-app-line: #e1e7f2;
+  --color-app-soft: #e7eeff;
+  --color-ok: #12a08f;
+  --color-touch: rgba(14, 22, 51, 0.16);
+  --color-app-shadow: rgba(14, 22, 51, 0.08);
+
+  --font-display: "Archivo", system-ui, sans-serif;
+  --font-body: "Nunito", ui-rounded, system-ui, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: clip; background: #000; }
+.stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; transform-origin: 0 0; background: var(--color-night); font-family: var(--font-body); color: var(--color-text); }
+.abs { position: absolute; }
+#world { position: absolute; inset: 0; transform-origin: 50% 50%; }
+.glow { position: absolute; border-radius: 50%; filter: blur(140px); }
+#glowA { width: 1300px; height: 1000px; background: var(--color-blue); opacity: 0.34; }
+#glowB { width: 900px; height: 800px; background: var(--color-icon-c); opacity: 0.14; }
+#phGlow { position: absolute; left: 0; top: 0; width: 620px; height: 760px; border-radius: 50%; background: var(--color-blue); filter: blur(130px); opacity: 0; }
+#vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(0, 0, 0, 0.72) 100%); pointer-events: none; }
+#grain { position: absolute; inset: -40px; opacity: 0.07; background-size: 256px 256px; pointer-events: none; }
+#fade { position: absolute; inset: 0; background: #000; opacity: 0; }
+
+.disp { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; }
+.w { display: inline-block; white-space: pre; will-change: transform, filter, opacity; }
+
+/* ícone oficial (lumna.org/icon.svg) */
+.icon { width: 120px; height: 120px; display: block; filter: drop-shadow(0 0 40px rgba(36, 89, 245, 0.55)); }
+
+/* Tempo 1 */
+#ic1 { left: 900px; top: 480px; }
+#t1 { top: 488px; font-size: 92px; white-space: nowrap; }
+
+/* Tempo 2 · caminho do dia */
+#t2 { left: 300px; top: 250px; font-size: 64px; }
+.orb { position: absolute; top: 400px; width: 340px; margin-left: -170px; text-align: center; }
+.disc { width: 230px; height: 230px; margin: 0 auto; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 30%, rgba(36, 89, 245, 0.55), rgba(7, 85, 181, 0.18) 55%, rgba(4, 7, 15, 0.9));
+  border: 2px solid rgba(255, 255, 255, 0.14); }
+.disc svg { width: 84px; height: 84px; stroke: var(--color-text); }
+.orb b { display: block; margin-top: 26px; font-family: var(--font-display); font-weight: 600; font-size: 32px; }
+.orb span { display: block; margin-top: 6px; font-size: 23px; color: var(--color-text-2); }
+#ring { position: absolute; left: 960px; top: 515px; width: 250px; height: 250px; margin: -125px 0 0 -125px; border-radius: 50%; border: 4px solid var(--color-icon-c); box-shadow: 0 0 50px rgba(57, 214, 198, 0.55), inset 0 0 40px rgba(57, 214, 198, 0.25); }
+
+/* Tempo 3 · quiz no celular */
+#h3q { left: 190px; top: 380px; width: 780px; }
+#h3q h2 { font-size: 72px; line-height: 1.08; }
+#h3p { margin-top: 26px; font-size: 30px; line-height: 1.42; color: var(--color-text-2); max-width: 640px; }
+
+/* Tempo 4 · bloco em 3D ao lado do celular */
+#p3 { position: absolute; inset: 0; perspective: 1500px; }
+#block { position: absolute; left: 990px; top: 345px; width: 780px; transform-style: preserve-3d; }
+#block h2 { font-size: 66px; }
+#block p { margin-top: 22px; font-size: 29px; line-height: 1.42; color: var(--color-text-2); max-width: 760px; }
+.cta { margin-top: 34px; display: inline-flex; align-items: center; gap: 14px; height: 64px; padding: 0 26px; border-radius: 32px; background: var(--color-chip); font-weight: 700; font-size: 26px; }
+.cta i { width: 12px; height: 12px; border-radius: 50%; background: var(--color-icon-c); box-shadow: 0 0 14px var(--color-icon-c); }
+
+/* Tempo 5 · frase */
+.line { position: absolute; left: 0; right: 0; text-align: center; font-size: 64px; white-space: nowrap; }
+#l5a { top: 488px; }
+#l5b { top: 488px; }
+
+/* Tempo 6 · assinatura */
+#ic6 { left: 900px; top: 470px; }
+#t6 { top: 476px; font-size: 112px; font-weight: 700; letter-spacing: -0.035em; white-space: nowrap; }
+#credit { left: 0; right: 0; top: 960px; text-align: center; font-size: 22px; color: var(--color-text-2); }
+
+/* ---------------------------------------------------------------- celular */
+#phWrap { position: absolute; left: 0; top: 0; width: 420px; height: 870px; perspective: 1900px; display: none; }
+#ph { position: absolute; inset: 0; transform-style: preserve-3d; }
+.ph-edge { position: absolute; inset: 0; border-radius: 70px; background: var(--color-frame-lo); }
+.ph-body { position: absolute; inset: 0; border-radius: 70px; transform: translateZ(0.5px);
+  background: linear-gradient(135deg, var(--color-frame-hi) 0%, var(--color-frame) 18%, var(--color-frame-lo) 52%, var(--color-frame) 84%, var(--color-frame-hi) 100%);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.22), inset 0 0 0 3px rgba(0, 0, 0, 0.55); }
+.ph-btn { position: absolute; width: 5px; border-radius: 3px; background: linear-gradient(90deg, var(--color-frame-lo), var(--color-frame-hi)); }
+.ph-bezel { position: absolute; inset: 5px; border-radius: 65px; background: var(--color-bezel); }
+.ph-screen { position: absolute; inset: 14px; border-radius: 56px; overflow: hidden; background: var(--color-app-bg); font-family: var(--font-body); color: var(--color-app-ink); }
+.ph-screen .icon { filter: none; }
+.sb { position: absolute; left: 0; right: 0; top: 0; height: 54px; z-index: 5; display: flex; align-items: center; justify-content: space-between; padding: 6px 30px 0 42px; font-family: var(--font-display); font-weight: 600; font-size: 17px; color: var(--color-app-ink); }
+.sb div { display: flex; align-items: center; gap: 6px; }
+.sb svg { height: 12px; fill: var(--color-app-ink); }
+.island { position: absolute; top: 11px; left: 50%; width: 122px; height: 35px; margin-left: -61px; border-radius: 18px; background: var(--color-bezel); z-index: 6; }
+.homebar { position: absolute; bottom: 8px; left: 50%; width: 136px; height: 5px; margin-left: -68px; border-radius: 3px; background: var(--color-app-ink); z-index: 6; }
+#touch { position: absolute; left: 0; top: 0; width: 66px; height: 66px; margin: -33px 0 0 -33px; border-radius: 50%; background: var(--color-touch); border: 2px solid rgba(255, 255, 255, 0.75); opacity: 0; z-index: 7; }
+.glare { position: absolute; top: 0; bottom: 0; left: -40%; right: -40%; z-index: 8; background: linear-gradient(112deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 34%); pointer-events: none; }
+
+.scr { position: absolute; inset: 0; padding: 62px 22px 0; background: var(--color-app-bg); box-shadow: -24px 0 40px var(--color-app-shadow); visibility: hidden; }
+.chev, .nav > svg { stroke: var(--color-app-ink-2); fill: none; flex: none; }
+
+/* início: plantão de hoje */
+.hd { display: flex; align-items: center; justify-content: space-between; margin: 12px 2px 18px; }
+.ttl { display: block; font-family: var(--font-display); font-weight: 600; font-size: 30px; letter-spacing: -0.02em; }
+.sub { display: block; margin-top: 4px; font-size: 15px; font-weight: 600; color: var(--color-app-ink-2); }
+.hd .icon { width: 46px; height: 46px; }
+.task { display: flex; align-items: center; gap: 14px; height: 82px; padding: 0 16px; margin-bottom: 10px; border-radius: 22px; background: var(--color-app-card); box-shadow: 0 8px 24px var(--color-app-shadow); }
+.tk-ic { width: 48px; height: 48px; border-radius: 15px; flex: none; display: grid; place-items: center; background: linear-gradient(135deg, var(--color-icon-a), var(--color-icon-c)); }
+.tk-ic svg { width: 24px; height: 24px; stroke: var(--color-app-card); fill: none; }
+.tk-tx { flex: 1; min-width: 0; }
+.tk-tx b { display: block; font-size: 18px; font-weight: 800; }
+.tk-tx span { display: block; margin-top: 2px; font-size: 14px; font-weight: 600; color: var(--color-app-ink-2); }
+.chev { width: 20px; height: 20px; }
+.beds { margin-top: 16px; padding: 18px; border-radius: 22px; background: var(--color-app-card); box-shadow: 0 8px 24px var(--color-app-shadow); }
+.beds h4 { font-size: 16px; font-weight: 800; }
+.beds h4 span { font-weight: 600; color: var(--color-app-ink-2); }
+.bed { display: grid; grid-template-columns: 104px minmax(0, 1fr); align-items: center; gap: 12px; margin-top: 12px; font-size: 14px; font-weight: 700; }
+.bar { height: 8px; border-radius: 4px; background: var(--color-app-line); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 4px; background: var(--color-blue); }
+.bar i.low { background: var(--color-volt); }
+.tabs { position: absolute; left: 0; right: 0; bottom: 0; height: 88px; padding: 10px 26px 0; display: flex; justify-content: space-between; background: var(--color-app-card); border-top: 1px solid var(--color-app-line); }
+.tab { width: 64px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: var(--color-app-ink-2); }
+.tab svg { width: 24px; height: 24px; stroke: currentColor; fill: none; }
+.tab.on { color: var(--color-blue); }
+
+/* quiz */
+.nav { display: flex; align-items: center; gap: 10px; height: 52px; margin: 4px -4px 8px; }
+.nav > svg { width: 26px; height: 26px; stroke: var(--color-app-ink); }
+.nav > b { flex: 1; font-size: 18px; font-weight: 800; }
+.prog { height: 8px; border-radius: 4px; background: var(--color-app-line); overflow: hidden; }
+.prog i { display: block; height: 100%; width: 40%; border-radius: 4px; background: var(--color-blue); }
+.q { margin: 30px 2px 26px; font-family: var(--font-display); font-weight: 600; font-size: 31px; line-height: 1.18; letter-spacing: -0.02em; }
+.opt { position: relative; display: flex; align-items: center; gap: 14px; height: 70px; padding: 0 18px; margin-bottom: 12px; border-radius: 20px; background: var(--color-app-card); border: 2px solid var(--color-app-line); font-size: 21px; font-weight: 800; }
+.badge { position: relative; width: 34px; height: 34px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--color-app-soft); color: var(--color-blue); font-size: 15px; font-weight: 800; }
+.badge em { font-style: normal; }
+.badge svg { position: absolute; left: 7px; top: 7px; width: 20px; height: 20px; stroke: var(--color-ok); fill: none; opacity: 0; }
+.xp { position: absolute; right: 16px; top: 50%; height: 32px; margin-top: -16px; padding: 0 12px; border-radius: 12px; display: flex; align-items: center; background: var(--color-volt); color: var(--color-app-ink); font-size: 15px; font-weight: 800; transform: scale(0); }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; padding: 24px 24px 44px; border-radius: 30px 30px 0 0; background: var(--color-app-card); box-shadow: 0 -14px 40px var(--color-app-shadow); transform: translateY(110%); }
+.sheet b { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 800; }
+.sheet b i { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--color-ok); }
+.sheet b svg { width: 18px; height: 18px; stroke: var(--color-app-card); fill: none; }
+.sheet p { margin-top: 10px; font-size: 18px; line-height: 1.45; font-weight: 600; color: var(--color-app-ink-2); }
+.btn { margin-top: 20px; height: 58px; border-radius: 18px; display: grid; place-items: center; background: var(--color-blue); color: var(--color-app-card); font-size: 18px; font-weight: 800; }
+
+/* paciente simulado */
+.pt-av { width: 44px; height: 44px; border-radius: 50%; flex: none; display: grid; place-items: center; background: linear-gradient(135deg, var(--color-icon-b), var(--color-icon-c)); }
+.pt-av svg { width: 24px; height: 24px; stroke: var(--color-app-card); fill: none; }
+.nav-tx { flex: 1; min-width: 0; }
+.nav-tx b { display: block; font-size: 17px; font-weight: 800; }
+.nav-tx span { display: block; font-size: 13px; font-weight: 600; color: var(--color-app-ink-2); white-space: nowrap; }
+.end { height: 34px; padding: 0 14px; border-radius: 17px; flex: none; display: flex; align-items: center; background: var(--color-app-soft); color: var(--color-blue); font-size: 14px; font-weight: 800; }
+.msgs { position: relative; margin-top: 10px; display: flex; flex-direction: column; gap: 12px; }
+.sys { align-self: center; margin-bottom: 4px; padding: 8px 14px; border-radius: 14px; background: var(--color-app-line); font-size: 13px; font-weight: 700; color: var(--color-app-ink-2); }
+.msg { max-width: 80%; padding: 13px 17px; border-radius: 22px; font-size: 17.5px; line-height: 1.38; font-weight: 600; opacity: 0; }
+.msg.me { align-self: flex-end; background: var(--color-blue); color: var(--color-app-card); border-bottom-right-radius: 7px; transform-origin: 100% 100%; }
+.msg.pt { align-self: flex-start; background: var(--color-app-card); border-bottom-left-radius: 7px; box-shadow: 0 6px 18px var(--color-app-shadow); transform-origin: 0 100%; }
+.msg.voice { display: flex; gap: 9px; align-items: flex-start; }
+.msg.voice svg { width: 20px; height: 20px; margin-top: 2px; flex: none; stroke: var(--color-app-card); fill: none; }
+.typing { position: absolute; left: 0; top: 0; display: flex; gap: 6px; padding: 17px 18px; border-radius: 22px 22px 22px 7px; background: var(--color-app-card); box-shadow: 0 6px 18px var(--color-app-shadow); opacity: 0; }
+.typing i { width: 9px; height: 9px; border-radius: 50%; background: var(--color-app-ink-2); }
+.inp { position: absolute; left: 0; right: 0; bottom: 0; height: 104px; padding: 14px 18px 0; display: flex; gap: 12px; background: var(--color-app-card); border-top: 1px solid var(--color-app-line); }
+.field { position: relative; flex: 1; height: 52px; padding: 0 20px; border-radius: 26px; display: flex; align-items: center; background: var(--color-app-bg); font-size: 16px; font-weight: 600; color: var(--color-app-ink-2); }
+.wave { position: absolute; top: 0; bottom: 0; left: 20px; right: 20px; display: flex; align-items: center; gap: 4px; opacity: 0; }
+.wave i { flex: 1; height: 6px; border-radius: 2px; background: var(--color-blue); }
+.micb { width: 52px; height: 52px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--color-blue); }
+.micb svg { width: 24px; height: 24px; stroke: var(--color-app-card); fill: none; }
+
+/* parecer da Supervisora */
+.sup-meta { margin: 2px 2px 14px; font-size: 14px; font-weight: 700; color: var(--color-app-ink-2); }
+.card { margin-bottom: 12px; padding: 18px; border-radius: 22px; background: var(--color-app-card); box-shadow: 0 8px 24px var(--color-app-shadow); }
+.fr { display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: center; gap: 12px; font-size: 16px; font-weight: 800; }
+.fr + .fr { margin-top: 15px; }
+.fr .bar { height: 10px; border-radius: 5px; }
+.fr .bar i { width: 0; }
+.auto { display: flex; align-items: center; justify-content: space-between; font-size: 16px; font-weight: 800; }
+.dots { display: flex; gap: 7px; }
+.dots i { width: 16px; height: 16px; border-radius: 50%; background: var(--color-app-line); }
+.dots i.on { background: var(--color-blue); }
+.cm-h { display: flex; align-items: center; gap: 10px; }
+.cm-h .icon { width: 34px; height: 34px; }
+.cm-h b { font-size: 16px; font-weight: 800; }
+.cmt { opacity: 0; }
+.cmt p { margin-top: 10px; font-size: 16.5px; line-height: 1.45; font-weight: 600; color: var(--color-app-ink-2); }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="glow" id="glowA"></div>
+  <div class="glow" id="glowB"></div>
+
+  <div id="world">
+    <!-- 1 -->
+    <div class="abs" id="ic1"></div>
+    <p class="abs disp" id="t1"><span class="w">Medicina </span><span class="w">de </span><span class="w" data-tint>plantão.</span></p>
+
+    <!-- 2 -->
+    <h2 class="abs disp" id="t2"><span class="w">Um </span><span class="w">caminho </span><span class="w">por </span><span class="w" data-tint>dia</span></h2>
+    <div id="ring"></div>
+    <div class="orb" id="o0" style="left:630px"><div class="disc" data-icon="quiz"></div><b>Quiz</b><span>explicação na hora</span></div>
+    <div class="orb" id="o1" style="left:960px"><div class="disc" data-icon="paciente"></div><b>Paciente simulado</b><span>anamnese por texto ou voz</span></div>
+    <div class="orb" id="o2" style="left:1290px"><div class="disc" data-icon="reteste"></div><b>Reteste</b><span>o que errou volta amanhã</span></div>
+
+    <!-- 3 -->
+    <div class="abs" id="h3q">
+      <h2 class="disp"><span class="w">Quiz </span><span class="w">com </span><span class="w">a </span><br><span class="w">explicação </span><span class="w" data-tint>na </span><span class="w" data-tint>hora</span></h2>
+      <p id="h3p">Você marca uma alternativa e lê por que ela está certa ou errada.</p>
+    </div>
+
+    <!-- 4 -->
+    <div id="p3"><div id="block">
+      <h2 class="disp"><span class="w">Quem </span><span class="w">pergunta </span><span class="w">é </span><span class="w" data-tint>você</span></h2>
+      <p><span id="p3a">O paciente simulado responde o que um paciente responderia: nem mais, nem em ordem.</span> <span id="p3b">No fim, uma Supervisora comenta a sua conduta.</span></p>
+      <span class="cta"><i></i>Atender um paciente</span>
+    </div></div>
+
+    <!-- celular (tempos 3 e 4) -->
+    <div id="phGlow"></div>
+    <div id="phWrap"><div id="ph">
+      <div class="ph-body">
+        <div class="ph-btn" style="left:-4px;top:150px;height:34px"></div>
+        <div class="ph-btn" style="left:-4px;top:208px;height:62px"></div>
+        <div class="ph-btn" style="left:-4px;top:284px;height:62px"></div>
+        <div class="ph-btn" style="right:-4px;top:236px;height:100px"></div>
+        <div class="ph-bezel"></div>
+        <div class="ph-screen" id="screen">
+
+          <div class="scr" id="sHome">
+            <div class="hd"><div><b class="ttl">Plantão de hoje</b><span class="sub">O plantão montou três tarefas para você</span></div><div id="meIc"></div></div>
+            <div class="task" id="task0"><div class="tk-ic" data-g="quiz"></div><div class="tk-tx"><b>Reavaliar Anatomia</b><span>Quiz · a disciplina mais frágil</span></div><svg class="chev" viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+            <div class="task"><div class="tk-ic" data-g="reteste"></div><div class="tk-tx"><b>Retestar o que errou</b><span>Reteste · questões de ontem</span></div><svg class="chev" viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+            <div class="task"><div class="tk-ic" data-g="paciente"></div><div class="tk-tx"><b>Atender um paciente</b><span>Paciente simulado · dor torácica</span></div><svg class="chev" viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>
+            <div class="beds">
+              <h4>Leitos <span>· domínio por disciplina</span></h4>
+              <div class="bed">Anatomia<div class="bar"><i class="low" style="width:36%"></i></div></div>
+              <div class="bed">Fisiologia<div class="bar"><i style="width:72%"></i></div></div>
+              <div class="bed">Histologia<div class="bar"><i style="width:63%"></i></div></div>
+              <div class="bed">Semiologia<div class="bar"><i style="width:81%"></i></div></div>
+            </div>
+            <div class="tabs">
+              <div class="tab on"><svg viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round"><path d="M12 4.5v15M4.5 12h15"/></svg>Plantão</div>
+              <div class="tab"><svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8.5 12.5l2.5 2.5 4.5-5.5"/></svg>Questões</div>
+              <div class="tab"><svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><path d="M5 6.5h14M5 12h14M5 17.5h9"/></svg>Hub</div>
+              <div class="tab"><svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8.5" r="3.6"/><path d="M5 20c1-3.6 3.8-5.4 7-5.4s6 1.8 7 5.4"/></svg>Perfil</div>
+            </div>
+          </div>
+
+          <div class="scr" id="sQuiz">
+            <div class="nav"><svg viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg><b>Anatomia</b></div>
+            <div class="prog"><i></i></div>
+            <h3 class="q">Quantas câmaras tem o coração?</h3>
+            <div class="opt" id="op0"><span class="badge"><em>A</em></span>Duas</div>
+            <div class="opt" id="op1"><span class="badge"><em>B</em><svg viewBox="0 0 24 24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>Quatro<span class="xp" id="xp">+2 XP</span></div>
+            <div class="opt" id="op2"><span class="badge"><em>C</em></span>Três</div>
+            <div class="sheet" id="sheet">
+              <b><i><svg viewBox="0 0 24 24" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></i>Por que é Quatro</b>
+              <p>O coração tem dois átrios e dois ventrículos.</p>
+              <span class="btn">Próxima questão</span>
+            </div>
+          </div>
+
+          <div class="scr" id="sChat">
+            <div class="nav"><svg viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+              <div class="pt-av"><svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8.5" r="3.6"/><path d="M5 20c1-3.6 3.8-5.4 7-5.4s6 1.8 7 5.4"/></svg></div>
+              <div class="nav-tx"><b>Paciente simulado</b><span>Homem, 58 anos · dor torácica</span></div>
+              <span class="end" id="endBtn">Encerrar</span></div>
+            <div class="msgs">
+              <p class="sys">O paciente só conta o que você perguntar.</p>
+              <div class="msg me" id="m0">Quando começou a dor?</div>
+              <div class="msg pt" id="m1">Faz umas duas horas. É um aperto aqui no meio do peito.</div>
+              <div class="msg me voice" id="m2"><span class="mic-i"></span>A dor irradia para algum lugar?</div>
+              <div class="msg pt" id="m3">Vai pro braço esquerdo. E eu tô suando frio desde que começou.</div>
+              <div class="typing" id="ty"><i></i><i></i><i></i></div>
+            </div>
+            <div class="inp"><div class="field"><span id="phTx">Pergunte ao paciente</span><div class="wave" id="wave"></div></div><div class="micb" id="micb"></div></div>
+          </div>
+
+          <div class="scr" id="sSup">
+            <div class="nav"><svg viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg><b>Parecer da Supervisora</b></div>
+            <p class="sup-meta">Consulta encerrada · dor torácica</p>
+            <div class="card">
+              <div class="fr">Comunicação<div class="bar"><i data-v="0.9"></i></div></div>
+              <div class="fr">Coleta<div class="bar"><i data-v="0.62"></i></div></div>
+              <div class="fr">Raciocínio<div class="bar"><i data-v="0.78"></i></div></div>
+              <div class="fr">Plano<div class="bar"><i data-v="0.7"></i></div></div>
+            </div>
+            <div class="card auto">Nota de autonomia<div class="dots"><i></i><i></i><i></i><i></i><i></i></div></div>
+            <div class="card cmt" id="cmt"><div class="cm-h"><span id="supIc"></span><b>Supervisora</b></div><p>Boa caracterização da dor. Faltou perguntar sobre tabagismo.</p></div>
+          </div>
+
+          <div class="sb"><span>9:41</span><div>
+            <svg viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+            <svg viewBox="0 0 16 12"><path d="M8 12l2.4-2.8a3.6 3.6 0 0 0-4.8 0z"/><path d="M8 5.6c-1.9 0-3.6.7-4.9 1.8l1.5 1.8a4.6 4.6 0 0 1 6.8 0l1.5-1.8A7.4 7.4 0 0 0 8 5.6z"/><path d="M8 1.5c-3 0-5.7 1.1-7.8 3l1.5 1.8A9.5 9.5 0 0 1 8 3.8c2.4 0 4.6.9 6.3 2.5l1.5-1.8A11.7 11.7 0 0 0 8 1.5z"/></svg>
+            <svg viewBox="0 0 27 12" style="height:13px"><rect x=".6" y=".6" width="22.8" height="10.8" rx="3.2" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".4"/><rect x="2.2" y="2.2" width="17.5" height="7.6" rx="1.8"/><rect x="24.6" y="4" width="1.8" height="4" rx=".9" opacity=".4"/></svg>
+          </div></div>
+          <div class="island"></div>
+          <div class="homebar"></div>
+          <div id="touch"></div>
+          <div class="glare" id="glare"></div>
+        </div>
+      </div>
+    </div></div>
+
+    <!-- 5 -->
+    <p class="line disp" id="l5a">Mais que um banco de questões.</p>
+    <p class="line disp" id="l5b">É um <span data-tint2>plantão.</span></p>
+
+    <!-- 6 -->
+    <div class="abs" id="ic6"></div>
+    <p class="abs disp" id="t6"></p>
+    <p class="abs" id="credit">Um projeto do Hospital Moinhos de Vento com a FIAP</p>
+  </div>
+
+  <div id="grain"></div>
+  <div id="vignette"></div>
+  <div id="fade"></div>
+</div>
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+
+// ------------------------------------------------------------ linha do tempo
+// todo o resto deriva daqui; quando a voz chegar, só estes números mudam
+const T = {
+  words1: [0.98, 2.0, 2.15],          // Medicina · de · plantão. (na fala: "medicina" ... "plantão")
+  s2: 3.45, title2: 4.85,             // anel, círculos, "Um caminho por dia"
+  ph: 6.2, tapHome: 7.05, tapAns: 8.2,
+  glide: 10.6,                        // celular atravessa para a esquerda
+  blockIn: 12.35, words4: [12.7, 12.92, 13.3, 13.45], // "quem pergunta é você"
+  chat: [12.25, 13.25, 14.85, 15.95, 16.7], // pergunta · resposta · grava ("por voz") · pergunta por voz · resposta
+  hl: 18.1, tapEnd: 17.85, sup: 18.0,  // "quando a consulta acaba, a Supervisora comenta"
+  out4: 20.25, l5a: 20.7, l5b: 22.75, logo: 24.0,
+};
+const DURATION = +(T.logo + 3.95).toFixed(2);
+
+// ------------------------------------------------------------ som: um whoosh por movimento grande, nunca dois juntos
+// [segundo, arquivo, volume, corte (opcional)] · calm/ = sintetizado para esta peça
+const tk = (x, f, v) => [+x.toFixed(3), `calm/${f}.wav`, v];
+window.CUES = [
+  [0.1, 'V5/Deep, Mini, Whoosh 14.wav', 0.4],
+  ...T.words1.map((x, i) => tk(x, i % 2 ? 'tick_b' : 'tick_a', i % 2 ? 0.3 : 0.34)),
+  [T.s2, 'Editing Pack/Select, Gratonal, Gleam_3.wav', 0.34],
+  [T.s2 + 0.35, 'V4/Button, Cursor, Select  (5).wav', 0.28],
+  tk(T.title2, 'tick_a', 0.28),
+  [T.ph, 'V4/Deep, Mini, Whoosh (8).wav', 0.5],
+  tk(T.tapHome, 'tick_b', 0.32),
+  tk(T.tapAns, 'tick_b', 0.34), tk(T.tapAns + 0.08, 'correct', 0.28), tk(T.tapAns + 0.25, 'sparkle', 0.15), tk(T.tapAns + 0.6, 'bloop', 0.15),
+  [T.glide, 'V4/Deep, Mini, Whoosh (7).wav', 0.4],
+  tk(T.chat[0], 'bloop', 0.17), tk(T.chat[1], 'recv', 0.2), tk(T.chat[2], 'tick_a', 0.26), tk(T.chat[3], 'bloop', 0.17), tk(T.chat[4], 'recv', 0.2),
+  tk(T.tapEnd, 'tick_b', 0.3),
+  ...[0, 1, 2, 3].map((i) => tk(T.sup + 0.4 + i * 0.15, i % 2 ? 'tick_b' : 'tick_a', 0.18)),
+  tk(T.sup + 1.2, 'pluck_E5', 0.16),
+  tk(T.l5a, 'tick_a', 0.3),
+  [T.l5b, 'V4/Granular Shine (45).wav', 0.22],
+  [T.logo, 'V5/Deep, Mini, Whoosh 14.wav', 0.55],
+  ...[0, 1, 2, 3, 4].map((i) => tk(T.logo + 0.53 + i * 0.055, i % 2 ? 'tick_b' : 'tick_a', i % 2 ? 0.2 : 0.22)),
+  tk(T.logo + 0.85, 'bloom', 0.3),
+];
+// locução: ElevenLabs, voz Letícia (pt-BR), eleven_v4, take 1 cortado por frase · [segundo, arquivo, volume]
+window.VO = [[0.5, 'vo/l1.wav', 1], [3.54, 'vo/l2.wav', 1], [6.84, 'vo/l3.wav', 1], [11.24, 'vo/l4.wav', 1],
+  [16.84, 'vo/l5.wav', 1], [20.69, 'vo/l6.wav', 1], [22.79, 'vo/l7.wav', 1], [25.09, 'vo/l8.wav', 1]];
+
+// ------------------------------------------------------------ montagem
+const ICON = '<svg class="icon" viewBox="0 0 32 32" fill="none"><defs><linearGradient id="IDG" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse"><stop stop-color="#087fe2"/><stop offset="0.5" stop-color="#0755b5"/><stop offset="1" stop-color="#39d6c6"/></linearGradient></defs><rect width="32" height="32" rx="8" fill="url(#IDG)"/><path d="M13.4 6.5h5.2v6.9h6.9v5.2h-6.9v6.9h-5.2v-6.9H6.5v-5.2h6.9z" fill="#ffffff"/></svg>';
+$('#ic1').innerHTML = ICON.replace(/IDG/g, 'g1');
+$('#ic6').innerHTML = ICON.replace(/IDG/g, 'g6');
+$('#meIc').innerHTML = ICON.replace(/IDG/g, 'gm');
+$('#supIc').innerHTML = ICON.replace(/IDG/g, 'gs');
+const GLYPH = {
+  quiz: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5l5 5 10-11"/></svg>',
+  reteste: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.5"/><path d="M4 3.5v5h5"/></svg>',
+  paciente: '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/></svg>',
+};
+$$('.disc').forEach((d) => (d.innerHTML = GLYPH[d.dataset.icon]));
+$$('.tk-ic').forEach((d) => (d.innerHTML = GLYPH[d.dataset.g]));
+const MIC = '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
+$('#micb').innerHTML = MIC;
+$('.mic-i').outerHTML = MIC;
+$('#wave').innerHTML = '<i></i>'.repeat(24);
+$('#t6').innerHTML = 'Lumna'.split('').map((c) => `<span class="w">${c}</span>`).join('');
+// espessura do aparelho: camadas atrás da frente
+$('#ph').insertAdjacentHTML('afterbegin', Array.from({ length: 9 }, (_, i) => `<div class="ph-edge" style="transform:translateZ(${-(i + 1) * 1.1}px)"></div>`).join(''));
+
+// granulação determinística: 4 quadros de ruído gerados uma vez, com semente fixa
+let seed = 1337;
+const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+const GRAIN = [0, 1, 2, 3].map(() => {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d'), img = g.createImageData(256, 256);
+  for (let i = 0; i < img.data.length; i += 4) { const v = rnd() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
+  g.putImageData(img, 0, 0); return `url(${c.toDataURL()})`;
+});
+
+// ------------------------------------------------------------ curvas
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const prog = (t, s, d) => clamp((t - s) / d);
+const lerp = (a, b, x) => a + (b - a) * x;
+const eOut4 = (x) => 1 - Math.pow(1 - x, 4);
+const eIn3 = (x) => x * x * x;
+const eInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+function spring(dt, f = 1.6, z = 0.8) {
+  if (dt <= 0) return 0;
+  const w = 2 * Math.PI * f, wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * dt) * (Math.cos(wd * dt) + (z * w / wd) * Math.sin(wd * dt));
+}
+const mixRGB = (a, b, x) => `rgb(${a.map((v, i) => Math.round(lerp(v, b[i], x))).join(',')})`;
+const VOLT = [255, 201, 61], WHITE = [247, 249, 255], GREY = [141, 154, 184];
+const CARD = [255, 255, 255], OK = [18, 160, 143], INK = [14, 22, 51], LINE = [225, 231, 242], SOFT = [231, 238, 255];
+
+// foco de câmera: entra desfocado e deslocado, sai desfocado e à deriva
+// o = { in, inD, out, outD, dx, dy, s0, b0, odx, ody, os, ob, base }
+function focus(el, t, o) {
+  const p = eOut4(prog(t, o.in, o.inD ?? 0.8));
+  const q = o.out == null ? 0 : eIn3(prog(t, o.out, o.outD ?? 0.5));
+  const x = (1 - p) * (o.dx ?? 0) + q * (o.odx ?? 0);
+  const y = (1 - p) * (o.dy ?? 30) + q * (o.ody ?? -20);
+  const s = lerp(o.s0 ?? 1, 1, p) * lerp(1, o.os ?? 1.04, q);
+  const b = (1 - p) * (o.b0 ?? 22) + q * (o.ob ?? 18) + (o.dof ?? 0);
+  el.style.transform = `${o.base ?? ''} translate(${x}px, ${y}px) scale(${s})`;
+  el.style.filter = b > 0.05 ? `blur(${b.toFixed(2)}px)` : 'none';
+  el.style.opacity = Math.min(p, 1 - q) * (o.op ?? 1);
+  return p;
+}
+// palavra a palavra (start = segundo inicial com intervalo, ou lista de segundos); data-tint começa em volt e esfria para branco
+function words(container, t, start, stagger, o) {
+  $$('.w', container).forEach((w, i) => {
+    const s = Array.isArray(start) ? start[i] : start + i * stagger;
+    focus(w, t, { ...o, in: s });
+    if (w.hasAttribute('data-tint')) w.style.color = mixRGB(VOLT, WHITE, prog(t, s + 0.35, 0.9));
+  });
+}
+
+// ------------------------------------------------------------ celular
+const screen = $('#screen');
+function rel(el) { // centro do elemento, em coordenadas da tela do celular
+  let x = el.offsetWidth / 2, y = el.offsetHeight / 2;
+  while (el && el !== screen) { x += el.offsetLeft; y += el.offsetTop; el = el.offsetParent; }
+  return [x, y];
+}
+function scr(sel, on, x, o = 1, b = 0, s = 1) {
+  const e = $(sel);
+  e.style.visibility = on ? 'visible' : 'hidden';
+  if (!on) return;
+  e.style.transform = `translateX(${x}%) scale(${s})`;
+  e.style.opacity = o;
+  e.style.filter = b > 0.05 ? `blur(${b.toFixed(2)}px)` : 'none';
+}
+function touch(t, taps) { // [início do toque, fim do toque, [x, y]]
+  const el = $('#touch');
+  for (const [t0, t1, p] of taps) {
+    if (t < t0 - 0.16 || t > t1 + 0.4) continue;
+    const a = eOut4(prog(t, t0 - 0.16, 0.16)), r = prog(t, t1, 0.4);
+    const press = t >= t0 && t < t1 ? 0.88 : 1;
+    el.style.transform = `translate(${p[0]}px, ${p[1]}px) scale(${lerp(0.6, 1, a) * press * lerp(1, 1.5, eOut4(r))})`;
+    el.style.opacity = a * (1 - r);
+    return;
+  }
+  el.style.opacity = 0;
+}
+function pop(el, t, t0) {
+  const p = spring(t - t0, 1.8, 0.72);
+  el.style.opacity = clamp((t - t0) / 0.12);
+  el.style.transform = `translateY(${(1 - p) * 16}px) scale(${lerp(0.86, 1, p)})`;
+}
+
+function phone(t) {
+  const wrap = $('#phWrap'), glow = $('#phGlow');
+  const live = t > T.ph - 0.05 && t < T.out4 + 0.6;
+  wrap.style.display = live ? 'block' : 'none'; // display, não visibility: as telas filhas forçam visible
+  if (!live) { glow.style.opacity = 0; return; }
+
+  // pose: sobe pela direita, atravessa para a esquerda, some subindo desfocado
+  const e = spring(t - T.ph, 0.95, 0.9);
+  const g = eInOut(prog(t, T.glide, 1.15));
+  const bank = Math.sin(Math.PI * g);
+  const q = eIn3(prog(t, T.out4, 0.5));
+  const x = lerp(1310, 640, g);
+  const y = 540 + (1 - e) * 760 - q * 90;
+  const ryA = lerp(-36, -16, e) + 5 * prog(t, T.ph + 0.8, T.glide - T.ph - 0.8);
+  const ryB = lerp(14, 8, prog(t, T.glide + 1.15, T.out4 - T.glide - 1.15));
+  const ry = lerp(ryA, ryB, g);
+  const rx = lerp(30, 7, e) - 2 * g + 3 * bank;
+  const rz = lerp(-8, 0, e) - 2.5 * bank;
+  const s = 0.98 * (1 - 0.04 * bank) * (1 - 0.05 * q);
+  const b = (1 - eOut4(prog(t, T.ph, 0.9))) * 18 + q * 16 + bank * 1.2;
+  wrap.style.transform = `translate(${x - 210}px, ${y - 435}px) scale(${s})`;
+  wrap.style.filter = b > 0.05 ? `blur(${b.toFixed(2)}px)` : 'none';
+  wrap.style.opacity = clamp((t - T.ph) / 0.35) * (1 - q);
+  $('#ph').style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg)`;
+  $('#glare').style.transform = `translateX(${ry * 5}px)`;
+  glow.style.transform = `translate(${x - 310}px, ${y - 380}px)`;
+  glow.style.opacity = 0.3 * clamp((t - T.ph) / 0.8) * (1 - q);
+
+  // telas: início → quiz (empurra), quiz → paciente (funde), paciente → parecer (empurra)
+  const p1 = eInOut(prog(t, T.tapHome + 0.15, 0.5));
+  const xf = eInOut(prog(t, T.glide + 0.27, 0.45));
+  const p2 = eInOut(prog(t, T.sup, 0.5));
+  scr('#sHome', p1 < 1, -28 * p1);
+  scr('#sQuiz', p1 > 0 && xf < 1, 100 * (1 - p1), 1 - xf, 8 * xf);
+  scr('#sChat', xf > 0 && p2 < 1, -28 * p2, xf, 8 * (1 - xf), lerp(1.04, 1, xf));
+  scr('#sSup', p2 > 0, 100 * (1 - p2));
+
+  // início: o toque afunda o primeiro cartão
+  const tc = $('#task0');
+  const press = prog(t, T.tapHome - 0.04, 0.06) - prog(t, T.tapHome + 0.08, 0.2);
+  tc.style.transform = `scale(${1 - 0.03 * press})`;
+  tc.style.background = mixRGB(CARD, SOFT, press);
+
+  // quiz: marca Quatro, fica verde, +2 XP, sobe a explicação
+  const pc = eOut4(prog(t, T.tapAns + 0.08, 0.25));
+  const op1 = $('#op1');
+  op1.style.background = mixRGB(CARD, OK, pc);
+  op1.style.borderColor = mixRGB(LINE, OK, pc);
+  op1.style.color = mixRGB(INK, CARD, pc);
+  op1.style.transform = `scale(${1 - 0.035 * (prog(t, T.tapAns - 0.04, 0.06) - prog(t, T.tapAns + 0.06, 0.2))})`;
+  $('#op0').style.opacity = $('#op2').style.opacity = lerp(1, 0.45, pc);
+  $('#op1 .badge').style.background = mixRGB(SOFT, CARD, pc);
+  $('#op1 .badge em').style.opacity = 1 - pc;
+  $('#op1 .badge svg').style.opacity = pc;
+  $('#xp').style.transform = `scale(${spring(t - (T.tapAns + 0.25), 2.0, 0.5)})`;
+  $('#sheet').style.transform = `translateY(${(1 - spring(t - (T.tapAns + 0.6), 1.3, 0.92)) * 110}%)`;
+
+  // paciente simulado: pergunta, digitando, resposta, pergunta por voz, resposta
+  const C = T.chat;
+  pop($('#m0'), t, C[0]); pop($('#m1'), t, C[1]); pop($('#m2'), t, C[3]); pop($('#m3'), t, C[4]);
+  const ty = $('#ty');
+  let tyOn = 0;
+  for (const [a, z, el] of [[C[0] + 0.4, C[1], $('#m1')], [C[3] + 0.25, C[4], $('#m3')]]) {
+    if (t > a - 0.1 && t < z + 0.1) { tyOn = clamp((t - a) / 0.15) * (1 - clamp((t - z + 0.05) / 0.1)); ty.style.top = `${el.offsetTop}px`; }
+  }
+  ty.style.opacity = tyOn;
+  $$('i', ty).forEach((d, i) => { const k = Math.max(0, Math.sin(t * 9 - i * 0.9)); d.style.transform = `translateY(${-4 * k}px)`; d.style.opacity = 0.35 + 0.65 * k; });
+  const rec = eOut4(prog(t, C[2], 0.18)) * (1 - eOut4(prog(t, C[3] - 0.06, 0.2)));
+  const mic = $('#micb');
+  mic.style.transform = `scale(${1 + 0.12 * rec})`;
+  mic.style.boxShadow = rec > 0.01 ? `0 0 0 ${10 * rec}px rgba(36, 89, 245, ${0.18 * rec})` : 'none';
+  $('#phTx').style.opacity = 1 - rec;
+  $('#wave').style.opacity = rec;
+  $$('#wave i').forEach((w, i) => { const n = 0.5 + 0.5 * Math.sin(t * 13 + i * 1.7) * Math.sin(t * 5.3 + i * 0.55); w.style.height = `${6 + 26 * n * rec}px`; });
+  const end = $('#endBtn');
+  end.style.transform = `scale(${1 - 0.06 * (prog(t, T.tapEnd - 0.04, 0.06) - prog(t, T.tapEnd + 0.06, 0.2))})`;
+
+  // parecer: barras uma a uma, nota, comentário
+  $$('#sSup .fr i').forEach((w, i) => { w.style.width = `${100 * +w.dataset.v * eOut4(prog(t, T.sup + 0.4 + i * 0.15, 0.7))}%`; });
+  $$('#sSup .dots i').forEach((d, i) => d.classList.toggle('on', i < 4 && t >= T.sup + 1.0 + i * 0.07));
+  const cm = $('#cmt');
+  cm.style.opacity = clamp((t - T.sup - 1.2) / 0.2);
+  cm.style.transform = `translateY(${(1 - spring(t - (T.sup + 1.2), 1.6, 0.85)) * 24}px)`;
+
+  touch(t, [
+    [T.tapHome, T.tapHome + 0.08, rel($('#task0'))],
+    [T.tapAns, T.tapAns + 0.08, rel($('#op1'))],
+    [C[2], C[3] - 0.06, rel($('#micb'))],
+    [T.tapEnd, T.tapEnd + 0.08, rel($('#endBtn'))],
+  ]);
+}
+
+function render(t) {
+  // fundo vivo: brilho que respira e granulação a 24 qps
+  const gA = $('#glowA'), gB = $('#glowB');
+  const gOut = 1 - prog(t, DURATION - 1.3, 0.8);
+  gA.style.transform = `translate(${300 + 220 * Math.sin(t * 0.35)}px, ${-260 + 120 * Math.cos(t * 0.28)}px)`;
+  gB.style.transform = `translate(${1100 + 160 * Math.cos(t * 0.3)}px, ${520 + 100 * Math.sin(t * 0.4)}px)`;
+  gA.style.opacity = 0.34 * clamp(t / 0.8) * gOut;
+  gB.style.opacity = 0.14 * clamp(t / 0.8) * gOut;
+  const gf = Math.floor(t * 24);
+  $('#grain').style.backgroundImage = GRAIN[gf % 4];
+  $('#grain').style.backgroundPosition = `${(gf * 73) % 256}px ${(gf * 151) % 256}px`;
+  $('#world').style.transform = `scale(${1 + 0.035 * t / DURATION}) rotate(${-0.25 + 0.5 * t / DURATION}deg)`;
+  $('#fade').style.opacity = prog(t, DURATION - 1.15, 0.6);
+
+  // ---------- 1 · ícone desce, a frase entra palavra a palavra
+  const t1 = $('#t1'), ic1 = $('#ic1');
+  const gap = 34, w1 = t1.offsetWidth, total = 120 + gap + w1;
+  const slide = eInOut(prog(t, T.words1[0] - 0.25, 0.55));
+  const icX = lerp(0, -(total / 2 - 60), slide);
+  const drop = spring(t - 0.12, 1.3, 0.85);
+  const out1 = eIn3(prog(t, T.s2 - 0.25, 0.4));
+  ic1.style.transform = `translate(${icX}px, ${(1 - drop) * -300}px) scale(${lerp(0.55, 1, drop) * lerp(1, 1.12, out1)})`;
+  const b1 = (1 - eOut4(prog(t, 0.1, 0.7))) * 24 + out1 * 20;
+  ic1.style.filter = b1 > 0.05 ? `blur(${b1}px)` : 'none';
+  ic1.style.opacity = clamp((t - 0.1) * 3) * (1 - out1);
+  t1.style.left = `${960 - total / 2 + 120 + gap}px`;
+  words(t1, t, T.words1, 0, { inD: 0.75, dx: 40, dy: 0, b0: 18, out: T.s2 - 0.25, outD: 0.4, ody: 0, odx: 0, os: 1.12, ob: 20 });
+
+  // ---------- 2 · anel vira os três círculos do caminho do dia
+  const ring = $('#ring');
+  focus(ring, t, { in: T.s2, inD: 0.5, dy: 0, s0: 0.6, b0: 16, out: T.s2 + 0.37, outD: 0.3, ody: 0, os: 0.92, ob: 6 });
+  const orbs = [$('#o0'), $('#o1'), $('#o2')];
+  orbs.forEach((o, i) => {
+    const side = i !== 1;
+    const sharp = prog(t, T.s2 + 0.75, 0.5);
+    const dof = side ? lerp(9, 0, eOut4(sharp)) : 0;
+    focus(o, t, { in: T.s2 + (side ? 0.41 : 0.3), inD: 0.7, dx: side ? (i === 0 ? 330 : -330) : 0, dy: 0, s0: side ? 0.7 : 0.85, b0: 14,
+      out: T.ph - 0.15, outD: 0.45, odx: 0, ody: -90, ob: 16, os: 1.02, dof, op: side ? lerp(0.45, 1, sharp) : 1 });
+  });
+  words($('#t2'), t, T.title2, 0.14, { inD: 0.7, dx: 30, dy: 0, b0: 16, out: T.ph - 0.15, outD: 0.45, odx: 0, ody: -90 });
+
+  // ---------- 3 · quiz no celular, título à esquerda
+  words($('#h3q h2'), t, T.ph + 0.75, 0.09, { inD: 0.7, dx: 30, dy: 0, b0: 16, out: T.glide - 0.2, outD: 0.45, odx: -140, ody: -40 });
+  focus($('#h3p'), t, { in: T.ph + 1.35, inD: 0.8, dy: 16, b0: 12, out: T.glide - 0.2, outD: 0.45, odx: -140, ody: -40 });
+
+  // ---------- 4 · bloco em 3D à direita, celular com o paciente à esquerda
+  const bIn = T.blockIn;
+  const ry3 = lerp(-26, -5, eOut4(prog(t, bIn, 1.6)));
+  focus($('#block'), t, { in: bIn, inD: 0.9, dx: 200, dy: 20, b0: 20, out: T.out4, outD: 0.5, odx: -120, ody: -90, ob: 16,
+    base: `rotateY(${ry3}deg) rotateX(${lerp(8, 3, prog(t, bIn, 1.6))}deg)` });
+  words($('#block h2'), t, T.words4, 0, { inD: 0.6, dx: 24, dy: 0, b0: 12 });
+  $('#p3b').style.color = mixRGB(GREY, WHITE, prog(t, T.hl, 0.6));
+
+  phone(t);
+
+  // ---------- 5 · frase com rastreio de letras
+  const a = $('#l5a');
+  focus(a, t, { in: T.l5a, inD: 0.7, dy: 0, b0: 18, out: T.l5b - 0.12, outD: 0.35, ody: 0, os: 1.06 });
+  a.style.color = mixRGB(GREY, WHITE, prog(t, T.l5a + 0.05, 0.6));
+  const b = $('#l5b');
+  focus(b, t, { in: T.l5b, inD: 0.85, dy: 0, b0: 16, out: T.logo - 0.15, outD: 0.35, ody: 0, os: 0.8, ob: 22 });
+  b.style.letterSpacing = `${lerp(0.42, -0.02, eOut4(prog(t, T.l5b, 0.9)))}em`;
+  $('[data-tint2]').style.color = mixRGB(VOLT, WHITE, prog(t, T.l5b + 0.38, 0.6));
+
+  // ---------- 6 · assinatura
+  const t6 = $('#t6'), ic6 = $('#ic6');
+  const w6 = t6.offsetWidth, tot6 = 120 + 36 + w6;
+  const s6 = eInOut(prog(t, T.logo + 0.4, 0.55));
+  const pop6 = spring(t - T.logo, 1.4, 0.75);
+  ic6.style.transform = `translate(${lerp(0, -(tot6 / 2 - 60), s6)}px, 0) scale(${lerp(0.5, 1, pop6)})`;
+  const b6 = (1 - eOut4(prog(t, T.logo, 0.6))) * 20;
+  ic6.style.filter = b6 > 0.05 ? `blur(${b6}px)` : 'none';
+  ic6.style.opacity = clamp((t - T.logo) * 4);
+  t6.style.left = `${960 - tot6 / 2 + 120 + 36}px`;
+  words(t6, t, T.logo + 0.53, 0.055, { inD: 0.6, dx: 30, dy: 0, b0: 14 });
+  focus($('#credit'), t, { in: T.logo + 1.0, inD: 0.9, dy: 10, b0: 8 });
+}
+window.renderAt = render;
+window.DURATION = DURATION;
+
+const capture = new URLSearchParams(location.search).has('capture');
+function fit() {
+  const s = capture ? 1 : Math.min(innerWidth / 1920, innerHeight / 1080);
+  const st = $('#stage');
+  st.style.transform = `scale(${s})`;
+  st.style.left = capture ? '0' : `${(innerWidth - 1920 * s) / 2}px`;
+  st.style.top = capture ? '0' : `${(innerHeight - 1080 * s) / 2}px`;
+}
+addEventListener('resize', fit); fit();
+if (!capture) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) render(T.logo + 2);
+  else {
+    const t0 = performance.now();
+    const loop = (now) => { render(((now - t0) / 1000) % (DURATION + 0.5)); requestAnimationFrame(loop); };
+    document.fonts.ready.then(() => requestAnimationFrame(loop));
+  }
+} else render(0);
+</script>
+</body>
+</html>

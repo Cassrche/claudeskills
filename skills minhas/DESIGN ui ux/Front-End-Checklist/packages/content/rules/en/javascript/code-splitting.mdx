@@ -1,0 +1,200 @@
+---
+title: Split large JavaScript bundles
+description: >-
+  Use dynamic imports and route-based code splitting to break large bundles into
+  smaller chunks that load on demand, reducing initial page load time.
+categories:
+  - javascript
+subcategory: performance
+priority: high
+difficulty: intermediate
+estimatedTime: 25
+tldr:
+  - Use dynamic import() to load code only when it's actually needed
+  - Split routes in SPAs so each page loads only its own code
+  - 'Lazy-load heavy third-party libraries (chart libraries, rich text editors)'
+  - Analyze your bundle with a visualizer to find what to split
+whyItMatters: >-
+  A 500 KB JavaScript bundle blocks page interactivity for 3–5 seconds on a
+  mid-range mobile device even after the bytes arrive — JS must be parsed and
+  compiled before execution. Code splitting means users only download and parse
+  the code they actually need for the current page, dramatically improving Time
+  to Interactive.
+aiContext: >-
+  Use when reviewing large SPA bundles, new dependency additions, or routes that
+  feel slow to hydrate. Focus on code that is not required for the initial view
+  and can move behind route transitions, user interaction, or viewport-based
+  loading.
+relatedRules:
+  - slug: javascript-minification
+    reason: >-
+      Minification reduces chunk sizes; splitting reduces what's loaded
+      initially
+  - slug: es-modules
+    reason: >-
+      Code splitting requires ES module syntax — dynamic import() is an ES
+      feature
+  - slug: defer-async
+    reason: Large synchronous bundles are a primary cause of main thread blocking
+  - slug: memory-leaks
+    reason: >-
+      Both rules sit in the `javascript/performance` area and are commonly
+      reviewed together.
+tools:
+  - name: Webpack Bundle Analyzer
+    url: 'https://github.com/webpack-contrib/webpack-bundle-analyzer'
+  - name: Rollup Visualizer
+    url: 'https://github.com/btd/rollup-plugin-visualizer'
+  - name: Bundlephobia (check package size)
+    url: 'https://bundlephobia.com'
+prompts:
+  check: >-
+    Identify any large third-party imports or feature modules in this file that
+    could be loaded lazily with dynamic import() instead of statically.
+  fix: >-
+    Convert the identified static imports to dynamic imports using import() and
+    add appropriate loading states.
+  explain: >-
+    Explain JavaScript code splitting, how dynamic import() works, and how to
+    implement route-based splitting in a SPA.
+  codeReview: >-
+    Inspect route modules, heavy feature imports, and third-party libraries
+    loaded on initial render. Flag dependencies that can move behind `import()`,
+    route boundaries, or user-triggered flows without breaking the first
+    meaningful paint.
+sources:
+  - title: 'MDN: import()'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/import
+    type: mdn
+    id: mdn-import
+    role: reference
+    authority: primary
+  - title: 'web.dev: Code splitting with dynamic imports in Next.js'
+    url: 'https://web.dev/articles/code-splitting-with-dynamic-imports-in-nextjs'
+    type: guide
+    id: web-dev-code-splitting-with-dynamic-imports-in-next-js
+    role: implementation
+    authority: primary
+---
+Code splitting uses [`import()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/import) and route boundaries to divide your JavaScript application into separate chunks that load on demand rather than all at once.
+## Code Example
+
+```javascript
+// ❌ Static import loads everything upfront
+import { generatePDF } from './pdf-generator.js' // Heavy library loaded even if never used
+
+// ✅ Dynamic import loads only when needed
+async function handleExportClick() {
+  const { generatePDF } = await import('./pdf-generator.js')
+  generatePDF(document)
+}
+```
+
+## Why It Matters
+
+A 500 KB JavaScript bundle blocks page interactivity for 3–5 seconds on a mid-range mobile device even after the bytes arrive — JS must be parsed and compiled before execution. The [web.dev dynamic imports guide](https://web.dev/articles/code-splitting-with-dynamic-imports-in-nextjs) focuses on this exact win: users only download and parse the code they actually need for the current page.
+
+## Route-Based Splitting (React)
+
+```javascript
+import { lazy, Suspense } from 'react'
+import { Routes, Route } from 'react-router-dom'
+
+// Each route is its own chunk — users download code for the page they visit
+const Dashboard = lazy(() => import('./pages/Dashboard'))
+const Settings = lazy(() => import('./pages/Settings'))
+const Reports = lazy(() => import('./pages/Reports'))
+
+function App() {
+  return (
+    <Suspense fallback={<PageSkeleton />}>
+      <Routes>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/reports" element={<Reports />} />
+      </Routes>
+    </Suspense>
+  )
+}
+```
+
+## Lazy-Loading Heavy Components
+
+```javascript
+// Rich text editors, chart libraries, map components
+const RichEditor = lazy(() => import('./RichEditor'))
+const ChartPanel = lazy(() => import('./ChartPanel'))
+
+function PostEditor({ showChart }) {
+  return (
+    <div>
+      <Suspense fallback={<EditorSkeleton />}>
+        <RichEditor />
+      </Suspense>
+      {showChart && (
+        <Suspense fallback={<ChartSkeleton />}>
+          <ChartPanel />
+        </Suspense>
+      )}
+    </div>
+  )
+}
+```
+
+## Conditional Feature Loading
+
+```javascript
+// Load analytics only in production
+if (process.env.NODE_ENV === 'production') {
+  import('./analytics.js').then(({ init }) => init())
+}
+
+// Load a polyfill only when needed
+async function setupApp() {
+  if (!window.ResizeObserver) {
+    await import('resize-observer-polyfill')
+  }
+  initApp()
+}
+```
+
+## Preloading for Anticipated Navigation
+
+```javascript
+// Preload the next likely page without executing it yet
+function prefetchSettingsPage() {
+  import(/* webpackPrefetch: true */ './pages/Settings')
+}
+
+// Trigger on hover — user is likely about to click
+settingsLink.addEventListener('mouseenter', prefetchSettingsPage)
+```
+
+## Analyzing Your Bundle
+
+A first pass with [Webpack Bundle Analyzer](https://github.com/webpack-contrib/webpack-bundle-analyzer) or [Bundlephobia](https://bundlephobia.com) usually shows which dependency or route should move behind `import()`.
+
+```bash
+# With Vite
+pnpm exec vite-bundle-visualizer
+
+# With webpack
+pnpm exec webpack-bundle-analyzer stats.json
+
+# With source-map-explorer
+pnpm exec source-map-explorer 'build/static/js/*.js'
+```
+
+## Verification
+
+### Automated Checks
+
+- Compare the before/after output from your bundle visualizer and confirm the initial chunk shrinks meaningfully; [`import()`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/import) should move real code out of the initial graph rather than only reshuffle file names.
+- Test the loading state or suspense fallback so deferred features still feel intentional to users.
+- Re-run Lighthouse or your performance budget check to confirm the split improves initial JS cost instead of only moving bytes around.
+- If your project uses a JS budget, keep the initial bundle within that threshold rather than only moving bytes into slightly later chunks; a common starting point is `<= 150 KB` gzipped for the main route bundle.
+
+### Manual Checks
+
+- Verify the lazy-loaded code is not downloaded on first load unless the current route or interaction needs it.

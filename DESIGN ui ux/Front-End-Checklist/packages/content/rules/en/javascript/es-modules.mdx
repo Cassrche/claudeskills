@@ -1,0 +1,173 @@
+---
+title: Use ES modules (import/export)
+description: >-
+  Use native ES module syntax for imports and exports instead of CommonJS
+  require() to enable static analysis, tree-shaking, and better tooling support.
+categories:
+  - javascript
+subcategory: modules
+priority: high
+difficulty: beginner
+estimatedTime: 15
+tldr:
+  - Use import/export syntax instead of require()/module.exports
+  - Named exports improve IDE autocompletion and enable tree-shaking
+  - >-
+    Add type="module" to script tags or use a bundler to load ES modules in
+    browsers
+  - Default exports are fine but named exports scale better in large codebases
+whyItMatters: >-
+  ES modules are statically analyzable — bundlers can determine at build time
+  what code is actually used and eliminate the rest (tree-shaking). CommonJS
+  require() is dynamic and prevents this optimization. ES modules are also the
+  browser-native standard, reducing the need for build-time transformation.
+relatedRules:
+  - slug: code-splitting
+    reason: ES modules enable bundlers to split code at natural module boundaries
+  - slug: javascript-minification
+    reason: Tree-shaking only works with ES module syntax
+  - slug: type-only-imports
+    reason: >-
+      Both rules sit in the `javascript/modules` area and are commonly reviewed
+      together.
+  - slug: typescript-strict-mode
+    reason: >-
+      Module-first codebases usually pair ESM with stricter type and lint
+      settings.
+tools:
+  - name: Rollup (tree-shaking reference)
+    url: 'https://rollupjs.org'
+  - name: ESLint import plugin
+    url: 'https://github.com/import-js/eslint-plugin-import'
+prompts:
+  check: >-
+    Identify any use of require(), module.exports, or exports in this JavaScript
+    file that should be converted to ES module syntax.
+  fix: >-
+    Convert all require() and module.exports statements to ES module
+    import/export syntax.
+  explain: >-
+    Explain the benefits of ES modules over CommonJS, including tree-shaking,
+    static analysis, and browser support.
+  codeReview: >-
+    Review scripts, client components, and browser execution paths related to
+    Use ES modules (import/export). Flag exact imports, event handlers, runtime
+    side effects, or blocking operations that violate the rule, and state how
+    the change should be verified in the browser.
+aiContext: >-
+  Use when reviewing scripts, client components, bundles, or runtime behavior
+  related to Use ES modules (import/export). Inspect both source code and the
+  browser execution path so fixes target the real bottleneck or bug.
+sources:
+  - title: 'MDN: JavaScript Guide'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide'
+    type: mdn
+    id: mdn-javascript-guide
+    role: reference
+    authority: primary
+  - title: 'web.dev: Learn JavaScript'
+    url: 'https://web.dev/learn/javascript'
+    type: guide
+    id: web-dev-learn-javascript
+    role: implementation
+    authority: primary
+---
+ES modules (`import`/`export`) are the JavaScript standard for code organization and are supported natively in all modern browsers and Node.js.
+
+## Code Example
+
+```javascript
+// ❌ CommonJS (avoid for new code)
+const utils = require('./utils')
+const { formatDate } = require('./utils')
+module.exports = { myFunction }
+module.exports = myFunction
+
+// ✅ ES Modules
+import utils from './utils.js'
+import { formatDate } from './utils.js'
+export { myFunction }
+export default myFunction
+```
+
+## Why It Matters
+
+ES modules are statically analyzable — bundlers can determine at build time what code is actually used and eliminate the rest (tree-shaking). CommonJS require() is dynamic and prevents this optimization. ES modules are also the browser-native standard, reducing the need for build-time transformation.
+
+## Named vs Default Exports
+
+```javascript
+// utils.js — named exports (preferred for libraries and utilities)
+export function formatDate(date) { /* ... */ }
+export function formatCurrency(amount, currency) { /* ... */ }
+export const MAX_ITEMS = 100
+
+// consumer.js
+import { formatDate, formatCurrency } from './utils.js'
+// Only imported functions are included in the bundle
+```
+
+```javascript
+// UserCard.js — default export (common for single-concept modules)
+export default function UserCard({ user }) { /* ... */ }
+
+// consumer.js
+import UserCard from './UserCard.js'
+import MyCard from './UserCard.js' // Can rename default imports
+```
+
+## In the Browser
+
+```html
+<!-- Add type="module" to use import/export directly -->
+<script type="module">
+  import { formatDate } from './utils.js'
+  console.log(formatDate(new Date()))
+</script>
+```
+
+Module scripts are deferred by default, execute in strict mode, and have their own scope (no global leakage).
+
+## Dynamic Imports for Code Splitting
+
+```javascript
+// Load a heavy module only when needed
+async function loadChart() {
+  const { Chart } = await import('./chart.js')
+  return new Chart(document.getElementById('canvas'))
+}
+
+button.addEventListener('click', loadChart)
+```
+
+## Re-exporting (Barrel Files)
+
+```javascript
+// index.js — re-export from a central entry point
+export { formatDate, formatCurrency } from './date-utils.js'
+export { validateEmail, validatePhone } from './validators.js'
+export { default as UserCard } from './UserCard.js'
+```
+
+## Standards
+
+- Use MDN: JavaScript Guide as the standard for how this JavaScript pattern should behave in production, not just in a small local example.
+- Use web.dev: Learn JavaScript as the standard for how this JavaScript pattern should behave in production, not just in a small local example.
+
+## Support Notes
+
+- Module loading behavior depends on the target browser matrix and build pipeline, so verify the final shipped output rather than relying only on source syntax.
+- If legacy targets remain in scope, document the fallback or transpilation path explicitly.
+- ES modules and class bodies run in strict mode automatically. If the codebase still ships classic non-module scripts, an explicit `'use strict'` directive can still matter there.
+
+## Verification
+
+### Automated Checks
+
+- Verify the behavior in the browser after the code change, not only in static analysis.
+- Inspect DevTools Network or Performance panels when the rule affects loading or execution order.
+- Test the primary user flow and one edge case triggered by the changed script path.
+
+### Manual Checks
+
+- Confirm the code still behaves correctly when the feature is delayed, lazy-loaded, or fails.

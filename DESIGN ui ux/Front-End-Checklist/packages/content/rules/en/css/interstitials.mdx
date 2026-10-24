@@ -1,0 +1,225 @@
+---
+title: Avoid intrusive interstitials
+description: >-
+  Full-screen interstitials (pop-ups, overlays, cookie banners) that block the
+  main content on mobile are a ranking penalty signal and accessibility barrier.
+  Use non-intrusive alternatives.
+categories:
+  - css
+subcategory: responsive
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - >-
+    Full-screen pop-ups that cover the main content immediately on mobile page
+    load are penalized by Google Search (January 2017 Intrusive Interstitials
+    Update)
+  - >-
+    Acceptable interstitials: age verification, legally required notices (cookie
+    consent where legally mandated), login walls for private content
+  - >-
+    Unacceptable: pop-ups covering the main content area on mobile that are not
+    easy to dismiss
+  - >-
+    For accessibility: modal dialogs must trap focus, be dismissible by keyboard
+    (Escape key), and return focus to the trigger element
+  - >-
+    WCAG 2.1 SC 2.1.2 (No Keyboard Trap): users must be able to move focus away
+    from any component using the keyboard
+whyItMatters: >-
+  Intrusive interstitials are a barrier for screen reader users who may not know
+  a modal is blocking the page — they hear content that appears interactive but
+  cannot activate it. Keyboard users may find focus trapped behind an overlay
+  with no way to dismiss it. Users on mobile are most affected visually, as
+  full-screen pop-ups eliminate all access to content until dismissed.
+  Additionally, Google Search penalizes mobile pages with intrusive
+  interstitials in search rankings.
+aiContext: >-
+  Applies to CSS and JavaScript implementations of modals, overlays, pop-ups,
+  cookie banners, newsletter sign-up dialogs, and promotional overlays. Check
+  for `position: fixed`, `position: absolute` with large z-index, backdrop
+  overlays, and JavaScript that shows modals on page load or shortly after.
+  Consider both SEO impact (Google) and accessibility (WCAG focus management).
+prompts:
+  check: >-
+    Identify elements using `position: fixed` or `position: absolute` with high
+    `z-index` values that cover significant portions of the viewport. For each:
+    (1) Does it appear on page load or within a few seconds? (2) Does it cover
+    more than a small portion of the main content on mobile screens (< 600px
+    width)? (3) Is it easily dismissible — is there a visible close button with
+    an accessible name? (4) Can it be dismissed by pressing the Escape key? (5)
+    Does focus move into the dialog when it opens and return to the trigger when
+    it closes? Flag dialogs that fail any of these checks.
+  fix: >-
+    (1) Replace full-screen page-load pop-ups with: (a) sticky banners at the
+    top or bottom (max-height 10-15% of viewport), (b) inline content blocks
+    within the page, or (c) slide-in panels that do not cover the main content.
+    (2) For legally required notices, use small sticky banners rather than
+    full-screen overlays. (3) For all modal dialogs that must be used: implement
+    ARIA dialog pattern — add `role='dialog'`, `aria-modal='true'`,
+    `aria-labelledby` pointing to the dialog title; trap focus within the dialog
+    using a focus trap; move focus to the first focusable element inside the
+    dialog on open; close on Escape key; return focus to the trigger element on
+    close. (4) Delay non-critical pop-ups until user interaction rather than
+    triggering on page load.
+  explain: >-
+    Intrusive interstitials create two categories of problems: (1) SEO: Google's
+    Intrusive Interstitials Update (2017) penalizes pages that show pop-ups
+    covering the main content on mobile immediately after navigating from search
+    results. Exempt are legally required notices, age verification, and login
+    walls for gated content. (2) Accessibility: A modal dialog that does not
+    manage focus is a WCAG failure. If a screen reader user cannot tell a dialog
+    has appeared, or cannot navigate to it, or is trapped in it without being
+    able to escape, the page fails WCAG 2.1 SC 2.1.2 (No Keyboard Trap) and SC
+    4.1.3 (Status Messages). The WAI-ARIA dialog pattern requires focus
+    management as a baseline requirement.
+  codeReview: >-
+    Review stylesheets, component styles, and responsive states related to Avoid
+    intrusive interstitials. Flag exact selectors, declarations, or breakpoints
+    that violate the rule in the rendered UI.
+sources:
+  - title: 'Google: Intrusive Interstitials in Mobile Search'
+    url: >-
+      https://developers.google.com/search/blog/2016/08/helping-users-easily-access-content-on
+    type: guide
+    id: google-intrusive-interstitials-in-mobile-search
+    role: search
+    authority: primary
+  - title: 'WCAG 2.1 SC 2.1.2: No Keyboard Trap'
+    url: 'https://www.w3.org/TR/WCAG21/#no-keyboard-trap'
+    type: wcag
+    id: wcag-2-1-sc-2-1-2-no-keyboard-trap
+    role: standard
+    authority: primary
+  - title: 'WAI-ARIA Authoring Practices: Dialog (Modal) Pattern'
+    url: 'https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/'
+    type: spec
+    id: wai-aria-authoring-practices-dialog-modal-pattern
+    role: standard
+    authority: primary
+  - title: 'MDN: ARIA dialog role'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles/dialog_role
+    type: mdn
+    id: mdn-aria-dialog-role
+    role: reference
+    authority: primary
+resources:
+  - name: Chrome DevTools
+    url: 'https://developer.chrome.com/docs/devtools/'
+    type: tool
+  - name: Modal Pattern – UX Patterns for Developers
+    url: 'https://uxpatterns.dev/patterns/content-management/modal'
+    type: guide
+    description: >-
+      Comprehensive UX pattern guide covering anatomy, accessibility, best
+      practices, and implementation.
+relatedRules:
+  - slug: viewport-zoom
+    reason: >-
+      Both rules sit in the `css/responsive` area and are commonly reviewed
+      together.
+  - slug: font-size
+    reason: >-
+      Both rules sit in the `css/responsive` area and are commonly reviewed
+      together.
+  - slug: horizontal-scroll
+    reason: >-
+      Both rules sit in the `css/responsive` area and are commonly reviewed
+      together.
+  - slug: touch-targets
+    reason: >-
+      Both rules sit in the `css/responsive` area and are commonly reviewed
+      together.
+---
+Interstitials (pop-ups, overlays, cookie banners) that obstruct the main content on mobile are penalized by Google and create accessibility barriers. When modals are necessary, they must be implemented with correct focus management.
+
+## Code Example
+
+```css
+/* ❌ Problem: full-viewport overlay appears on page load */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 9999;
+}
+
+/* ✅ Better: small sticky banner at the bottom */
+.cookie-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 15vh;
+  background: #fff;
+  border-top: 2px solid #ccc;
+  z-index: 100;
+  padding: 1rem;
+}
+```
+
+## Why It Matters
+
+- **SEO**: Google demotes mobile search rankings for pages showing intrusive interstitials after clicking from search results.
+- **Keyboard Users**: Without focus management, keyboard users cannot interact with or dismiss modals.
+- **Screen Reader Users**: An overlay appearing without focus management is invisible to screen reader users.
+- **Cognitive Load**: Unexpected overlays interrupt the user's intent and are especially disorienting for users with cognitive disabilities.
+
+## Acceptable vs Unacceptable Interstitials
+
+| Type | Acceptable? | Reason |
+|---|---|---|
+| Full-screen pop-up on page load (mobile) | No | Google penalty; blocks content |
+| Cookie consent banner (small, sticky) | Yes | Legally required; small footprint |
+| Age verification gate | Yes | Legally required exception |
+| Login wall (private content) | Yes | Content requires auth |
+| Newsletter pop-up (delayed, closable) | With caution | Not on page load; must be accessible |
+| GDPR/cookie full-screen overlay | Avoid | Use sticky banner instead |
+
+## Accessible Modal Pattern (When a Modal is Necessary)
+
+```html
+<!-- ✅ Accessible modal dialog -->
+<div
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="dialog-title"
+  aria-describedby="dialog-description"
+  id="cookie-dialog">
+  <h2 id="dialog-title">Cookie Preferences</h2>
+  <p id="dialog-description">We use cookies to improve your experience.</p>
+  <button type="button" id="accept-btn">Accept all</button>
+  <button type="button" id="reject-btn">Reject non-essential</button>
+  <button type="button" aria-label="Close dialog" id="close-btn">×</button>
+</div>
+```
+
+```javascript
+// Required focus management
+function openModal(dialog, triggerEl) {
+  dialog.removeAttribute('hidden');
+  dialog.querySelector('[id$="-btn"]').focus(); // Focus first button
+}
+
+function closeModal(dialog, triggerEl) {
+  dialog.setAttribute('hidden', '');
+  triggerEl.focus(); // Return focus to trigger
+}
+
+// Dismiss on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal(dialog, triggerEl);
+});
+```
+
+## Verification
+
+1. Inspect the rendered UI at the breakpoints and interaction states affected by the rule.
+2. Confirm the computed styles match the intended fix in DevTools.
+3. Test at least one mobile and one desktop viewport before shipping.
+4. If the rule affects motion, contrast, or layout stability, verify those user-facing outcomes directly.

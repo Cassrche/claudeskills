@@ -1,0 +1,174 @@
+---
+title: Virtualize long lists and tables
+description: >-
+  Render only the visible subset of rows or cards in large collections to reduce
+  DOM size, memory usage, and scroll-time rendering work.
+categories:
+  - performance
+subcategory: rendering
+priority: high
+difficulty: intermediate
+estimatedTime: 25
+tldr:
+  - >-
+    Render only what is visible plus a small overscan buffer instead of the
+    entire list
+  - >-
+    Use virtualization when repeated rows or cards push DOM size and layout cost
+    too high
+  - >-
+    Preserve item sizing, keyboard access, and screen-reader semantics when
+    windowing content
+  - >-
+    Measure scroll smoothness, memory use, and DOM node count before and after
+    the change
+whyItMatters: >-
+  Rendering hundreds or thousands of rows at once wastes memory and makes style
+  calculation, layout, and painting more expensive. Virtualization keeps large
+  collections responsive by limiting the number of mounted nodes.
+aiContext: >-
+  Use when reviewing dashboards, admin tables, search results, or feeds with
+  many repeated items. Confirm the bottleneck is DOM or rendering cost before
+  introducing virtualization because small lists usually do not need the added
+  complexity.
+prompts:
+  check: >-
+    Inspect long lists, tables, grids, and feeds for places where the UI renders
+    every item at once. Flag views where the number of mounted rows or cards is
+    large enough to create DOM, memory, or scroll-performance issues.
+  fix: >-
+    Introduce list or table virtualization so only the visible rows plus
+    overscan render, while preserving sizing, keyboard navigation, and any
+    required sticky headers or selection behavior.
+  explain: >-
+    Explain list virtualization, why it improves performance for large
+    collections, and the tradeoffs engineers need to watch for around
+    measurement and accessibility.
+  codeReview: >-
+    Inspect collection components, data tables, infinite feeds, and dashboards.
+    Flag places where rendering the full dataset creates excessive DOM nodes or
+    scroll jank, and verify the virtualization strategy still preserves item
+    identity, semantics, and expected interactions.
+sources:
+  - title: 'Patterns.dev: List Virtualization'
+    url: 'https://www.patterns.dev/vanilla/virtual-lists/'
+    type: guide
+    id: patterns-dev-list-virtualization
+    role: reference
+    authority: secondary
+  - title: 'web.dev: Virtualize large lists with react-window'
+    url: 'https://web.dev/articles/virtualize-long-lists-react-window'
+    type: guide
+    id: web-dev-virtualize-large-lists-with-react-window
+    role: implementation
+    authority: primary
+resources:
+  - name: PageSpeed Insights
+    url: 'https://pagespeed.web.dev/'
+    type: tool
+  - name: react-window
+    url: 'https://github.com/bvaughn/react-window'
+    type: reference
+relatedRules:
+  - slug: dom-size
+    reason: >-
+      Virtualization is a direct remediation when repeated content pushes DOM
+      size beyond healthy limits
+  - slug: interaction-to-next-paint
+    reason: >-
+      Large mounted lists can slow interaction handling and paint timing during
+      scroll or selection
+  - slug: lazy-loading
+    reason: >-
+      Both rules defer work, but virtualization limits mounted UI while lazy
+      loading primarily limits network transfers
+  - slug: streaming-html
+    reason: >-
+      Both rules sit in the `performance/rendering` area and are commonly
+      reviewed together.
+---
+List virtualization, also called windowing, renders only the rows or cards a user can currently see plus a small buffer. This keeps large collections responsive without forcing the browser to maintain thousands of mounted nodes.
+## Code Examples
+
+#
+
+## Render Only Visible Rows
+
+```tsx
+import { FixedSizeList as List } from 'react-window'
+
+export function OrdersList({ orders }) {
+  return (
+    <List
+      height={600}
+      itemCount={orders.length}
+      itemSize={56}
+      overscanCount={6}
+      width="100%"
+    >
+      {({ index, style }) => (
+        <div style={style}>
+          {orders[index].customerName}
+        </div>
+      )}
+    </List>
+  )
+}
+```
+
+### Avoid Rendering Every Row
+
+```tsx
+// ❌ Bad: Thousands of mounted nodes at once
+export function OrdersTable({ orders }) {
+  return (
+    <table>
+      <tbody>
+        {orders.map((order) => (
+          <tr key={order.id}>
+            <td>{order.id}</td>
+            <td>{order.customerName}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+```
+
+## Why It Matters
+
+- **Smaller DOM**: The browser manages tens of nodes instead of thousands.
+- **Lower memory pressure**: Mounted components, event handlers, and style data stay bounded.
+- **Smoother scrolling**: Style recalculation, layout, and paint work stay predictable during long-list interactions.
+- **Better interaction performance**: Selection, hover, expansion, and keyboard navigation remain responsive on dense screens.
+
+## When to Use It
+
+Virtualization is usually worth considering when:
+
+- A single view renders more than roughly `100-200` repeated items
+- DOM size approaches or exceeds roughly `1,500` total nodes
+- Scrolling shows jank, dropped frames, or slow row interactions
+- Tables or dashboards hold large datasets that users inspect incrementally
+
+Avoid it when:
+
+- The list is small enough to render normally
+- SEO or full-document find-in-page behavior requires all content to be mounted
+- Accessibility semantics would be degraded by a naive windowing implementation
+
+## Standards
+
+- Use Patterns.dev: List Virtualization as the standard for measuring the final production behavior, not just local synthetic output.
+- Use web.dev: Virtualize large lists with react-window as the standard for measuring the final production behavior, not just local synthetic output.
+
+## Verification
+
+Cross-check the result against [react-window guidance on virtualized lists](https://web.dev/articles/virtualize-long-lists-react-window) so the DOM stays small without breaking keyboard or assistive-technology expectations.
+
+1. Compare the mounted node count before and after the change and confirm the view no longer renders the full dataset at once.
+2. Record a performance trace while scrolling and confirm layout, paint, and scripting work stay flatter with fewer long frames.
+3. Verify keyboard navigation, row focus, selection state, and screen-reader labels still work as expected inside the virtualized list or table.
+4. Tune the overscan buffer so fast scrolling does not reveal blank gaps while still keeping the mounted row count low.
+5. Re-test memory usage and interaction responsiveness on lower-end mobile or laptop hardware if the list is part of a critical workflow.

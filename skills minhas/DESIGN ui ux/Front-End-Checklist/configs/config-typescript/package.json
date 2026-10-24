@@ -1,0 +1,13 @@
+{
+  "name": "@repo/config-typescript",
+  "version": "1.0.0",
+  "private": true,
+  "main": "base.json",
+  "files": [
+    "*.json",
+    "README.md"
+  ],
+  "scripts": {
+    "clean": "rm -rf .turbo node_modules"
+  }
+}

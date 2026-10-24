@@ -1,0 +1,2339 @@
+package cmd
+
+import (
+	"bufio"
+	"context"
+	"crypto/sha256"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+
+	"codemap/config"
+	"codemap/handoff"
+	"codemap/internal/projectpath"
+	"codemap/limits"
+	"codemap/scanner"
+	"codemap/skills"
+	"codemap/watch"
+)
+
+// hubInfo contains hub file information from daemon or fresh scan
+type hubInfo struct {
+	Hubs      []string
+	Importers map[string][]string
+	Imports   map[string][]string
+	Coverage  scanner.GraphCoverage
+}
+
+const (
+	DefaultHookTimeout      = 8 * time.Second
+	daemonRestartStaleAfter = 2 * time.Hour
+	diffCaptureSlackBytes   = 4 * 1024
+	sessionLeaseTTL         = 24 * time.Hour
+	sessionLockStaleAfter   = 30 * time.Second
+	sessionLockWait         = time.Second
+)
+
+var isOwnedDaemonProcess = watch.IsOwnedDaemon
+var hookExecutablePath = os.Executable
+var hookExecCommand = exec.Command
+var hookWatchIsRunning = watch.IsRunning
+var daemonStartupPause = time.Sleep
+
+// promptFileExtensions is derived from the canonical scanner registry.
+var promptFileExtensions = scanner.PromptExtensions()
+
+type HookTimeoutError struct {
+	Hook    string
+	Timeout time.Duration
+}
+
+func (e *HookTimeoutError) Error() string {
+	return fmt.Sprintf("hook %q timed out after %s", e.Hook, e.Timeout)
+}
+
+// cappedStringWriter captures at most maxBytes while still reporting full
+// progress to avoid blocking subprocess writers on large output.
+type cappedStringWriter struct {
+	maxBytes  int
+	buf       strings.Builder
+	truncated bool
+}
+
+func newCappedStringWriter(maxBytes int) *cappedStringWriter {
+	return &cappedStringWriter{maxBytes: maxBytes}
+}
+
+func (w *cappedStringWriter) Write(p []byte) (int, error) {
+	if w.maxBytes <= 0 {
+		w.truncated = true
+		return len(p), nil
+	}
+
+	remaining := w.maxBytes - w.buf.Len()
+	if remaining <= 0 {
+		w.truncated = true
+		return len(p), nil
+	}
+	if len(p) <= remaining {
+		_, _ = w.buf.Write(p)
+		return len(p), nil
+	}
+
+	_, _ = w.buf.Write(p[:remaining])
+	w.truncated = true
+	return len(p), nil
+}
+
+func (w *cappedStringWriter) String() string {
+	return w.buf.String()
+}
+
+func (w *cappedStringWriter) Truncated() bool {
+	return w.truncated
+}
+
+// getHubInfo returns hub info from daemon state.
+// If daemon isn't running, falls back to a fresh scan.
+func getHubInfo(root string) *hubInfo {
+	return getHubInfoWithFallback(root, true)
+}
+
+// getHubInfoNoFallback returns cached hub information only.
+// It never triggers expensive graph scans.
+func getHubInfoNoFallback(root string) *hubInfo {
+	return getHubInfoWithFallback(root, false)
+}
+
+func getValidatedHubInfo(root string) *hubInfo {
+	state := watch.ReadState(root)
+	graph, _ := watch.ValidateCachedGraph(state, root, config.Load(root))
+	if graph == nil {
+		return nil
+	}
+	return &hubInfo{
+		Hubs:      graph.HubFiles(),
+		Importers: graph.Importers,
+		Imports:   graph.Imports,
+		Coverage:  graph.Coverage,
+	}
+}
+
+func resolveValidatedHookFiles(root string, mentions []string, cfg config.ProjectConfig) []string {
+	files := make([]string, 0, len(mentions))
+	seen := make(map[string]struct{})
+	gitCache := scanner.NewGitIgnoreCache(root)
+	for _, mention := range mentions {
+		normalized := normalizeContextPath(mention)
+		if normalized == "" || !scanner.MatchesFilters(normalized, filepath.Ext(normalized), cfg.Only, cfg.Exclude) {
+			continue
+		}
+		candidate := filepath.Join(root, filepath.FromSlash(normalized))
+		info, err := os.Lstat(candidate)
+		if err != nil || !info.Mode().IsRegular() {
+			continue
+		}
+		for dir := filepath.Dir(candidate); ; dir = filepath.Dir(dir) {
+			gitCache.EnsureDir(dir)
+			if dir == filepath.Clean(root) || dir == filepath.Dir(dir) {
+				break
+			}
+		}
+		if gitCache.ShouldIgnore(candidate) {
+			continue
+		}
+		if _, duplicate := seen[normalized]; duplicate {
+			continue
+		}
+		seen[normalized] = struct{}{}
+		files = append(files, normalized)
+	}
+	return files
+}
+
+func getHubInfoWithFallback(root string, allowFallback bool) *hubInfo {
+	if state := watch.ReadState(root); state != nil {
+		// State may contain file/event info only (no dependency graph) on very
+		// large repos. Avoid expensive fallback scans in that case.
+		if len(state.Importers) == 0 && len(state.Imports) == 0 && len(state.Hubs) == 0 && state.Coverage.Status == "" {
+			return nil
+		}
+		return &hubInfo{
+			Hubs:      state.Hubs,
+			Importers: state.Importers,
+			Imports:   state.Imports,
+			Coverage:  state.Coverage,
+		}
+	}
+
+	if !allowFallback {
+		return nil
+	}
+
+	// If daemon is running but state is unavailable, skip expensive fallback.
+	if watch.IsRunning(root) {
+		return nil
+	}
+
+	// Fall back to fresh scan only when daemon is not running.
+	fg, err := scanner.BuildFileGraph(context.Background(), root, scanner.ConfiguredFilters(root))
+	if err != nil {
+		return nil
+	}
+
+	return &hubInfo{
+		Hubs:      fg.HubFiles(),
+		Importers: fg.Importers,
+		Imports:   fg.Imports,
+		Coverage:  fg.Coverage,
+	}
+}
+
+// RunHookWithTimeout executes a hook with a hard timeout.
+// On timeout, returns HookTimeoutError and callers should fail open.
+func RunHookWithTimeout(hookName, root string, timeout time.Duration) error {
+	if timeout <= 0 {
+		return RunHook(hookName, root)
+	}
+
+	if hookName == "session-stop" {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		resolvedRoot, _, err := ResolveNearestGitRoot(root)
+		if err != nil {
+			return err
+		}
+		root, err = ValidateProjectPath(resolvedRoot)
+		if err != nil {
+			return err
+		}
+		out := io.Writer(os.Stdout)
+		if os.Getenv("CODEX") == "1" {
+			out = io.Discard
+		}
+		err = hookSessionStopContext(ctx, root, out)
+		if errors.Is(err, context.DeadlineExceeded) {
+			return &HookTimeoutError{Hook: hookName, Timeout: timeout}
+		}
+		return err
+	}
+	return runWithTimeout(hookName, timeout, func() error {
+		return RunHook(hookName, root)
+	})
+}
+
+func runWithTimeout(hookName string, timeout time.Duration, fn func() error) error {
+	if timeout <= 0 {
+		return fn()
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- fn()
+	}()
+
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(timeout):
+		return &HookTimeoutError{Hook: hookName, Timeout: timeout}
+	}
+}
+
+func HookTimeoutFromEnv(getenv func(string) string) time.Duration {
+	if getenv == nil {
+		return DefaultHookTimeout
+	}
+
+	value := strings.TrimSpace(getenv("CODEMAP_HOOK_TIMEOUT"))
+	if value == "" {
+		return DefaultHookTimeout
+	}
+
+	d, err := time.ParseDuration(value)
+	if err != nil {
+		return DefaultHookTimeout
+	}
+	if d < 0 {
+		return DefaultHookTimeout
+	}
+	return d
+}
+
+func IsHookTimeoutError(err error) bool {
+	var timeoutErr *HookTimeoutError
+	return errors.As(err, &timeoutErr)
+}
+
+func shouldRestartDaemon(root string, now time.Time) bool {
+	if !watch.IsRunning(root) {
+		return false
+	}
+	if !isOwnedDaemonProcess(root) {
+		return false
+	}
+
+	state := watch.ReadState(root)
+	if state == nil {
+		return true
+	}
+
+	return now.Sub(state.UpdatedAt) > daemonRestartStaleAfter
+}
+
+func waitForDaemonState(root string, timeout time.Duration) *watch.State {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if state := watch.ReadState(root); state != nil {
+			return state
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return nil
+}
+
+// RunHook executes the named hook with the given project root
+func RunHook(hookName, root string) error {
+	resolvedRoot, _, err := ResolveNearestGitRoot(root)
+	if err != nil {
+		return err
+	}
+	root, err = ValidateProjectPath(resolvedRoot)
+	if err != nil {
+		return err
+	}
+
+	var fn func() error
+	switch hookName {
+	case "session-start":
+		fn = func() error { return hookSessionStart(root) }
+	case "pre-edit":
+		fn = func() error { return hookPreEdit(root) }
+	case "post-edit":
+		fn = func() error { return hookPostEdit(root) }
+	case "prompt-submit":
+		fn = func() error { return hookPromptSubmit(root) }
+	case "pre-compact":
+		fn = func() error { return hookPreCompact(root) }
+	case "session-stop":
+		fn = func() error { return hookSessionStop(root) }
+	default:
+		return fmt.Errorf("unknown hook: %s\nAvailable: session-start, pre-edit, post-edit, prompt-submit, pre-compact, session-stop", hookName)
+	}
+	return runHookOutput(hookName, fn)
+}
+
+func runHookOutput(hookName string, fn func() error) error {
+	if os.Getenv("CODEX") != "1" {
+		return fn()
+	}
+	if hookName == "session-stop" {
+		return runHookWithoutStdout(fn)
+	}
+
+	event := ""
+	switch hookName {
+	case "session-start":
+		event = "SessionStart"
+	case "prompt-submit":
+		event = "UserPromptSubmit"
+	case "pre-compact":
+		event = "PreCompact"
+	case "pre-edit":
+		event = "PreToolUse"
+	case "post-edit":
+		event = "PostToolUse"
+	default:
+		return fn()
+	}
+	return emitCodexHookContext(event, fn)
+}
+
+func runHookWithoutStdout(fn func() error) error {
+	devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if err != nil {
+		return err
+	}
+	defer devNull.Close()
+	original := os.Stdout
+	os.Stdout = devNull
+	defer func() { os.Stdout = original }()
+	return fn()
+}
+
+// hookSessionStart shows project structure, starts daemon, and shows hub warnings
+func hookSessionStart(root string) error {
+	// Handle meta-repo: parent directory containing child git repos.
+	// Check this before the git guard so that non-repo parent directories
+	// still get multi-repo context.
+	childRepos := findChildRepos(root)
+	if len(childRepos) > 1 {
+		return hookSessionStartMultiRepo(root, childRepos)
+	}
+
+	// Guard: require git repo for single-repo analysis
+	gitDir := filepath.Join(root, ".git")
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		fmt.Println("📍 Not a git repository - skipping project context")
+		fmt.Println("   (codemap hooks work best in git repos)")
+		return nil
+	}
+
+	// Check for previous session context before starting new daemon
+	lastSessionEvents := getLastSessionEvents(root)
+
+	ensureSessionDaemon(root, hookSessionIDFromStdin())
+
+	fmt.Println("📍 Project Context:")
+	fmt.Println()
+
+	// IMPORTANT: Hook output goes directly into Claude's "Messages" context, not system prompt.
+	// This means hook output competes with conversation history for the ~200k token limit.
+	// A 1.3MB output (like a full tree of a 10k file repo) = ~500k tokens = instant context overflow.
+	//
+	// We enforce two limits:
+	// 1. Adaptive depth: larger repos get shallower trees (depth 2-4 based on file count)
+	// 2. Hard cap: 60KB max output (~15k tokens, <10% of context window)
+	//
+	// Future: Consider structured output that Claude Code can format/truncate intelligently.
+	fileCount := 0
+	fileCountKnown := false
+	state := watch.ReadState(root)
+	if state == nil && watch.IsRunning(root) {
+		state = waitForDaemonState(root, 2*time.Second)
+	}
+	fileCount, fileCountKnown = configuredStateFileCount(root, state)
+	EnsureProjectConfig(root)
+	projCfg := config.Load(root)
+	structureBudget := projCfg.SessionStartOutputBytes()
+	maxHubs := projCfg.HubDisplayLimit()
+
+	showConfigSetupHint(root)
+
+	exe, err := os.Executable()
+	if err == nil {
+		depth := limits.AdaptiveDepth(fileCount)
+		if projCfg.Depth > 0 {
+			depth = projCfg.Depth
+		}
+
+		args := projectpath.PrependSetupRootArgs("--depth", strconv.Itoa(depth))
+		if len(projCfg.Only) > 0 {
+			args = append(args, "--only", strings.Join(projCfg.Only, ","))
+		}
+		if len(projCfg.Exclude) > 0 {
+			args = append(args, "--exclude", strings.Join(projCfg.Exclude, ","))
+		}
+		args = append(args, root)
+		cmd := exec.Command(exe, args...)
+
+		// Capture output to enforce size limit
+		var buf strings.Builder
+		cmd.Stdout = &buf
+		cmd.Stderr = os.Stderr
+		cmd.Run()
+
+		output := buf.String()
+		if len(output) > structureBudget {
+			repoSummary := "repo size unknown"
+			if fileCountKnown {
+				repoSummary = fmt.Sprintf("repo has %d files", fileCount)
+			}
+			output = limits.TruncateAtLineBoundary(
+				output,
+				structureBudget,
+				"\n\n... (truncated - "+repoSummary+", use `codemap .` for full tree)\n",
+			)
+		}
+
+		fmt.Print(output)
+		fmt.Println()
+	}
+
+	// Show hub files (from daemon if running, otherwise fresh scan)
+	info := getHubInfo(root)
+	if info != nil && len(info.Hubs) > 0 {
+		fmt.Println("⚠️  High-impact files (hubs):")
+		for i, hub := range info.Hubs {
+			if i >= maxHubs {
+				fmt.Printf("   ... and %d more\n", len(info.Hubs)-maxHubs)
+				break
+			}
+			importers := len(info.Importers[hub])
+			fmt.Printf("   ⚠️  HUB FILE: %s (imported by %s)\n", hub, filesText(importers))
+		}
+	} else if shouldSkipHubAnalysis(fileCount, fileCountKnown) {
+		fmt.Printf("ℹ️  Hub analysis skipped for large repo (%d files)\n", fileCount)
+	}
+
+	currentBranch, branchKnown := gitCurrentBranch(root)
+	recentHandoff := getRecentHandoff(root)
+	recentHandoffMatchesBranch := handoffMatchesBranch(recentHandoff, currentBranch, branchKnown)
+	hasRecentHandoffChanges := recentHandoffMatchesBranch && handoffHasChangedFiles(recentHandoff)
+
+	// Show diff vs main only when we do not already have a recent structured handoff.
+	if !hasRecentHandoffChanges {
+		showDiffVsMain(root, fileCount, fileCountKnown, projCfg)
+	}
+
+	// Show last session context only when recent handoff is unavailable/incomplete.
+	if len(lastSessionEvents) > 0 && !hasRecentHandoffChanges {
+		showLastSessionContext(root, lastSessionEvents)
+	}
+	if recentHandoffMatchesBranch {
+		showRecentHandoffSummary(recentHandoff)
+	}
+
+	return nil
+}
+
+// showDiffVsMain shows files changed on this branch vs main.
+// For large/unknown repos, uses lightweight git output to avoid expensive scans.
+func showDiffVsMain(root string, fileCount int, fileCountKnown bool, projCfg config.ProjectConfig) {
+	// Check if we're on a branch other than main
+	branchCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	branchCmd.Dir = root
+	branchOut, err := branchCmd.Output()
+	if err != nil {
+		return
+	}
+	branch := strings.TrimSpace(string(branchOut))
+	if branch == "main" || branch == "master" {
+		return // No diff to show on main branch
+	}
+
+	// Run codemap --diff to show changes
+	exe, err := os.Executable()
+	if err != nil {
+		return
+	}
+
+	fmt.Println()
+	fmt.Printf("📝 Changes on branch '%s' vs main:\n", branch)
+
+	// Unknown file count typically means daemon state is not ready.
+	// Use cheap git-based output in that case to avoid startup blowups.
+	if shouldUseLightweightDiff(fileCount, fileCountKnown) {
+		showLightweightDiffVsMain(root)
+		return
+	}
+
+	// Run codemap --diff to show richer impact analysis on manageable repos.
+	diffBudget := projCfg.DiffOutputBytes()
+	args := projectpath.PrependSetupRootArgs("--diff")
+	if len(projCfg.Only) > 0 {
+		args = append(args, "--only", strings.Join(projCfg.Only, ","))
+	}
+	if len(projCfg.Exclude) > 0 {
+		args = append(args, "--exclude", strings.Join(projCfg.Exclude, ","))
+	}
+	args = append(args, root)
+	cmd := exec.Command(exe, args...)
+	captureLimit := diffBudget + diffCaptureSlackBytes
+	if captureLimit < diffBudget {
+		captureLimit = diffBudget
+	}
+	buf := newCappedStringWriter(captureLimit)
+	cmd.Stdout = buf
+	cmd.Stderr = os.Stderr
+	cmd.Run()
+
+	output := buf.String()
+	if len(output) > diffBudget || buf.Truncated() {
+		output = limits.TruncateAtLineBoundary(
+			output,
+			diffBudget,
+			"\n\n... (diff output truncated, run `codemap --diff` for full output)\n",
+		)
+	}
+	fmt.Print(output)
+}
+
+func configuredStateFileCount(root string, state *watch.State) (int, bool) {
+	if count, ok := state.ConfiguredCount(); ok {
+		return count, true
+	}
+	if state == nil {
+		return 0, false
+	}
+	files, err := scanner.ScanConfiguredFiles(context.Background(), root, scanner.NewGitIgnoreCache(root))
+	if err != nil {
+		return 0, false
+	}
+	return len(files), true
+}
+
+func shouldSkipHubAnalysis(fileCount int, fileCountKnown bool) bool {
+	return fileCountKnown && fileCount > limits.LargeRepoFileCount
+}
+
+func shouldUseLightweightDiff(fileCount int, fileCountKnown bool) bool {
+	return !fileCountKnown || fileCount > limits.LargeRepoFileCount
+}
+
+func showLightweightDiffVsMain(root string) {
+	cmd := exec.Command("git", "diff", "--name-only", "main...HEAD")
+	cmd.Dir = root
+	out, err := cmd.Output()
+	if err != nil {
+		fmt.Println("   (unable to read git diff)")
+		return
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) == 1 && lines[0] == "" {
+		fmt.Println("   No files changed")
+		return
+	}
+
+	const maxShown = 20
+	for i, line := range lines {
+		if i >= maxShown {
+			fmt.Printf("   ... and %d more files\n", len(lines)-maxShown)
+			break
+		}
+		fmt.Printf("   • %s\n", line)
+	}
+}
+
+// getLastSessionEvents reads events.log for previous session context
+func getLastSessionEvents(root string) []string {
+	codemapDir, err := projectpath.CheckedRuntimeCodemapDir(root)
+	if err != nil {
+		return nil
+	}
+	eventsFile := filepath.Join(codemapDir, "events.log")
+	f, err := os.Open(eventsFile)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil || info.Size() == 0 {
+		return nil
+	}
+
+	readBytes := info.Size()
+	maxTail := int64(limits.MaxEventLogReadBytes)
+	if maxTail > 0 && readBytes > maxTail {
+		readBytes = maxTail
+	}
+	if readBytes <= 0 {
+		return nil
+	}
+	start := info.Size() - readBytes
+
+	buf := make([]byte, int(readBytes))
+	n, err := f.ReadAt(buf, start)
+	if err != nil && err != io.EOF {
+		return nil
+	}
+	if n == 0 {
+		return nil
+	}
+
+	text := string(buf[:n])
+	if start > 0 {
+		if idx := strings.IndexByte(text, '\n'); idx >= 0 && idx+1 < len(text) {
+			text = text[idx+1:]
+		}
+	}
+
+	lines := strings.Split(text, "\n")
+	if len(lines) == 0 {
+		return nil
+	}
+
+	// Get last 20 non-empty lines
+	var recent []string
+	for i := len(lines) - 1; i >= 0 && len(recent) < 20; i-- {
+		if strings.TrimSpace(lines[i]) != "" {
+			recent = append([]string{lines[i]}, recent...)
+		}
+	}
+	return recent
+}
+
+// showLastSessionContext displays what was worked on in previous session
+func showLastSessionContext(root string, events []string) {
+	// Extract unique files from events
+	files := make(map[string]string) // file -> last operation
+	for _, line := range events {
+		parts := strings.Split(line, "|")
+		if len(parts) >= 3 {
+			op := strings.TrimSpace(parts[1])
+			file := strings.TrimSpace(parts[2])
+			if file != "" && op != "" {
+				files[file] = op
+			}
+		}
+	}
+
+	if len(files) == 0 {
+		return
+	}
+
+	// Fix atomic save artifacts: editors often do write-to-temp + rename,
+	// which fsnotify sees as REMOVE. If file still exists, it was edited.
+	for file, op := range files {
+		if strings.EqualFold(op, "REMOVE") || strings.EqualFold(op, "RENAME") {
+			if _, err := os.Stat(filepath.Join(root, file)); err == nil {
+				files[file] = "edited"
+			}
+		}
+	}
+
+	fmt.Println()
+	fmt.Println("🕐 Last session worked on:")
+	orderedFiles := make([]string, 0, len(files))
+	for file := range files {
+		orderedFiles = append(orderedFiles, file)
+	}
+	sort.Strings(orderedFiles)
+
+	for i, file := range orderedFiles {
+		op := files[file]
+		if i >= 5 {
+			fmt.Printf("   ... and %d more files\n", len(files)-5)
+			break
+		}
+		fmt.Printf("   • %s (%s)\n", file, strings.ToLower(op))
+	}
+}
+
+func getRecentHandoff(root string) *handoff.Artifact {
+	artifact, err := handoff.ReadLatest(root)
+	if err != nil || artifact == nil {
+		return nil
+	}
+	if time.Since(artifact.GeneratedAt) > 24*time.Hour {
+		return nil
+	}
+	return artifact
+}
+
+func handoffHasChangedFiles(artifact *handoff.Artifact) bool {
+	if artifact == nil {
+		return false
+	}
+	return len(artifact.Delta.Changed) > 0 || len(artifact.ChangedFiles) > 0
+}
+
+func handoffMatchesBranch(artifact *handoff.Artifact, currentBranch string, branchKnown bool) bool {
+	if artifact == nil || !branchKnown {
+		return false
+	}
+	return strings.TrimSpace(artifact.Branch) == strings.TrimSpace(currentBranch)
+}
+
+func gitCurrentBranch(root string) (string, bool) {
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	cmd.Dir = root
+	out, err := cmd.Output()
+	if err != nil {
+		return "", false
+	}
+	branch := strings.TrimSpace(string(out))
+	if branch == "" {
+		return "", false
+	}
+	return branch, true
+}
+
+func showRecentHandoffSummary(artifact *handoff.Artifact) {
+	if artifact == nil {
+		return
+	}
+	summary := handoff.RenderCompact(artifact, 5)
+	if summary == "" {
+		return
+	}
+
+	if len(summary) > limits.MaxHandoffCompactBytes {
+		summary = limits.TruncateAtLineBoundary(
+			summary,
+			limits.MaxHandoffCompactBytes,
+			"\n   ... (handoff summary truncated)\n",
+		)
+	}
+
+	fmt.Println()
+	fmt.Println("🤝 Recent handoff:")
+	fmt.Print(summary)
+}
+
+// startDaemon launches the watch daemon in background
+func startDaemon(root string) {
+	exe, err := hookExecutablePath()
+	if err != nil {
+		return
+	}
+	args := projectpath.PrependSetupRootArgs("watch", "start", root)
+	cmd := hookExecCommand(exe, args...)
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	cmd.Stdin = nil
+	cmd.Start()
+	// Give daemon a moment to initialize
+	daemonStartupPause(200 * time.Millisecond)
+}
+
+// hookPreEdit warns before editing hub files (reads JSON from stdin)
+func hookPreEdit(root string) error {
+	filePaths, err := extractFilePathsFromStdin()
+	if err != nil || len(filePaths) == 0 {
+		return nil // silently skip if no file path
+	}
+	for _, filePath := range filePaths {
+		if err := checkFileImportersWithPhase(root, filePath, "before"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// hookPostEdit shows impact after editing (reads JSON from stdin)
+func hookPostEdit(root string) error {
+	input, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return nil
+	}
+	filePaths := parseHookFilePaths(input)
+	if len(filePaths) == 0 {
+		return nil
+	}
+
+	// Record provenance: these writes came from an agent tool call, which is
+	// the signal the watch daemon can't observe on its own.
+	sessionID := sessionIDFromHookInput(input)
+	now := time.Now()
+	for _, filePath := range filePaths {
+		_ = recordAgentEdit(root, sessionID, filePath, now)
+	}
+
+	for _, filePath := range filePaths {
+		if err := checkFileImportersWithPhase(root, filePath, "after"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func emitCodexHookContext(event string, fn func() error) error {
+	if os.Getenv("CODEX") != "1" {
+		return fn()
+	}
+	original := os.Stdout
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		return err
+	}
+	type readResult struct {
+		output []byte
+		err    error
+	}
+	readDone := make(chan readResult, 1)
+	go func() {
+		output, readErr := io.ReadAll(reader)
+		readDone <- readResult{output: output, err: readErr}
+	}()
+	os.Stdout = writer
+	callErr := fn()
+	closeErr := writer.Close()
+	os.Stdout = original
+	result := <-readDone
+	_ = reader.Close()
+	if callErr != nil {
+		return callErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if result.err != nil || len(strings.TrimSpace(string(result.output))) == 0 {
+		return result.err
+	}
+	return json.NewEncoder(original).Encode(map[string]any{
+		"hookSpecificOutput": map[string]any{
+			"hookEventName":     event,
+			"additionalContext": string(result.output),
+		},
+	})
+}
+
+// hookPromptSubmit analyzes user prompt with code intelligence and shows context
+func hookPromptSubmit(root string) error {
+	input, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return nil
+	}
+
+	// Extract prompt from JSON
+	var data map[string]interface{}
+	if err := json.Unmarshal(input, &data); err != nil {
+		return nil
+	}
+
+	prompt, ok := data["prompt"].(string)
+	if !ok || prompt == "" {
+		return nil
+	}
+
+	EnsureProjectConfig(root)
+	projCfg := config.Load(root)
+	topK := projCfg.RoutingTopKOrDefault()
+	info := getValidatedHubInfo(root)
+
+	// Extract mentioned files and classify intent
+	filesMentioned := extractMentionedFiles(prompt, topK)
+	if info != nil {
+		filesMentioned = resolveValidatedHookFiles(root, filesMentioned, projCfg)
+	}
+	// The cached graph has no content fingerprint, so it cannot support a
+	// risk verdict after an in-place source edit.
+	intent := classifyIntent(prompt, filesMentioned, nil, projCfg)
+
+	// Emit structured intent marker (machine-readable for tools) only when the
+	// classification is trustworthy — a zero/low-confidence category is a
+	// guess, and downstream advice derived from it misleads the agent.
+	if intent.Confidence >= intentConfidenceFloor {
+		emitIntentMarker(intent)
+	}
+
+	// Human-readable file context (backwards compatible)
+	var output []string
+	if info != nil {
+		for _, file := range filesMentioned {
+			if importers := info.Importers[file]; len(importers) > 0 {
+				if scanner.CountHubImporters(importers) >= scanner.HubThreshold {
+					output = append(output, fmt.Sprintf("   ⚠️  %s is a HUB (imported by %s)", file, filesText(len(importers))))
+				} else {
+					output = append(output, fmt.Sprintf("   📍 %s (imported by %s)", file, filesText(len(importers))))
+				}
+			}
+		}
+	}
+
+	if len(output) > 0 {
+		fmt.Println()
+		fmt.Println("📍 Context for mentioned files:")
+		for _, line := range output {
+			fmt.Println(line)
+		}
+	}
+
+	// Show suggestions from intent analysis
+	if len(intent.Suggestions) > 0 {
+		fmt.Println()
+		fmt.Printf("💡 Suggestions (risk: %s):\n", intent.RiskLevel)
+		for _, s := range intent.Suggestions {
+			fmt.Printf("   • [%s] %s — %s\n", s.Type, s.Target, s.Reason)
+		}
+	}
+
+	showNextCodemapSteps(intent, info)
+
+	showRouteSuggestions(prompt, projCfg, topK)
+
+	// Match and inject relevant skills
+	showMatchedSkills(root, intent)
+
+	// Show drift warnings if configured
+	if projCfg.Drift.Enabled {
+		showDriftWarnings(root, projCfg.Drift, projCfg.Routing)
+	}
+
+	// Show working set and session progress
+	promptSessionID := sessionIDFromHookInput(input)
+	showWorkingSetSummary(root, promptSessionID)
+	showSessionProgress(root, promptSessionID)
+
+	// Write statusline state for terminal UI
+	writeStatuslineState(root, intent)
+
+	return nil
+}
+
+// writeStatuslineState writes a tiny file for the statusline to read.
+func writeStatuslineState(root string, intent TaskIntent) {
+	codemapDir, err := projectpath.CheckedRuntimeCodemapDir(root)
+	if err != nil {
+		return
+	}
+	status := intent.Category
+	if intent.RiskLevel != "low" {
+		status += " " + intent.RiskLevel
+	}
+	os.WriteFile(filepath.Join(codemapDir, "status"), []byte(status), 0644)
+}
+
+// emitIntentMarker outputs a structured JSON comment for machine consumption.
+func emitIntentMarker(intent TaskIntent) {
+	data, err := json.Marshal(intent)
+	if err != nil {
+		return
+	}
+	fmt.Printf("<!-- codemap:intent %s -->\n", string(data))
+}
+
+// showMatchedSkills loads the skill index, matches against intent, and emits
+// a compact marker. Skill bodies are pull-based (via `codemap skill show` or
+// the get_skill MCP tool) to avoid context bloat on every prompt.
+func showMatchedSkills(root string, intent TaskIntent) {
+	idx, err := skills.LoadSkills(root)
+	if err != nil || idx == nil || len(idx.Skills) == 0 {
+		return
+	}
+
+	// Detect languages from mentioned files
+	var langs []string
+	langSeen := make(map[string]bool)
+	for _, f := range intent.Files {
+		lang := scanner.DetectLanguage(f)
+		if lang != "" && !langSeen[lang] {
+			langSeen[lang] = true
+			langs = append(langs, lang)
+		}
+	}
+
+	matches := idx.MatchSkills(intent.Category, intent.Files, langs, 3)
+	matches = injectConfigSetupSkill(root, idx, matches)
+	if len(matches) == 0 {
+		return
+	}
+
+	// Emit structured marker only — no bodies (pull-based, not push-based)
+	type skillRef struct {
+		Name   string `json:"name"`
+		Score  int    `json:"score"`
+		Reason string `json:"reason"`
+	}
+	var refs []skillRef
+	for _, m := range matches {
+		refs = append(refs, skillRef{Name: m.Skill.Meta.Name, Score: m.Score, Reason: m.Reason})
+	}
+	if data, err := json.Marshal(refs); err == nil {
+		fmt.Printf("<!-- codemap:skills %s -->\n", string(data))
+	}
+
+	// Compact human-readable hint with retrieval instruction
+	names := make([]string, len(refs))
+	for i, r := range refs {
+		names[i] = r.Name
+	}
+	fmt.Printf("Skills matched: %s — run `codemap skill show <name>` for guidance\n", strings.Join(names, ", "))
+	for _, r := range refs {
+		if r.Name == "config-setup" && strings.HasPrefix(r.Reason, "config:") {
+			fmt.Println("🛑 Codemap setup is not finished. Before continuing the user's task: run `codemap skill show config-setup`, tune .codemap/config.json, rerun `codemap .`, then proceed.")
+			break
+		}
+	}
+}
+
+type codemapNextStep struct {
+	Command string
+	Reason  string
+}
+
+func showNextCodemapSteps(intent TaskIntent, info *hubInfo) {
+	steps := planCodemapNextSteps(intent, info)
+	if len(steps) == 0 {
+		return
+	}
+
+	fmt.Println()
+	fmt.Println("Next codemap:")
+	for _, step := range steps {
+		fmt.Printf("   • %s — %s\n", step.Command, step.Reason)
+	}
+}
+
+func planCodemapNextSteps(intent TaskIntent, info *hubInfo) []codemapNextStep {
+	if intent.Confidence < intentConfidenceFloor {
+		return nil
+	}
+
+	var steps []codemapNextStep
+	seen := make(map[string]bool)
+	add := func(command, reason string) {
+		if command == "" || seen[command] {
+			return
+		}
+		seen[command] = true
+		steps = append(steps, codemapNextStep{Command: command, Reason: reason})
+	}
+
+	primaryFile := pickPrimaryCodemapFile(intent.Files, info)
+	if primaryFile != "" {
+		importerCount := 0
+		hubImporterCount := 0
+		if info != nil {
+			importerCount = len(info.Importers[primaryFile])
+			hubImporterCount = scanner.CountHubImporters(info.Importers[primaryFile])
+		}
+
+		reason := "check callers before editing"
+		switch {
+		case hubImporterCount >= scanner.HubThreshold:
+			reason = fmt.Sprintf("check blast radius before editing this hub (%s)", importersNoun(importerCount))
+		case importerCount > 0:
+			reason = fmt.Sprintf("check callers before editing (%s)", importersNoun(importerCount))
+		}
+		add("codemap --importers "+shellQuoteIfNeeded(primaryFile), reason)
+		if hubImporterCount >= scanner.HubThreshold {
+			add("codemap --deps", "trace dependency flow around this hub before changing it")
+		}
+	}
+
+	switch intent.Category {
+	case "vcs":
+		add("codemap --diff", "review what changed before merging, reviewing, or releasing")
+	case "explore":
+		if len(intent.Files) == 0 {
+			add("codemap .", "refresh project structure before diving in")
+		} else {
+			add("codemap --deps", "trace how the mentioned code connects")
+		}
+	case "refactor":
+		add("codemap --deps", "verify dependency flow before refactoring")
+	case "feature":
+		if len(intent.Files) == 0 {
+			add("codemap .", "refresh project structure before choosing edit points")
+		}
+		if len(intent.Files) > 0 || intent.Scope != "single-file" {
+			add("codemap --deps", "feature work tends to cross existing dependencies")
+		}
+	case "bugfix":
+		if len(intent.Files) == 0 {
+			add("codemap --diff", "check recent branch changes before debugging")
+		} else if primaryFile != "" && info != nil && scanner.CountHubImporters(info.Importers[primaryFile]) >= scanner.HubThreshold {
+			add("codemap --deps", "hub fixes can ripple through dependents")
+		}
+	}
+
+	if len(steps) > 2 {
+		steps = steps[:2]
+	}
+	return steps
+}
+
+func pickPrimaryCodemapFile(files []string, info *hubInfo) string {
+	if len(files) == 0 {
+		return ""
+	}
+
+	best := files[0]
+	bestImporters := -1
+	for _, file := range files {
+		importerCount := 0
+		if info != nil {
+			importerCount = len(info.Importers[file])
+		}
+		if importerCount > bestImporters {
+			best = file
+			bestImporters = importerCount
+		}
+	}
+	return best
+}
+
+func shellQuoteIfNeeded(value string) string {
+	if strings.ContainsAny(value, " \t") {
+		return strconv.Quote(value)
+	}
+	return value
+}
+
+func injectConfigSetupSkill(root string, idx *skills.SkillIndex, matches []skills.MatchResult) []skills.MatchResult {
+	assessment := config.AssessSetup(root)
+	if !assessment.NeedsAttention() {
+		return matches
+	}
+
+	skill, ok := idx.ByName["config-setup"]
+	if !ok || skill == nil {
+		return matches
+	}
+	for _, match := range matches {
+		if match.Skill != nil && match.Skill.Meta.Name == "config-setup" {
+			return matches
+		}
+	}
+
+	reason := "config:" + string(assessment.State)
+	if len(assessment.Reasons) > 0 {
+		reason = reason + " " + assessment.Reasons[0]
+	}
+
+	injected := skills.MatchResult{
+		Skill:  skill,
+		Score:  100,
+		Reason: reason,
+	}
+	matches = append([]skills.MatchResult{injected}, matches...)
+	if len(matches) > 3 {
+		matches = matches[:3]
+	}
+	return matches
+}
+
+func showConfigSetupHint(root string) {
+	assessment := config.AssessSetup(root)
+	if !assessment.NeedsAttention() {
+		return
+	}
+
+	type configHint struct {
+		State   string   `json:"state"`
+		Reasons []string `json:"reasons,omitempty"`
+	}
+	if data, err := json.Marshal(configHint{
+		State:   string(assessment.State),
+		Reasons: assessment.Reasons,
+	}); err == nil {
+		fmt.Printf("<!-- codemap:config %s -->\n", string(data))
+	}
+
+	fmt.Println("🛑 Codemap setup is not finished. Before continuing the user's task: run `codemap skill show config-setup`, tune .codemap/config.json, rerun `codemap .`, then proceed.")
+	for _, reason := range assessment.Reasons {
+		fmt.Printf("   • %s\n", reason)
+	}
+	fmt.Println("Run now: codemap skill show config-setup")
+	fmt.Println()
+}
+
+// showDriftWarnings checks and displays documentation drift warnings.
+func showDriftWarnings(root string, cfg config.DriftConfig, routing config.RoutingConfig) {
+	warnings := CheckDrift(root, cfg, routing)
+	if len(warnings) == 0 {
+		return
+	}
+
+	fmt.Println()
+	fmt.Println("📖 Doc drift warnings:")
+	for _, w := range warnings {
+		fmt.Printf("   ⚠️  %s: %s\n", w.Subsystem, w.Reason)
+	}
+}
+
+// showWorkingSetSummary displays session activity from daemon state, split by
+// provenance: files this agent actually edited (recorded by the post-edit
+// hook) versus files that merely changed on disk (git merges, checkouts,
+// generated output). The daemon alone can't tell those apart, so without
+// agent-edit records the output says "changed on disk" instead of claiming an
+// agent working set that may be merge churn.
+func showWorkingSetSummary(root, sessionID string) {
+	state := watch.ReadState(root)
+	if state == nil || state.WorkingSet == nil || state.WorkingSet.Size() == 0 {
+		return
+	}
+
+	ws := state.WorkingSet
+	hot := ws.HotFiles(5)
+	if len(hot) == 0 {
+		return
+	}
+
+	agentPaths := loadAgentEdits(root, time.Now().Add(-agentEditRecency)).paths
+	if len(agentPaths) == 0 {
+		fmt.Println()
+		fmt.Printf("💾 Files changed on disk: %d (no agent edits recorded this session)\n", ws.Size())
+		for _, wf := range hot {
+			fmt.Printf("   • %s (%+d lines)\n", filepath.ToSlash(wf.Path), wf.NetDelta)
+		}
+		return
+	}
+
+	var agentFiles []*watch.WorkingFile
+	for _, wf := range ws.Files {
+		if agentPaths[filepath.ToSlash(wf.Path)] {
+			agentFiles = append(agentFiles, wf)
+		}
+	}
+	sort.Slice(agentFiles, func(i, j int) bool {
+		return agentFiles[i].LastTouch.After(agentFiles[j].LastTouch)
+	})
+
+	hubCount := 0
+	for _, wf := range agentFiles {
+		if wf.IsHub {
+			hubCount++
+		}
+	}
+
+	fmt.Println()
+	fmt.Printf("🔧 Working set: %d files", len(agentFiles))
+	if hubCount > 0 {
+		fmt.Printf(" (%d hubs)", hubCount)
+	}
+	fmt.Println()
+	for i, wf := range agentFiles {
+		if i >= 5 {
+			break
+		}
+		hubStr := ""
+		if wf.IsHub {
+			hubStr = " ⚠️HUB"
+		}
+		fmt.Printf("   • %s (%d edits, %+d lines%s)\n", filepath.ToSlash(wf.Path), wf.EditCount, wf.NetDelta, hubStr)
+	}
+	if others := ws.Size() - len(agentFiles); others > 0 {
+		fmt.Printf("   … %d other files changed on disk (not this agent's edits)\n", others)
+	}
+}
+
+func extractMentionedFiles(prompt string, limit int) []string {
+	if limit <= 0 {
+		return nil
+	}
+
+	// Sort extensions longest-first so .cs matches before .c, .tsx before .ts
+	exts := make([]string, len(promptFileExtensions))
+	copy(exts, promptFileExtensions)
+	sort.Slice(exts, func(i, j int) bool {
+		return len(exts[i]) > len(exts[j])
+	})
+
+	var files []string
+	seen := make(map[string]struct{})
+	for _, ext := range exts {
+		// Use word boundary (\b) to avoid .c matching inside .cs or .cpp
+		pattern := regexp.MustCompile(`[a-zA-Z0-9_/.@-]+\.` + ext + `\b`)
+		matches := pattern.FindAllString(prompt, -1)
+		for _, match := range matches {
+			if _, exists := seen[match]; exists {
+				continue
+			}
+			seen[match] = struct{}{}
+			files = append(files, match)
+			if len(files) >= limit {
+				return files
+			}
+		}
+	}
+	return files
+}
+
+type subsystemRouteMatch struct {
+	ID           string   `json:"id"`
+	Score        int      `json:"score"`
+	Index        int      `json:"-"`
+	Docs         []string `json:"docs,omitempty"`
+	Agents       []string `json:"agents,omitempty"`
+	Instructions string   `json:"instructions,omitempty"`
+}
+
+func matchSubsystemRoutes(prompt string, cfg config.ProjectConfig, topK int) []subsystemRouteMatch {
+	if topK <= 0 || cfg.RoutingStrategyOrDefault() != "keyword" {
+		return nil
+	}
+
+	promptLower := strings.ToLower(prompt)
+	var matches []subsystemRouteMatch
+	for index, subsystem := range cfg.Routing.Subsystems {
+		score := 0
+		for _, keyword := range subsystem.Keywords {
+			keyword = strings.TrimSpace(strings.ToLower(keyword))
+			if keyword != "" && strings.Contains(promptLower, keyword) {
+				score++
+			}
+		}
+		for _, pathHint := range subsystem.Paths {
+			pathHint = strings.TrimSpace(strings.ToLower(pathHint))
+			if pathHint != "" && strings.Contains(promptLower, pathHint) {
+				score++
+			}
+		}
+		if score <= 0 {
+			continue
+		}
+
+		id := strings.TrimSpace(subsystem.ID)
+		if id == "" {
+			id = "(unnamed)"
+		}
+		matches = append(matches, subsystemRouteMatch{
+			ID:           id,
+			Score:        score,
+			Index:        index,
+			Docs:         subsystem.Docs,
+			Agents:       subsystem.Agents,
+			Instructions: subsystem.Instructions,
+		})
+	}
+
+	sort.Slice(matches, func(i, j int) bool {
+		if matches[i].Score == matches[j].Score {
+			if matches[i].ID == matches[j].ID {
+				return matches[i].Index < matches[j].Index
+			}
+			return matches[i].ID < matches[j].ID
+		}
+		return matches[i].Score > matches[j].Score
+	})
+	if len(matches) > topK {
+		matches = matches[:topK]
+	}
+	return matches
+}
+
+func showRouteSuggestions(prompt string, cfg config.ProjectConfig, topK int) {
+	matches := matchSubsystemRoutes(prompt, cfg, topK)
+	if len(matches) == 0 {
+		return
+	}
+
+	// Emit structured JSON marker for machine consumption
+	emitRouteMarker(matches)
+
+	// Human-readable output (backwards compatible)
+	fmt.Println()
+	fmt.Println("📚 Suggested context routes:")
+	for _, match := range matches {
+		line := fmt.Sprintf("   • %s (score=%d)", match.ID, match.Score)
+		if len(match.Docs) > 0 {
+			line += fmt.Sprintf(" docs=%s", strings.Join(match.Docs, ", "))
+		}
+		if len(match.Agents) > 0 {
+			line += fmt.Sprintf(" agents=%s", strings.Join(match.Agents, ", "))
+		}
+		fmt.Println(line)
+
+		// Show subsystem instructions if available (handle multi-line)
+		if match.Instructions != "" {
+			instrLines := strings.Split(match.Instructions, "\n")
+			for i, il := range instrLines {
+				if i == 0 {
+					fmt.Printf("     📝 %s\n", il)
+				} else {
+					fmt.Printf("        %s\n", il)
+				}
+			}
+		}
+	}
+}
+
+// emitRouteMarker outputs structured JSON for matched routes.
+func emitRouteMarker(matches []subsystemRouteMatch) {
+	data, err := json.Marshal(matches)
+	if err != nil {
+		return
+	}
+	fmt.Printf("<!-- codemap:routes %s -->\n", string(data))
+}
+
+// showSessionProgress reports what this agent session actually edited (from
+// post-edit hook records). Daemon events cover everything that changed on disk
+// — merges, checkouts, generated files — so they only back an honest
+// "disk activity" fallback, never an "edited" claim.
+func showSessionProgress(root, sessionID string) {
+	edits := loadAgentEdits(root, time.Now().Add(-agentEditRecency))
+	if sessionPaths := edits.bySession[sessionID]; len(sessionPaths) > 0 {
+		info := getHubInfoNoFallback(root)
+		hubEdits := 0
+		for path := range sessionPaths {
+			if info != nil && info.isHub(path) {
+				hubEdits++
+			}
+		}
+		fmt.Println()
+		fmt.Printf("📊 Session so far: %d files edited", len(sessionPaths))
+		if hubEdits > 0 {
+			fmt.Printf(", %d hub edits", hubEdits)
+		}
+		fmt.Println()
+		return
+	}
+
+	state := watch.ReadState(root)
+	if state == nil || len(state.RecentEvents) == 0 {
+		return
+	}
+	changed := make(map[string]bool)
+	for _, e := range state.RecentEvents {
+		changed[e.Path] = true
+	}
+	if len(changed) == 0 {
+		return
+	}
+	fmt.Println()
+	fmt.Printf("📊 Recent disk activity: %d files changed\n", len(changed))
+}
+
+// hookPreCompact saves hub state before context compaction
+func hookPreCompact(root string) error {
+	codemapDir, err := projectpath.CheckedRuntimeCodemapDir(root)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(codemapDir, 0755); err != nil {
+		return err
+	}
+
+	info := getHubInfoNoFallback(root)
+	if info == nil || len(info.Hubs) == 0 {
+		return nil
+	}
+
+	// Write hub state
+	hubsFile := filepath.Join(codemapDir, "hubs.txt")
+	f, err := os.Create(hubsFile)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	fmt.Fprintf(f, "# Hub files at %s\n", time.Now().Format(time.RFC3339))
+	for _, hub := range info.Hubs {
+		fmt.Fprintln(f, hub)
+	}
+
+	fmt.Println()
+	fmt.Printf("💾 Saved hub state to .codemap/hubs.txt before compact\n")
+	fmt.Printf("   (%d hub files tracked)\n", len(info.Hubs))
+	fmt.Println()
+
+	return nil
+}
+
+// hookSessionStop summarizes what changed in the session and stops the daemon
+func hookSessionStop(root string) error {
+	return hookSessionStopContext(context.Background(), root, os.Stdout)
+}
+
+func hookSessionStopContext(ctx context.Context, root string, out io.Writer) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	sessionID, err := hookSessionIDFromStdinContext(ctx)
+	if err != nil {
+		return err
+	}
+	flushCtx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+	state, flushErr := watch.FlushState(flushCtx, root)
+	cancel()
+	if flushErr != nil {
+		state = watch.ReadState(root)
+		fmt.Fprintln(out, "warning: session summary may be incomplete")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	if err := finishSessionDaemonContext(ctx, root, sessionID); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "📊 Session Summary")
+	fmt.Fprintln(out, "==================")
+
+	// Show timeline from daemon events (if available)
+	if state != nil && len(state.RecentEvents) > 0 {
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, "Edit Timeline:")
+
+		// Calculate stats
+		totalDelta := 0
+		fileEdits := make(map[string]int) // file -> edit count
+		hubEdits := 0
+
+		for _, e := range state.RecentEvents {
+			totalDelta += e.Delta
+			fileEdits[e.Path]++
+			if e.IsHub {
+				hubEdits++
+			}
+		}
+
+		// Show last 10 events
+		events := state.RecentEvents
+		start := 0
+		if len(events) > 10 {
+			start = len(events) - 10
+			fmt.Fprintf(out, "  ... %d earlier events\n", start)
+		}
+
+		for _, e := range events[start:] {
+			deltaStr := ""
+			if e.Delta > 0 {
+				deltaStr = fmt.Sprintf(" +%d", e.Delta)
+			} else if e.Delta < 0 {
+				deltaStr = fmt.Sprintf(" %d", e.Delta)
+			}
+
+			hubStr := ""
+			if e.IsHub {
+				hubStr = " ⚠️HUB"
+			}
+
+			fmt.Fprintf(out, "  %s %-6s %s%s%s\n",
+				e.Time.Format("15:04:05"),
+				e.Op,
+				e.Path,
+				deltaStr,
+				hubStr,
+			)
+		}
+
+		// Show stats
+		fmt.Fprintln(out)
+		fmt.Fprintf(out, "Stats: %d events, %d files touched, %+d lines",
+			len(state.RecentEvents), len(fileEdits), totalDelta)
+		if hubEdits > 0 {
+			fmt.Fprintf(out, ", %d hub edits", hubEdits)
+		}
+		fmt.Fprintln(out)
+	} else {
+		// Fallback to git diff if no daemon events
+		gitCmd := exec.CommandContext(ctx, "git", "diff", "--name-only")
+		gitCmd.Dir = root
+		output, err := gitCmd.Output()
+		if err != nil {
+			fmt.Fprintln(out, "No changes tracked.")
+			return nil
+		}
+
+		modified := strings.TrimSpace(string(output))
+		if modified == "" {
+			fmt.Fprintln(out, "No files modified.")
+			return nil
+		}
+
+		info := getHubInfoNoFallback(root)
+
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, "Files modified:")
+		lineScanner := bufio.NewScanner(strings.NewReader(modified))
+		count := 0
+		for lineScanner.Scan() {
+			file := lineScanner.Text()
+			count++
+			if count > 10 {
+				fmt.Fprintln(out, "  ... and more")
+				break
+			}
+
+			if info != nil && info.isHub(file) {
+				importers := len(info.Importers[file])
+				fmt.Fprintf(out, "  ⚠️  %s (HUB - imported by %d files)\n", file, importers)
+			} else {
+				fmt.Fprintf(out, "  • %s\n", file)
+			}
+		}
+	}
+
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if deadline, ok := ctx.Deadline(); !ok || time.Until(deadline) >= 250*time.Millisecond {
+		if err := writeSessionHandoffContext(ctx, root, state); err != nil {
+			return err
+		}
+		fmt.Fprintln(out, "🤝 Saved handoff to .codemap/handoff.latest.json")
+	}
+
+	fmt.Fprintln(out)
+	return ctx.Err()
+}
+
+func writeSessionHandoffContext(ctx context.Context, root string, state *watch.State) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	baseRef := resolveHandoffBaseRefContext(ctx, root)
+	artifact, err := handoff.Build(root, handoff.BuildOptions{
+		Context: ctx,
+		State:   state,
+		BaseRef: baseRef,
+	})
+	if err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	// Record this agent session in handoff history
+	agentEntry := handoff.AgentEntry{
+		AgentID:   detectAgentID(),
+		StartedAt: sessionStartTime(state),
+		EndedAt:   time.Now(),
+	}
+	if state != nil {
+		seen := make(map[string]bool)
+		for _, e := range state.RecentEvents {
+			if !seen[e.Path] {
+				seen[e.Path] = true
+				agentEntry.FilesEdited = append(agentEntry.FilesEdited, e.Path)
+			}
+		}
+	}
+
+	// Carry over history from previous artifact and append current session
+	if prev, err := handoff.ReadLatest(root); err == nil && prev != nil {
+		artifact.AgentHistory = prev.AgentHistory
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	artifact.AgentHistory = append(artifact.AgentHistory, agentEntry)
+
+	// Cap history to last 20 entries
+	if len(artifact.AgentHistory) > 20 {
+		artifact.AgentHistory = artifact.AgentHistory[len(artifact.AgentHistory)-20:]
+	}
+
+	return handoff.WriteLatest(root, artifact)
+}
+
+// detectAgentID returns the current AI agent based on environment signals.
+func detectAgentID() string {
+	// Claude Code sets CLAUDE_CODE=1
+	if os.Getenv("CLAUDE_CODE") == "1" || os.Getenv("CLAUDE_CODE_ENTRYPOINT") != "" {
+		return "claude-code"
+	}
+	// Codex sets CODEX=1
+	if os.Getenv("CODEX") == "1" {
+		return "codex"
+	}
+	// Cursor sets CURSOR_SESSION_ID
+	if os.Getenv("CURSOR_SESSION_ID") != "" {
+		return "cursor"
+	}
+	return "unknown"
+}
+
+// sessionStartTime estimates when this session started from daemon events.
+func sessionStartTime(state *watch.State) time.Time {
+	if state != nil && len(state.RecentEvents) > 0 {
+		return state.RecentEvents[0].Time
+	}
+	return time.Now()
+}
+
+func resolveHandoffBaseRef(root string) string {
+	return resolveHandoffBaseRefContext(context.Background(), root)
+}
+
+func resolveHandoffBaseRefContext(ctx context.Context, root string) string {
+	if remoteDefault, ok := gitSymbolicRefContext(ctx, root, "refs/remotes/origin/HEAD"); ok && remoteDefault != "" {
+		if gitRefExistsContext(ctx, root, remoteDefault) {
+			return remoteDefault
+		}
+	}
+
+	for _, ref := range []string{"main", "master", "trunk", "develop"} {
+		if gitRefExistsContext(ctx, root, ref) {
+			return ref
+		}
+	}
+
+	for _, ref := range []string{"origin/main", "origin/master", "origin/trunk", "origin/develop"} {
+		if gitRefExistsContext(ctx, root, ref) {
+			return ref
+		}
+	}
+
+	// Last-resort fallback that always exists in committed repos.
+	return "HEAD"
+}
+
+func gitRefExistsContext(ctx context.Context, root, ref string) bool {
+	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--verify", "--quiet", ref)
+	cmd.Dir = root
+	return cmd.Run() == nil
+}
+
+func gitSymbolicRefContext(ctx context.Context, root, ref string) (string, bool) {
+	cmd := exec.CommandContext(ctx, "git", "symbolic-ref", "--quiet", "--short", ref)
+	cmd.Dir = root
+	out, err := cmd.Output()
+	if err != nil {
+		return "", false
+	}
+	value := strings.TrimSpace(string(out))
+	if value == "" {
+		return "", false
+	}
+	return value, true
+}
+
+func hookSessionIDFromStdin() string {
+	sessionID, _ := hookSessionIDFromStdinContext(context.Background())
+	return sessionID
+}
+
+func hookSessionIDFromStdinContext(ctx context.Context) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	info, err := os.Stdin.Stat()
+	if err == nil && info.Mode()&os.ModeCharDevice != 0 {
+		return "", nil
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := os.Stdin.SetReadDeadline(deadline); err == nil {
+			defer os.Stdin.SetReadDeadline(time.Time{})
+		}
+	}
+	input, err := io.ReadAll(os.Stdin)
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return "", ctxErr
+	}
+	if errors.Is(err, os.ErrDeadlineExceeded) {
+		return "", context.DeadlineExceeded
+	}
+	if err != nil || len(strings.TrimSpace(string(input))) == 0 {
+		return "", nil
+	}
+	return sessionIDFromHookInput(input), nil
+}
+
+// sessionIDFromHookInput extracts the agent session id from a raw hook payload.
+func sessionIDFromHookInput(input []byte) string {
+	var payload map[string]any
+	if json.Unmarshal(input, &payload) != nil {
+		return ""
+	}
+	for _, key := range []string{"session_id", "sessionId"} {
+		if value, ok := payload[key].(string); ok && strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func ensureSessionDaemon(root, sessionID string) {
+	manage := func(_ int) {
+		if shouldRestartDaemon(root, time.Now()) {
+			stopDaemon(root)
+		}
+		if !hookWatchIsRunning(root) {
+			startDaemon(root)
+		}
+	}
+	if sessionID == "" || updateSessionLease(root, sessionID, true, time.Now(), manage) != nil {
+		manage(0)
+	}
+}
+
+func finishSessionDaemonContext(ctx context.Context, root, sessionID string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if sessionID == "" {
+		return stopDaemonContext(ctx, root)
+	}
+	var stopErr error
+	if err := updateSessionLeaseContext(ctx, root, sessionID, false, time.Now(), func(active int) {
+		if active == 0 {
+			stopErr = stopDaemonContext(ctx, root)
+		}
+	}); err != nil {
+		return stopDaemonContext(ctx, root)
+	}
+	if stopErr != nil {
+		return stopErr
+	}
+	return ctx.Err()
+}
+
+func updateSessionLease(root, sessionID string, active bool, now time.Time, action func(int)) error {
+	return updateSessionLeaseContext(context.Background(), root, sessionID, active, now, action)
+}
+
+func updateSessionLeaseContext(ctx context.Context, root, sessionID string, active bool, now time.Time, action func(int)) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if strings.TrimSpace(sessionID) == "" {
+		if action != nil {
+			action(0)
+		}
+		return nil
+	}
+	codemapDir, err := projectpath.CheckedRuntimeCodemapDir(root)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(codemapDir, 0o755); err != nil {
+		return err
+	}
+	lockPath := filepath.Join(codemapDir, "sessions.lock")
+	if err := acquireSessionLockContext(ctx, lockPath); err != nil {
+		return err
+	}
+	defer os.Remove(lockPath)
+
+	leaseDir := filepath.Join(codemapDir, "sessions")
+	if err := os.MkdirAll(leaseDir, 0o755); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(leaseDir)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			continue
+		}
+		path := filepath.Join(leaseDir, entry.Name())
+		info, infoErr := entry.Info()
+		if infoErr == nil && now.Sub(info.ModTime()) > sessionLeaseTTL {
+			_ = os.Remove(path)
+		}
+	}
+
+	leaseName := fmt.Sprintf("%x.json", sha256.Sum256([]byte(detectAgentID()+"\x00"+sessionID)))
+	leasePath := filepath.Join(leaseDir, leaseName)
+	if active {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		payload, err := json.Marshal(map[string]any{
+			"agent":      detectAgentID(),
+			"updated_at": now.UTC().Format(time.RFC3339Nano),
+		})
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(leasePath, append(payload, '\n'), 0o600); err != nil {
+			return err
+		}
+	} else if err := os.Remove(leasePath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	entries, err = os.ReadDir(leaseDir)
+	if err != nil {
+		return err
+	}
+	count := 0
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			count++
+		}
+	}
+	if action != nil {
+		action(count)
+	}
+	return nil
+}
+
+func acquireSessionLockContext(ctx context.Context, lockPath string) error {
+	deadline := time.Now().Add(sessionLockWait)
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		err := os.Mkdir(lockPath, 0o700)
+		if err == nil {
+			return nil
+		}
+		if !os.IsExist(err) {
+			return err
+		}
+		if info, statErr := os.Stat(lockPath); statErr == nil && time.Since(info.ModTime()) > sessionLockStaleAfter {
+			_ = os.RemoveAll(lockPath)
+			continue
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timed out waiting for session lock %s", lockPath)
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+}
+
+// stopDaemon stops the watch daemon
+func stopDaemon(root string) {
+	_ = stopDaemonContext(context.Background(), root)
+}
+
+func stopDaemonContext(ctx context.Context, root string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if !hookWatchIsRunning(root) {
+		return nil
+	}
+	exe, err := hookExecutablePath()
+	if err != nil {
+		return err
+	}
+	args := projectpath.PrependSetupRootArgs("watch", "stop", root)
+	cmd := hookExecCommand(exe, args...)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case err := <-done:
+		return err
+	case <-ctx.Done():
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		<-done
+		return ctx.Err()
+	}
+}
+
+// extractFilePathsFromStdin reads Claude or Codex hook JSON from stdin and
+// returns every edited file once, preserving patch order.
+func extractFilePathsFromStdin() ([]string, error) {
+	input, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return nil, err
+	}
+	return parseHookFilePaths(input), nil
+}
+
+// parseHookFilePaths extracts edited file paths from a raw hook payload.
+func parseHookFilePaths(input []byte) []string {
+	paths, _ := parseHookFilePathsErr(input)
+	return paths
+}
+
+func parseHookFilePathsErr(input []byte) ([]string, error) {
+	var data map[string]interface{}
+	if err := json.Unmarshal(input, &data); err != nil {
+		// Try regex fallback for non-JSON or partial JSON
+		re := regexp.MustCompile(`"file_path"\s*:\s*"([^"]+)"`)
+		matches := re.FindAllSubmatch(input, -1)
+		paths := make([]string, 0, len(matches))
+		for _, match := range matches {
+			if len(match) >= 2 {
+				paths = appendUniquePath(paths, string(match[1]))
+			}
+		}
+		if len(paths) > 0 {
+			return paths, nil
+		}
+		return nil, err
+	}
+
+	// Legacy shape: some hosts put the path at the top level.
+	if filePath, ok := data["file_path"].(string); ok {
+		return []string{filePath}, nil
+	}
+	if toolInput, ok := data["tool_input"].(map[string]interface{}); ok {
+		// Claude Code nests the target under tool_input: file_path for
+		// Edit/Write, notebook_path for NotebookEdit. Missing these silently
+		// disables agent-edit provenance and the post-edit blast-radius report,
+		// because a well-formed payload parses cleanly and then matches nothing
+		// (the regex fallback above only runs when Unmarshal fails).
+		for _, key := range []string{"file_path", "notebook_path"} {
+			if filePath, ok := toolInput[key].(string); ok {
+				if paths := appendUniquePath(nil, filePath); len(paths) > 0 {
+					return paths, nil
+				}
+			}
+		}
+		// Codex applies file edits through apply_patch, which stores the patch
+		// text under tool_input.command rather than a path.
+		if command, ok := toolInput["command"].(string); ok {
+			matches := regexp.MustCompile(`(?m)^\*\*\* (?:Update|Add|Delete) File: (.+)$`).FindAllStringSubmatch(command, -1)
+			paths := make([]string, 0, len(matches))
+			for _, match := range matches {
+				if len(match) == 2 {
+					paths = appendUniquePath(paths, strings.TrimSpace(match[1]))
+				}
+			}
+			return paths, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func extractFilePathFromStdin() (string, error) {
+	paths, err := extractFilePathsFromStdin()
+	if err != nil || len(paths) == 0 {
+		return "", err
+	}
+	return paths[0], nil
+}
+
+func appendUniquePath(paths []string, path string) []string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return paths
+	}
+	for _, existing := range paths {
+		if existing == path {
+			return paths
+		}
+	}
+	return append(paths, path)
+}
+
+// checkFileImporters checks if a file is a hub and shows its importers
+func checkFileImporters(root, filePath string) error {
+	return checkFileImportersWithPhase(root, filePath, "")
+}
+
+func checkFileImportersWithPhase(root, filePath, phase string) error {
+	info := getHubInfoNoFallback(root)
+	if info == nil {
+		return nil // silently skip if deps unavailable
+	}
+
+	// Handle absolute paths - convert to relative
+	if filepath.IsAbs(filePath) {
+		if rel, err := filepath.Rel(root, filePath); err == nil {
+			filePath = rel
+		}
+	}
+
+	importers := info.Importers[filePath]
+	if scanner.CountHubImporters(importers) >= scanner.HubThreshold {
+		fmt.Println()
+		switch phase {
+		case "before":
+			fmt.Printf("🛑 Before editing: %s is a hub with %d importers.\n", filePath, len(importers))
+		case "after":
+			fmt.Printf("⚠️  After editing: %s still fans out to %d importers.\n", filePath, len(importers))
+		default:
+			fmt.Printf("⚠️  HUB FILE: %s\n", filePath)
+			fmt.Printf("   Imported by %d files - changes have wide impact!\n", len(importers))
+		}
+		if phase != "" {
+			fmt.Printf("   Changes here have wide impact.\n")
+		}
+		fmt.Println()
+		fmt.Println("   Dependents:")
+		for i, imp := range importers {
+			if i >= 5 {
+				fmt.Printf("   ... and %d more\n", len(importers)-5)
+				break
+			}
+			fmt.Printf("   • %s\n", imp)
+		}
+		fmt.Println()
+	} else if len(importers) > 0 {
+		fmt.Println()
+		if phase == "after" {
+			fmt.Printf("📍 After editing: %s\n", filePath)
+		} else if phase == "before" {
+			fmt.Printf("📍 Before editing: %s\n", filePath)
+		} else {
+			fmt.Printf("📍 File: %s\n", filePath)
+		}
+		fmt.Printf("   Imported by %d file(s): %s\n", len(importers), strings.Join(importers, ", "))
+		fmt.Println()
+	}
+
+	// Also check if this file imports any hubs
+	imports := info.Imports[filePath]
+	var hubImports []string
+	for _, imp := range imports {
+		if info.isHub(imp) {
+			hubImports = append(hubImports, imp)
+		}
+	}
+	if len(hubImports) > 0 {
+		fmt.Printf("   Imports %d hub(s): %s\n", len(hubImports), strings.Join(hubImports, ", "))
+		fmt.Println()
+	}
+
+	showFileCodemapActions(filePath, len(importers), len(hubImports) > 0, phase)
+
+	return nil
+}
+
+func showFileCodemapActions(filePath string, importerCount int, importsHub bool, phase string) {
+	steps := []codemapNextStep{
+		{
+			Command: "codemap --importers " + shellQuoteIfNeeded(filePath),
+			Reason:  "review blast radius for this file",
+		},
+	}
+	if importerCount >= 3 || importsHub {
+		steps = append(steps, codemapNextStep{
+			Command: "codemap --deps",
+			Reason:  "verify dependency flow around this change",
+		})
+	}
+
+	if len(steps) == 0 {
+		return
+	}
+
+	switch phase {
+	case "before":
+		fmt.Println("   Run now:")
+	case "after":
+		fmt.Println("   Re-check with:")
+	default:
+		fmt.Println("   Next codemap:")
+	}
+	for _, step := range steps {
+		fmt.Printf("   • %s — %s\n", step.Command, step.Reason)
+	}
+	fmt.Println()
+}
+
+// isHub checks if a file is a hub (has HubThreshold+ non-test importers).
+func (h *hubInfo) isHub(path string) bool {
+	if scanner.IsTestFile(path) {
+		return false
+	}
+	return scanner.CountHubImporters(h.Importers[path]) >= scanner.HubThreshold
+}
+
+// findChildRepos returns subdirectories that are git repositories,
+// excluding any that are listed in the parent's .gitignore.
+func findChildRepos(root string) []string {
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return nil
+	}
+
+	// Check which directories are git-ignored using git check-ignore
+	// This is more reliable than parsing .gitignore ourselves since it
+	// handles all gitignore semantics (negation, nested, global, etc.)
+	var candidates []string
+	for _, e := range entries {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(root, e.Name(), ".git")); err == nil {
+			candidates = append(candidates, e.Name())
+		}
+	}
+
+	if len(candidates) == 0 {
+		return nil
+	}
+
+	// Use git check-ignore to filter out ignored directories.
+	// In non-git parents this silently fails and nothing is filtered,
+	// which is correct — .gitignore is a git concept.
+	args := append([]string{"check-ignore", "--"}, candidates...)
+	cmd := exec.Command("git", args...)
+	cmd.Dir = root
+	out, _ := cmd.Output()
+	ignored := make(map[string]bool)
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line != "" {
+			ignored[line] = true
+		}
+	}
+
+	var repos []string
+	for _, name := range candidates {
+		if !ignored[name] {
+			repos = append(repos, name)
+		}
+	}
+	return repos
+}
+
+// hookSessionStartMultiRepo handles meta-repos containing multiple child repos.
+// Output is capped to MaxContextOutputBytes to prevent context blowup.
+func hookSessionStartMultiRepo(root string, childRepos []string) error {
+	fmt.Println("📍 Multi-Repo Project Context:")
+	fmt.Printf("   %d repositories in %s\n", len(childRepos), filepath.Base(root))
+	fmt.Println()
+
+	exe, err := hookExecutablePath()
+	if err != nil {
+		return err
+	}
+
+	// Budget: divide total budget across repos, with a per-repo cap
+	totalBudget := limits.MaxContextOutputBytes
+	perRepoBudget := totalBudget / len(childRepos)
+	if perRepoBudget < 2000 {
+		perRepoBudget = 2000 // minimum useful output per repo
+	}
+	totalUsed := 0
+
+	for _, repo := range childRepos {
+		if totalUsed >= totalBudget {
+			fmt.Printf("   ... and %d more repos (output budget reached)\n", len(childRepos)-indexOf(childRepos, repo))
+			break
+		}
+
+		repoPath := filepath.Join(root, repo)
+		projCfg := config.Load(repoPath)
+		showConfigSetupHint(repoPath)
+
+		depth := 2
+		if projCfg.Depth > 0 {
+			depth = projCfg.Depth
+		}
+
+		args := projectpath.PrependSetupRootArgs("--depth", strconv.Itoa(depth))
+		if len(projCfg.Only) > 0 {
+			args = append(args, "--only", strings.Join(projCfg.Only, ","))
+		}
+		if len(projCfg.Exclude) > 0 {
+			args = append(args, "--exclude", strings.Join(projCfg.Exclude, ","))
+		}
+		args = append(args, repoPath)
+		cmd := hookExecCommand(exe, args...)
+
+		// Capture and budget output instead of piping directly to stdout
+		buf := newCappedStringWriter(perRepoBudget + diffCaptureSlackBytes)
+		cmd.Stdout = buf
+		cmd.Stderr = os.Stderr
+		cmd.Run()
+
+		output := buf.String()
+		if len(output) > perRepoBudget || buf.Truncated() {
+			output = limits.TruncateAtLineBoundary(output, perRepoBudget,
+				"\n   ... (repo output truncated)\n")
+		}
+		fmt.Print(output)
+		fmt.Println()
+		totalUsed += len(output)
+	}
+
+	return nil
+}
+
+func indexOf(slice []string, val string) int {
+	for i, s := range slice {
+		if s == val {
+			return i
+		}
+	}
+	return len(slice)
+}
+
+// filesText and importersNoun keep counts grammatical: "1 file", "2 files".
+func filesText(n int) string {
+	if n == 1 {
+		return "1 file"
+	}
+	return fmt.Sprintf("%d files", n)
+}
+
+func importersNoun(n int) string {
+	if n == 1 {
+		return "1 importer"
+	}
+	return fmt.Sprintf("%d importers", n)
+}

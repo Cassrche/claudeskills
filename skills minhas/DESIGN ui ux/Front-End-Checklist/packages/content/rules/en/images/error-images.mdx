@@ -1,0 +1,324 @@
+---
+title: Handle image loading errors gracefully
+description: >-
+  Broken images are handled gracefully with fallback images or placeholder
+  content.
+categories:
+  - images
+  - html
+subcategory: optimization
+priority: low
+difficulty: beginner
+estimatedTime: 15
+tldr:
+  - Use onerror to replace broken images with fallbacks
+  - 'Provide meaningful placeholder content, not broken image icons'
+  - Consider skeleton loaders while images load
+  - Log image errors for monitoring and debugging
+whyItMatters: >-
+  Broken image icons look unprofessional and confuse users—graceful fallbacks
+  maintain visual consistency and user trust when images fail to load.
+prompts:
+  check: >-
+    Check if the website handles broken images gracefully with fallback images
+    or error states.
+  fix: Implement fallback images or placeholder content for broken image scenarios.
+  explain: Explain how proper error handling for images improves user experience.
+  codeReview: >-
+    Review image assets, markup, and delivery configuration related to Handle
+    image loading errors gracefully. Flag exact files or components where format
+    choice, sizing, or loading behavior violates the rule, and describe how to
+    confirm the fix in DevTools.
+aiContext: >-
+  Use when reviewing image assets, markup, and CDN or build transforms related
+  to Handle image loading errors gracefully. Check encoded size, rendered size,
+  loading strategy, and above-the-fold impact together.
+sources:
+  - title: 'MDN: Responsive images'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Learn/HTML/Multimedia_and_embedding/Responsive_images
+    type: mdn
+    id: mdn-responsive-images
+    role: reference
+    authority: primary
+  - title: 'web.dev: Image performance'
+    url: 'https://web.dev/learn/performance/image-performance'
+    type: guide
+    id: web-dev-image-performance
+    role: implementation
+    authority: primary
+resources:
+  - name: Squoosh
+    url: 'https://squoosh.app/'
+    type: tool
+relatedRules:
+  - slug: broken-images
+    reason: >-
+      Both rules sit in the `images/optimization` area and are commonly reviewed
+      together.
+  - slug: filename-quality
+    reason: >-
+      Both rules sit in the `images/optimization` area and are commonly reviewed
+      together.
+  - slug: image-optimization
+    reason: >-
+      Both rules sit in the `images/optimization` area and are commonly reviewed
+      together.
+  - slug: sprite-generation
+    reason: >-
+      Both rules sit in the `images/optimization` area and are commonly reviewed
+      together.
+---
+Broken images should fail gracefully with fallback content instead of showing broken icons.
+
+## Code Example
+
+```html
+<!-- ❌ Bad: No fallback for broken image -->
+<img src="product.jpg" alt="Product">
+
+<!-- ✅ Good: Fallback image on error -->
+<img
+  src="product.jpg"
+  alt="Product"
+  onerror="this.src='/images/placeholder.png'; this.onerror=null;"
+>
+```
+
+## Why It Matters
+
+Broken image icons look unprofessional and confuse users—graceful fallbacks maintain visual consistency and user trust when images fail to load.
+
+## React Error Handling Component
+
+```tsx
+interface ImageWithFallbackProps {
+  src: string
+  fallback: string
+  alt: string
+  className?: string
+}
+
+function ImageWithFallback({
+  src,
+  fallback,
+  alt,
+  className
+}: ImageWithFallbackProps) {
+  const [imgSrc, setImgSrc] = useState(src)
+  const [hasError, setHasError] = useState(false)
+
+  const handleError = () => {
+    if (!hasError) {
+      setImgSrc(fallback)
+      setHasError(true)
+    }
+  }
+
+  return (
+    <img
+      src={imgSrc}
+      alt={alt}
+      onError={handleError}
+      className={className}
+    />
+  )
+}
+
+// Usage
+<ImageWithFallback
+  src={product.image}
+  fallback="/images/product-placeholder.png"
+  alt={product.name}
+/>
+```
+
+## Advanced Image Component with States
+
+```tsx
+type ImageState = 'loading' | 'loaded' | 'error'
+
+interface SmartImageProps {
+  src: string
+  alt: string
+  fallback?: string
+  placeholder?: React.ReactNode
+  className?: string
+}
+
+function SmartImage({
+  src,
+  alt,
+  fallback = '/images/placeholder.png',
+  placeholder,
+  className
+}: SmartImageProps) {
+  const [state, setState] = useState<ImageState>('loading')
+  const [currentSrc, setCurrentSrc] = useState(src)
+
+  const handleLoad = () => setState('loaded')
+
+  const handleError = () => {
+    if (currentSrc !== fallback) {
+      setCurrentSrc(fallback)
+    } else {
+      setState('error')
+    }
+  }
+
+  if (state === 'error') {
+    return (
+      <div className={`image-error ${className}`} role="img" aria-label={alt}>
+        <span>Image unavailable</span>
+      </div>
+    )
+  }
+
+  return (
+    <div className={`image-wrapper ${className}`}>
+      {state === 'loading' && (placeholder || <div className="skeleton" />)}
+      <img
+        src={currentSrc}
+        alt={alt}
+        onLoad={handleLoad}
+        onError={handleError}
+        style={{ opacity: state === 'loaded' ? 1 : 0 }}
+      />
+    </div>
+  )
+}
+```
+
+## Next.js Image Error Handling
+
+```tsx
+import Image from 'next/image'
+
+function ProductImage({ src, alt }: { src: string; alt: string }) {
+  const [imgSrc, setImgSrc] = useState(src)
+
+  return (
+    <Image
+      src={imgSrc}
+      alt={alt}
+      width={400}
+      height={300}
+      onError={() => setImgSrc('/images/product-fallback.png')}
+    />
+  )
+}
+```
+
+## CSS Fallback for Background Images
+
+```css
+/* Fallback background if image fails */
+.hero {
+  background-color: #f0f0f0; /* Fallback color */
+  background-image: url('hero.jpg');
+  background-size: cover;
+}
+
+/* Styled broken image fallback */
+img {
+  min-height: 100px;
+  background-color: #f5f5f5;
+}
+
+img::before {
+  content: '';
+  display: block;
+}
+
+img::after {
+  content: attr(alt);
+  display: block;
+  font-size: 14px;
+  color: #666;
+  text-align: center;
+  padding: 20px;
+}
+```
+
+## Avatar with Initials Fallback
+
+```tsx
+interface AvatarProps {
+  src?: string
+  name: string
+  size?: number
+}
+
+function Avatar({ src, name, size = 48 }: AvatarProps) {
+  const [showFallback, setShowFallback] = useState(!src)
+
+  const initials = name
+    .split(' ')
+    .map(part => part[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+
+  if (showFallback) {
+    return (
+      <div
+        className="avatar-fallback"
+        style={{ width: size, height: size }}
+        aria-label={name}
+      >
+        {initials}
+      </div>
+    )
+  }
+
+  return (
+    <img
+      src={src}
+      alt={name}
+      width={size}
+      height={size}
+      className="avatar"
+      onError={() => setShowFallback(true)}
+    />
+  )
+}
+```
+
+## Error Logging
+
+```typescript
+function logImageError(src: string, error: Event) {
+  // Log to monitoring service
+  console.error('Image failed to load:', src)
+
+  // Send to analytics
+  if (window.analytics) {
+    window.analytics.track('Image Load Error', {
+      src,
+      page: window.location.pathname
+    })
+  }
+}
+
+// Usage in component
+<img
+  src={src}
+  alt={alt}
+  onError={(e) => {
+    logImageError(src, e)
+    handleFallback()
+  }}
+/>
+```
+
+## Verification
+
+1. Block images in DevTools (Network tab → Block request URL)
+2. Test with invalid image URLs
+3. Verify fallback appears correctly
+4. Check that alt text is accessible when fallback shows
+5. Test slow network—loading states should appear
+
+<Warning title="Prevent Infinite Loops">
+Always check if fallback has already been applied before setting it. Without this check, a broken fallback image causes an infinite loop of error events.
+</Warning>

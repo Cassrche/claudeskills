@@ -1,0 +1,204 @@
+---
+title: Prevent horizontal scrolling
+description: >-
+  Web pages must not require horizontal scrolling at standard viewport widths.
+  Horizontal overflow breaks responsive layouts and makes content inaccessible
+  to low-vision users who zoom in.
+categories:
+  - css
+subcategory: responsive
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - >-
+    Pages must not produce horizontal scrollbars at viewport widths of 320px and
+    above — WCAG 2.1 SC 1.4.10 (Reflow)
+  - >-
+    WCAG 2.1 SC 1.4.10 requires content to reflow at 400% zoom (equivalent to
+    320px CSS width) without horizontal scroll
+  - >-
+    Common causes: fixed-width elements wider than the viewport, `width: 100vw`
+    not accounting for scrollbar width, long unbreakable strings, `white-space:
+    nowrap`
+  - >-
+    Use `max-width: 100%` on images and media, `overflow-wrap: break-word` on
+    text containers, and fluid layout units
+whyItMatters: >-
+  Low-vision users who cannot read at standard zoom levels increase browser zoom
+  to 200–400%. At these zoom levels, a 1280px-wide page becomes effectively
+  320px wide. If elements overflow the viewport, users must scroll both
+  vertically and horizontally to read content — this is exhausting and
+  error-prone with a screen magnifier. WCAG 2.1 SC 1.4.10 (Reflow) specifically
+  addresses this, requiring that all content is available without
+  two-dimensional scrolling at 400% zoom.
+aiContext: >-
+  Applies to all CSS layout rules. Check `width`, `min-width`, fixed pixel
+  values on containers, `overflow`, `white-space`, and `word-break` properties.
+  Use when auditing responsive design or WCAG 2.1 Level AA compliance. Test at
+  320px viewport width and at 400% browser zoom.
+prompts:
+  check: >-
+    Test the page at a 320px CSS viewport width (equivalent to 400% browser zoom
+    on a 1280px screen). Look for horizontal scrollbars or content overflowing
+    outside the viewport. Specifically check: (1) elements with fixed `width`
+    values in px that exceed the viewport; (2) `min-width` values that prevent
+    shrinking; (3) images or media without `max-width: 100%`; (4) `white-space:
+    nowrap` on text that causes overflow; (5) `width: 100vw` on elements
+    (scrollbar width causes overflow); (6) long URLs or unbreakable strings in
+    content areas.
+  fix: >-
+    (1) Replace fixed `width: Npx` on layout containers with `max-width: Npx`
+    plus `width: 100%`. (2) Add `max-width: 100%` and `height: auto` to all
+    images and media. (3) Apply `overflow-wrap: break-word` (with fallback
+    `word-wrap: break-word`) to text containers that may contain long strings.
+    (4) Replace `width: 100vw` with `width: 100%` on full-width elements (avoid
+    scrollbar overflow). (5) Use CSS Grid or Flexbox with `flex-wrap: wrap` for
+    multi-column layouts. (6) For data tables, wrap in a scrollable container:
+    `overflow-x: auto` on the table wrapper, not the page body.
+  explain: >-
+    WCAG 2.1 SC 1.4.10 (Reflow, Level AA) requires that content does not require
+    two-dimensional scrolling when displayed at a width of 320 CSS pixels or a
+    height of 256 CSS pixels. This corresponds to 400% zoom on a 1280×1024
+    display. Exceptions are made for content that requires two-dimensional
+    layout for usage (e.g., data tables, map interfaces, video). For all other
+    content — body text, navigation, forms, images — horizontal scrolling is a
+    barrier for screen magnification users who cannot see the full page width.
+  codeReview: >-
+    Review stylesheets, component styles, and responsive states related to
+    Prevent horizontal scrolling. Flag exact selectors, declarations, or
+    breakpoints that violate the rule in the rendered UI.
+sources:
+  - title: 'WCAG 2.1 SC 1.4.10: Reflow'
+    url: 'https://www.w3.org/TR/WCAG21/#reflow'
+    type: wcag
+    id: wcag-2-1-sc-1-4-10-reflow
+    role: standard
+    authority: primary
+  - title: 'MDN: overflow'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/CSS/overflow'
+    type: mdn
+    id: mdn-overflow
+    role: reference
+    authority: primary
+  - title: 'MDN: overflow-wrap'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/CSS/overflow-wrap'
+    type: mdn
+    id: mdn-overflow-wrap
+    role: reference
+    authority: primary
+  - title: 'Google web.dev: Responsive web design basics'
+    url: 'https://web.dev/responsive-web-design-basics/'
+    type: guide
+    id: google-web-dev-responsive-web-design-basics
+    role: implementation
+    authority: primary
+resources:
+  - name: Chrome DevTools
+    url: 'https://developer.chrome.com/docs/devtools/'
+    type: tool
+relatedRules:
+  - slug: viewport-zoom
+    reason: >-
+      Both rules sit in the `css/responsive` area and are commonly reviewed
+      together.
+  - slug: font-size
+    reason: >-
+      Both rules sit in the `css/responsive` area and are commonly reviewed
+      together.
+  - slug: responsive-units
+    reason: >-
+      Both rules sit in the `css/responsive` area and are commonly reviewed
+      together.
+  - slug: touch-targets
+    reason: >-
+      Both rules sit in the `css/responsive` area and are commonly reviewed
+      together.
+---
+Pages should not require horizontal scrolling at any standard viewport width. Horizontal overflow is especially harmful for users who rely on browser zoom or screen magnification software.
+
+## Code Examples
+
+### Fixed-width containers
+
+```css
+/* ❌ Problem: fixed width causes overflow on small screens */
+.container {
+  width: 1200px;
+}
+
+/* ✅ Fix: max-width with full fluid width */
+.container {
+  max-width: 1200px;
+  width: 100%;
+}
+```
+
+### Images and media without max-width
+
+```css
+/* ❌ Problem: intrinsic image width overflows container */
+img {
+  /* no width constraints */
+}
+
+/* ✅ Fix: images constrained to their container */
+img, video, iframe, embed, object {
+  max-width: 100%;
+  height: auto;
+}
+```
+
+### Long unbreakable strings
+
+```css
+/* ❌ Problem: long URLs or code strings overflow text containers */
+.content {
+  /* no word-break rules */
+}
+
+/* ✅ Fix: allow breaking of long words */
+.content {
+  overflow-wrap: break-word;
+  word-break: break-word; /* fallback for older browsers */
+}
+```
+
+### width: 100vw causes overflow
+
+```css
+/* ❌ Problem: 100vw includes scrollbar width, causing horizontal overflow */
+.hero {
+  width: 100vw;
+}
+
+/* ✅ Fix: use 100% relative to the parent */
+.hero {
+  width: 100%;
+}
+```
+
+### Data tables
+
+```html
+<!-- ✅ Correct: table wrapped in scrollable container -->
+<div style="overflow-x: auto;" role="region" aria-label="Sales data">
+  <table>
+    <!-- wide table content -->
+  </table>
+</div>
+```
+
+## Why It Matters
+
+- **Screen Magnification**: ZoomText, Magnifier, and browser zoom at 200–400% effectively shrinks the viewport to 320–640px — fixed-width layouts break completely.
+- **Mobile Devices**: 320px CSS width is the iPhone SE viewport — a real device, not just an edge case.
+- **WCAG 2.1 AA Compliance**: SC 1.4.10 (Reflow) is a Level AA requirement — failures block certification.
+- **Cognitive Load**: Horizontal scrolling disrupts reading flow and causes disorientation for all users.
+
+## Verification
+
+1. Inspect the rendered UI at the breakpoints and interaction states affected by the rule.
+2. Confirm the computed styles match the intended fix in DevTools.
+3. Test at least one mobile and one desktop viewport before shipping.
+4. If the rule affects motion, contrast, or layout stability, verify those user-facing outcomes directly.

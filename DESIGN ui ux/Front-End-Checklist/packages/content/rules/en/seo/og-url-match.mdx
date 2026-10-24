@@ -1,0 +1,174 @@
+---
+title: OG URL Match
+description: 'Checks that og:url matches canonical URL'
+categories:
+  - seo
+subcategory: social
+priority: medium
+difficulty: beginner
+estimatedTime: 10
+tldr:
+  - 'og:url must exactly match the <link rel=''canonical-url''> URL'
+  - 'Use absolute HTTPS URLs for both og:url and canonical-url'
+  - >-
+    Mismatched URLs cause social platforms to aggregate share counts on the
+    wrong URL
+  - 'og:url should be the clean canonical URL without tracking parameters'
+whyItMatters: >-
+  When og:url doesn't match the canonical URL, social platforms track share
+  counts separately for each URL variant—published share counts get split across
+  multiple URLs and appear lower than they actually are.
+aiContext: >-
+  Use when auditing Open Graph tags or investigating why social share counts
+  appear low. Applies to any page with both canonical-url and og:url tags.
+prompts:
+  check: >-
+    Compare the og:url meta tag value with the <link rel='canonical'> href
+    value. Both must be identical absolute HTTPS URLs. Flag any page where they
+    differ, either in protocol, domain, path, or query string.
+  fix: >-
+    Set og:url to exactly the same absolute HTTPS URL as the canonical tag.
+    Remove any UTM parameters, session IDs, or tracking tokens from og:url. If
+    no canonical tag exists, add one and set og:url to match it.
+  explain: >-
+    Social platforms use og:url as the canonical identifier for aggregating
+    share counts and comments. If og:url differs from the canonical tag, shares
+    on the page URL and shares of the og:url accumulate separately, making your
+    content appear less popular than it is and creating attribution confusion.
+  codeReview: >-
+    Compare the value of <meta property='og:url' content='...'> with the value
+    of <link rel='canonical' href='...'>. They must be identical
+    character-for-character. Check for: different protocols (http vs https), www
+    vs non-www mismatch, query string differences, trailing slash
+    inconsistencies. Flag any page where the two values differ.
+relatedRules:
+  - slug: og-tags
+    reason: 'og:url is one of the four required Open Graph tags'
+  - slug: canonical-url
+    reason: 'og:url must always match the canonical URL'
+  - slug: og-image-size
+    reason: 'Both og:url and og:image are core social sharing properties'
+  - slug: og-tags
+    reason: >-
+      Both rules sit in the `seo/social` area and are commonly reviewed
+      together.
+resources:
+  - title: Facebook Sharing Debugger
+    url: 'https://developers.facebook.com/tools/debug/'
+    type: guide
+sources:
+  - title: The Open Graph Protocol
+    url: 'https://ogp.me'
+    type: spec
+    id: the-open-graph-protocol
+    role: standard
+    authority: primary
+  - title: 'Facebook: Sharing best practices'
+    url: 'https://developers.facebook.com/docs/sharing/best-practices/'
+    type: guide
+    id: facebook-sharing-best-practices
+    role: implementation
+    authority: primary
+---
+`og:url` defines the canonical identifier for a page as understood by social platforms. It should always match the `<link rel="canonical">` tag.
+
+## Code Example
+
+When a page is shared via different URL variants (with UTM parameters, session IDs, or www vs non-www differences), each variant gets its own share count unless `og:url` unifies them to a single URL.
+
+```
+User A shares: https://example.com/blog/post?utm_source=twitter  → 45 shares
+User B shares: https://example.com/blog/post                     → 23 shares
+User C shares: https://www.example.com/blog/post                 → 12 shares
+```
+
+Total: 80 shares, but Facebook shows 45, 23, and 12 separately.
+
+## Why It Matters
+
+When og:url doesn't match the canonical URL, social platforms track share counts separately for each URL variant—published share counts get split across multiple URLs and appear lower than they actually are.
+
+## Correct Implementation
+
+```html
+<!-- ✅ Good: og:url matches canonical-url exactly -->
+<head>
+  <link rel="canonical" href="https://example.com/blog/sourdough-recipe" />
+  <meta property="og:url" content="https://example.com/blog/sourdough-recipe" />
+</head>
+```
+
+```html
+<!-- ❌ Bad: og:url has tracking params that canonical-url doesn't -->
+<head>
+  <link rel="canonical" href="https://example.com/blog/sourdough-recipe" />
+  <meta property="og:url" content="https://example.com/blog/sourdough-recipe?utm_source=homepage" />
+</head>
+
+<!-- ❌ Bad: og:url uses www, canonical-url doesn't -->
+<head>
+  <link rel="canonical" href="https://example.com/blog/sourdough-recipe" />
+  <meta property="og:url" content="https://www.example.com/blog/sourdough-recipe" />
+</head>
+
+<!-- ❌ Bad: og:url uses HTTP, canonical-url uses HTTPS -->
+<head>
+  <link rel="canonical" href="https://example.com/blog/sourdough-recipe" />
+  <meta property="og:url" content="http://example.com/blog/sourdough-recipe" />
+</head>
+```
+
+## Next.js Implementation
+
+```tsx
+// app/blog/[slug]/page.tsx
+export async function generateMetadata({ params }): Promise<Metadata> {
+  const post = await getPost(params.slug)
+  const canonicalUrl = `https://example.com/blog/${params.slug}`
+
+  return {
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    openGraph: {
+      url: canonicalUrl,   // ← must match canonical-url
+      title: post.title,
+      description: post.excerpt,
+    },
+  }
+}
+```
+
+## Checklist
+
+| Check | Expected |
+|-------|----------|
+| Protocol | Both use `https://` |
+| Domain | Both use same domain (www or non-www) |
+| Path | Identical paths |
+| Query string | Neither has tracking parameters |
+| Trailing slash | Consistent between both |
+
+## Exceptions
+
+- Utility or intentionally noindex pages may keep minimal metadata when richer search presentation is not a goal.
+- Template-driven pages can look repetitive in isolation; confirm the fully rendered production output before flagging duplication or omission.
+- If a page is intentionally redirected or excluded from indexation, resolve that crawlability decision before treating metadata polish as the primary issue.
+
+## Standards
+
+- Use these references as the standard for the final search-facing HTML, metadata, and crawl behavior.
+- Check the implementation against The Open Graph Protocol before treating the rule as satisfied.
+- Check the implementation against Facebook: Sharing best practices before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- View page source — compare `og:url` content and `canonical` href manually
+- Use [Facebook Sharing Debugger](https://developers.facebook.com/tools/debug/) — shows the resolved og:url
+- Use a site crawler (Screaming Frog) to export both fields and compare them in bulk
+
+### Manual Checks
+
+- Review representative live pages manually and confirm there is no stronger conflicting signal that changes the intended SEO outcome.

@@ -1,0 +1,36 @@
+{
+  "extends": "@repo/config-typescript/nextjs.json",
+  "compilerOptions": {
+    "incremental": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"],
+      "@/components/*": ["./components/*"],
+      "@/app/*": ["./app/*"],
+      "@/utils/*": ["./utils/*"],
+      "@/test-utils": ["./test-utils/index.tsx"],
+      "@/e2e/*": ["./e2e/*"],
+      "content-collections": ["./.content-collections/generated"],
+      "@repo/*": ["../../packages/*/src"],
+      "@repo/auth": ["../../packages/auth/src/auth.ts"],
+      "@repo/auth/*": ["../../packages/auth/src/*"],
+      "@repo/emails": ["../../packages/emails/src/index.ts"],
+      "@repo/emails/server": ["../../packages/emails/src/server.ts"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".content-collections/generated/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "test-utils",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
+  ]
+}

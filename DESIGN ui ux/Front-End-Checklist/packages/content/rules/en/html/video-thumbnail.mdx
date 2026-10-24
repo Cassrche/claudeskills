@@ -1,0 +1,208 @@
+---
+title: Add thumbnail images to videos
+description: >-
+  HTML5 video elements should have a poster attribute providing a thumbnail
+  image displayed before the video loads or is played.
+categories:
+  - html
+subcategory: media
+priority: medium
+difficulty: beginner
+estimatedTime: 10
+tldr:
+  - >-
+    Add a `poster` attribute to `<video>` elements with a URL to a
+    representative thumbnail image
+  - >-
+    The poster image displays before the video loads and while the user decides
+    whether to play
+  - >-
+    Poster images improve perceived performance by showing meaningful content
+    before video data arrives
+  - >-
+    The poster should accurately represent the video content — deceptive
+    thumbnails violate user trust
+  - >-
+    Use an image ratio matching the video's aspect ratio (typically 16:9) and a
+    resolution of at least 1280×720
+whyItMatters: >-
+  Without a poster image, a `<video>` element displays as a blank black
+  rectangle until the first frame is loaded. This is visually jarring, provides
+  no context about the video content, and can cause layout shift (CLS) if the
+  video dimensions are not specified separately. A good thumbnail image
+  communicates the video topic at a glance, allows users to decide whether to
+  play, and improves the page's visual quality — especially on slow connections
+  where video preloading is delayed.
+aiContext: >-
+  Applies to all `<video>` elements in HTML. The `poster` attribute specifies
+  the URL of an image to show as a placeholder before the video is loaded or
+  played. This is distinct from captions or audio descriptions, which are
+  accessibility requirements. The poster is primarily a UX and performance
+  enhancement, though the lack of a poster can indirectly create a CLS
+  (Cumulative Layout Shift) issue if video dimensions are not declared.
+prompts:
+  check: >-
+    Find all `<video>` elements. For each, check that: (1) a `poster` attribute
+    is present with a non-empty URL; (2) the URL resolves to a valid image (no
+    404s); (3) the `width` and `height` attributes or CSS dimensions are set to
+    prevent layout shift while the poster loads; (4) the poster image accurately
+    represents the video content (not a clickbait or unrelated image).
+  fix: >-
+    (1) Add a `poster` attribute to each `<video>` element: `<video
+    poster='thumbnail.jpg' controls>`. (2) Use an image that represents the
+    video content — typically a frame from the video, a title card, or a branded
+    thumbnail. (3) Ensure the poster image has the same aspect ratio as the
+    video (usually 16:9). (4) Recommended poster dimensions: 1280×720px minimum
+    for HD video; 640×360px is acceptable for smaller embeds. (5) Host the
+    poster image at a CDN-cached URL to ensure fast loading. (6) Also set
+    `width` and `height` on the `<video>` element to prevent CLS.
+  explain: >-
+    The HTML `poster` attribute on `<video>` specifies a URL for an image to
+    display before video playback begins. When `preload='none'` or
+    `preload='metadata'` is set (recommended for performance — avoids
+    downloading video data on page load), no video frame is available for
+    display, making the poster image the only visual content visible to the user
+    before play. Without a poster, users see either a black rectangle or a
+    browser-rendered blank video frame, which provides no context. The poster
+    also plays a role in perceived performance — users on slow connections see
+    meaningful content immediately rather than waiting for even the first video
+    frame to load.
+  codeReview: >-
+    Review templates, server-rendered HTML, and shared components that output
+    markup related to Add thumbnail images to videos. Flag exact elements,
+    attributes, and routes where the rendered HTML violates the rule.
+sources:
+  - title: 'HTML Living Standard: The video element — poster attribute'
+    url: 'https://html.spec.whatwg.org/multipage/media.html#attr-video-poster'
+    type: spec
+    id: html-living-standard-the-video-element-poster-attribute
+    role: standard
+    authority: primary
+  - title: 'MDN: <video> — poster attribute'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/video#poster'
+    type: mdn
+    id: mdn-video-poster-attribute
+    role: reference
+    authority: primary
+  - title: 'web.dev: Lazy loading video'
+    url: 'https://web.dev/learn/performance/video-performance'
+    type: guide
+    id: web-dev-lazy-loading-video
+    role: implementation
+    authority: primary
+  - title: 'web.dev: Cumulative Layout Shift (CLS)'
+    url: 'https://web.dev/cls/'
+    type: guide
+    id: web-dev-cumulative-layout-shift-cls
+    role: implementation
+    authority: primary
+resources:
+  - name: Nu Html Checker
+    url: 'https://validator.w3.org/nu/'
+    type: tool
+relatedRules:
+  - slug: video-accessibility
+    reason: >-
+      Both rules sit in the `html/media` area and are commonly reviewed
+      together.
+  - slug: alt-text
+    reason: >-
+      Both rules sit in the `html/media` area and are commonly reviewed
+      together.
+  - slug: dimensions
+    reason: >-
+      Both rules sit in the `html/media` area and are commonly reviewed
+      together.
+  - slug: dimensions
+    reason: >-
+      Both rules intersect in real audits and often influence the same
+      implementation decisions.
+---
+The `poster` attribute on `<video>` displays a thumbnail image before the video loads or plays. It prevents blank video placeholders and communicates content at a glance.
+
+## Code Example
+
+```html
+<!-- ✅ Good: video with poster, dimensions, and performance attributes -->
+<video
+  controls
+  width="1280"
+  height="720"
+  poster="thumbnail-intro-video.jpg"
+  preload="none">
+  <source src="intro-video.mp4" type="video/mp4">
+  <source src="intro-video.webm" type="video/webm">
+  <track kind="captions" srclang="en" src="captions.vtt" label="English" default>
+  <p>Your browser does not support HTML video.
+     <a href="intro-video.mp4">Download the video</a>.</p>
+</video>
+
+<!-- ❌ Incorrect: no poster — blank black rectangle before play -->
+<video controls>
+  <source src="intro-video.mp4" type="video/mp4">
+</video>
+
+<!-- ❌ Incorrect: poster present but no dimensions — causes layout shift -->
+<video controls poster="thumbnail.jpg">
+  <source src="intro-video.mp4" type="video/mp4">
+</video>
+```
+
+## Why It Matters
+
+- **Perceived Performance**: Users see meaningful content immediately; a blank rectangle appears broken on slow connections.
+- **User Decision-Making**: Thumbnails communicate video content before the user commits to playing.
+- **Layout Stability**: Explicit dimensions combined with a poster prevent Cumulative Layout Shift (a Core Web Vital).
+- **Autoplay Alternatives**: When autoplay is blocked by the browser (most mobile), the poster is the only visual shown — make it count.
+
+## Poster Image Best Practices
+
+| Attribute | Recommendation |
+|---|---|
+| Dimensions | 1280×720px (16:9) for HD; 640×360px minimum |
+| Format | JPEG for photos; WebP with JPEG fallback for performance |
+| File size | Keep under 100KB for fast loading |
+| Content | Representative of the video topic; avoid clickbait |
+| Aspect ratio | Match the video's native aspect ratio |
+
+## Preventing Layout Shift (CLS)
+
+Without explicit dimensions, the browser does not know how much space to reserve for the video until the poster or first frame loads, causing a Cumulative Layout Shift:
+
+```css
+/* ✅ Responsive video that maintains aspect ratio without CLS */
+.video-wrapper {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  background-color: #000; /* Shows black placeholder while poster loads */
+}
+
+.video-wrapper video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+```
+
+```html
+<!-- Or: set width and height directly on the element -->
+<video
+  poster="thumbnail.jpg"
+  width="1280"
+  height="720"
+  style="width: 100%; height: auto;"
+  controls>
+```
+
+## Verification
+
+### Automated Checks
+
+- Inspect the final rendered HTML in the browser or page source to confirm the rule is satisfied.
+- Validate the affected markup with browser tooling or an HTML validator where appropriate.
+- Test one representative route or template that uses the pattern.
+- Re-check shared components that emit the same markup so the fix is consistent.
+
+### Manual Checks
+
+- Verify the rendered browser behavior manually on representative routes and supported browsers so the user-facing outcome matches the rule.

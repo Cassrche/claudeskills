@@ -1,0 +1,166 @@
+package cmd
+
+import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestClaudeSettingsPath(t *testing.T) {
+	root := t.TempDir()
+	local, err := claudeSettingsPath(root, false)
+	if err != nil {
+		t.Fatalf("local claudeSettingsPath error: %v", err)
+	}
+	if local != filepath.Join(root, ".claude", "settings.local.json") {
+		t.Fatalf("unexpected local settings path: %s", local)
+	}
+
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	global, err := claudeSettingsPath(root, true)
+	if err != nil {
+		t.Fatalf("global claudeSettingsPath error: %v", err)
+	}
+	if global != filepath.Join(home, ".claude", "settings.json") {
+		t.Fatalf("unexpected global settings path: %s", global)
+	}
+}
+
+func TestRunSetupNoConfigNoHooks(t *testing.T) {
+	root := t.TempDir()
+	out := captureOutput(func() { RunSetup([]string{"--no-config", "--no-hooks", root}, ".") })
+
+	checks := []string{
+		"Config: skipped (--no-config)",
+		"Hooks: skipped (--no-hooks)",
+		"Next:",
+	}
+	for _, check := range checks {
+		if !strings.Contains(out, check) {
+			t.Fatalf("expected output to contain %q, got:\n%s", check, out)
+		}
+	}
+}
+
+func TestRunSetupNoMCP(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	out := captureOutput(func() {
+		RunSetup([]string{"--agent", "codex", "--no-config", "--no-mcp", root}, ".")
+	})
+	if !strings.Contains(out, "MCP: skipped (--no-mcp)") {
+		t.Fatalf("expected MCP skip output, got:\n%s", out)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".codex", "hooks.json")); err != nil {
+		t.Fatalf("expected Codex hooks to exist: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".codex", "config.toml")); !os.IsNotExist(err) {
+		t.Fatalf("expected Codex MCP config to be absent, got err=%v", err)
+	}
+}
+
+func TestRunSetupCreatesConfigAndHooks(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "worker.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	first := captureOutput(func() { RunSetup([]string{root}, ".") })
+	if !strings.Contains(first, "Config: created") || !strings.Contains(first, "Claude hooks: created") || !strings.Contains(first, "Codex hooks: created") {
+		t.Fatalf("unexpected first setup output:\n%s", first)
+	}
+
+	cfgPath := filepath.Join(root, ".codemap", "config.json")
+	if _, err := os.Stat(cfgPath); err != nil {
+		t.Fatalf("expected config file to exist: %v", err)
+	}
+	settingsPath := filepath.Join(root, ".claude", "settings.local.json")
+	if _, err := os.Stat(settingsPath); err != nil {
+		t.Fatalf("expected settings file to exist: %v", err)
+	}
+
+	second := captureOutput(func() { RunSetup([]string{root}, ".") })
+	if !strings.Contains(second, "Config: already exists") || !strings.Contains(second, "Claude hooks: already configured") || !strings.Contains(second, "Codex hooks: already configured") {
+		t.Fatalf("unexpected second setup output:\n%s", second)
+	}
+
+	settings := readSettingsFile(t, settingsPath)
+	hooks := readHooksMap(t, settings)
+	if len(hooks) == 0 {
+		t.Fatal("expected hooks to be configured")
+	}
+}
+
+func TestRunSetupUsesNearestGitRootFromNestedDirectory(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "main.go"), []byte("package main\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	nested := filepath.Join(root, "pkg", "feature")
+	if err := os.MkdirAll(nested, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	var code int
+	out := captureOutput(func() {
+		code = RunSetup([]string{"--no-hooks"}, nested)
+	})
+	if code != 0 {
+		t.Fatalf("RunSetup() exit code = %d, want 0", code)
+	}
+	wantRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "Project: "+wantRoot) {
+		t.Fatalf("expected setup output to use repo root %q, got:\n%s", wantRoot, out)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".codemap", "config.json")); err != nil {
+		t.Fatalf("expected root config to exist: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(nested, ".codemap", "config.json")); !os.IsNotExist(err) {
+		t.Fatalf("expected nested config to be absent, got err=%v", err)
+	}
+}
+
+func TestRunSetupAddsOnlyLocalCodemapIgnore(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	root := makeGitRepo(t)
+	t.Setenv("HOME", t.TempDir())
+
+	out := captureOutput(func() {
+		RunSetup([]string{"--agent", "codex", "--no-config", "--no-mcp", root}, ".")
+	})
+	if !strings.Contains(out, "Added .codemap/ to .git/info/exclude") {
+		t.Fatalf("expected local-ignore notice, got:\n%s", out)
+	}
+	exclude, err := infoExcludePath(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(exclude)
+	if err != nil || !strings.Contains(string(data), ".codemap/\n") {
+		t.Fatalf("expected .codemap/ in %s, data=%q, err=%v", exclude, data, err)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".gitignore")); !os.IsNotExist(err) {
+		t.Fatalf("setup must not create tracked .gitignore, err=%v", err)
+	}
+}

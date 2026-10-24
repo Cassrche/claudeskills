@@ -1,0 +1,126 @@
+---
+title: Ensure table headers associate with data cells
+description: Checks that table headers have associated data cells
+categories:
+  - accessibility
+subcategory: document-structure
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - Every `<th>` must be associated with one or more `<td>` cells
+  - Avoid empty headers that don't describe any data
+  - Remove unnecessary headers to reduce screen reader noise
+whyItMatters: >-
+  Orphaned headers without data cells can confuse users of assistive technology
+  and indicate a broken table structure.
+prompts:
+  check: Verify that all `<th>` elements are correctly associated with data cells.
+  fix: Remove empty headers or ensure they are correctly mapped to data cells.
+  explain: >-
+    Explain why every header must have associated data to maintain an accessible
+    table structure.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Ensure table
+    headers associate with data cells. Flag exact elements, roles, labels, focus
+    behavior, or keyboard interactions that violate the rule, and note how to
+    verify the fix with browser accessibility tooling or assistive tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Ensure table headers associate with data cells. Check
+  native semantics first, then inspect keyboard behavior, focus flow, accessible
+  names, and screen-reader output where relevant.
+sources:
+  - title: 'W3C WAI: WCAG Overview'
+    url: 'https://www.w3.org/WAI/standards-guidelines/wcag/'
+    type: wcag
+    id: w3c-wai-wcag-overview
+    role: standard
+    authority: primary
+  - title: 'MDN: Accessibility'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility'
+    type: mdn
+    id: mdn-accessibility
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: accessible-tables
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+  - slug: table-headers
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+  - slug: table-duplicate-name
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+  - slug: empty-heading
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+---
+All table headers must describe at least one cell of data to be useful for accessibility.
+
+## Code Example
+
+```html
+<!-- ✅ GOOD: Every header has associated data -->
+<table>
+  <tr>
+    <th scope="col">Product</th>
+    <th scope="col">Price</th>
+  </tr>
+  <tr>
+    <td>Apples</td>
+    <td>$1.00</td>
+  </tr>
+</table>
+
+<!-- ❌ BAD: Empty header with no purpose -->
+<table>
+  <tr>
+    <th scope="col">Product</th>
+    <th scope="col"></th> <!-- Empty/Unused -->
+  </tr>
+  <tr>
+    <td>Apples</td>
+    <td>$1.00</td>
+  </tr>
+</table>
+```
+
+## Why It Matters
+
+- **Reduced Noise**: Prevents screen readers from announcing headers that don't lead to meaningful information.
+- **Logical Structure**: Ensures the table's visual and programmatic structure matches its purpose.
+- **Navigation Accuracy**: Prevents dead-ends in keyboard and screen reader navigation.
+- **Clarity**: Helps all users understand exactly what data each column or row represents.
+
+## Exceptions
+
+- Simple data tables can sometimes fail more from missing header relationships than from missing enhancements such as captions or mobile wrappers, so prioritize the strongest semantic issue.
+- Do not convert layout structures into data-table markup just to satisfy a rule; the correct fix may be to remove table semantics entirely.
+- When several table-accessibility issues overlap, resolve the header-cell relationship first because downstream announcements depend on it.
+
+## Standards
+
+- Align the implementation with W3C WAI: WCAG Overview and verify the rendered experience, not only the source code.
+- Align the implementation with MDN: Accessibility and verify the rendered experience, not only the source code.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

@@ -1,0 +1,319 @@
+---
+title: Serve images at the correct display size
+description: >-
+  Images are not significantly larger than their display dimensions—serving a
+  2000px image for a 400px container wastes bandwidth and hurts LCP.
+categories:
+  - images
+subcategory: performance
+priority: high
+difficulty: intermediate
+estimatedTime: 20
+relatedRules:
+  - slug: srcset
+    reason: srcset is the mechanism for offering multiple image sizes to the browser
+  - slug: picture-element
+    reason: >-
+      <picture> with media queries serves different crops at different
+      breakpoints
+  - slug: image-file-size
+    reason: Oversized images are a primary driver of excessive file sizes
+  - slug: dimensions
+    reason: >-
+      Both rules sit in the `images/performance` area and are commonly reviewed
+      together.
+tools:
+  - name: Lighthouse
+    url: 'https://developer.chrome.com/docs/lighthouse/'
+  - name: Chrome DevTools (Sources → Images)
+    url: 'https://developer.chrome.com/docs/devtools/'
+  - name: Squoosh
+    url: 'https://squoosh.app/'
+resources:
+  - name: Properly size images — web.dev Lighthouse
+    url: 'https://web.dev/articles/serve-responsive-images'
+    type: article
+    author: web.dev
+  - name: Responsive images — MDN Web Docs
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Web/HTML/Guides/Responsive_images
+    type: guide
+    author: MDN
+  - name: Serve responsive images — web.dev
+    url: 'https://web.dev/articles/serve-responsive-images'
+    type: article
+    author: web.dev
+prompts:
+  check: >-
+    Audit images in this codebase for oversizing. Use Lighthouse 'Properly size
+    images' audit results as the primary signal. For each <img> in the HTML: 1)
+    Compare the image file's intrinsic width to the element's rendered CSS width
+    (check CSS rules, container constraints). 2) Flag any image where the
+    intrinsic width is more than 2x the rendered width at any common viewport
+    size. 3) Check for srcset usage—images over 200px wide should have srcset
+    variants. 4) Check sizes attribute accuracy—does it reflect the actual CSS
+    layout?
+  fix: >-
+    For each oversized image: 1) Generate multiple size variants: 400w, 800w,
+    1200w, 1600w (use Sharp or Squoosh). 2) Add srcset listing each variant with
+    its width descriptor. 3) Add a sizes attribute describing the image's
+    display width at each breakpoint (e.g., sizes="(max-width: 600px) 100vw,
+    (max-width: 1200px) 50vw, 400px"). 4) For art direction (different crops),
+    use <picture> with media attributes. 5) For the <img> src fallback, use the
+    medium size (800w). Show complete before/after HTML.
+  explain: >-
+    Explain why serving oversized images wastes bandwidth. If a browser renders
+    an image at 400px wide but the image file is 2000px wide, the browser
+    downloads ~25x more pixel data than it can display (bandwidth scales with
+    pixel count, not linear dimensions). The Lighthouse 'Properly size images'
+    audit estimates potential savings in KiB for each oversized image. The sizes
+    attribute is the key to accuracy—without it, the browser assumes 100vw and
+    downloads the largest srcset candidate even on narrow viewports.
+  codeReview: >-
+    Review image assets, markup, and delivery configuration related to Serve
+    images at the correct display size. Flag exact files or components where
+    format choice, sizing, or loading behavior violates the rule, and describe
+    how to confirm the fix in DevTools.
+tldr:
+  - >-
+    Serving a 1600px image in a 400px container wastes ~16x the necessary
+    bandwidth
+  - Use `srcset` with width descriptors and `sizes` with actual layout widths
+  - >-
+    The `sizes` attribute is critical—without it the browser assumes `100vw` and
+    picks the largest image
+  - >-
+    Lighthouse 'Properly size images' audit reports estimated savings per
+    oversized image
+whyItMatters: >-
+  A single oversized hero image can add several megabytes to a page load
+  unnecessarily. On mobile devices with 375px screens, serving a 1600px image
+  downloads 4x the data users need. The 'Properly size images' Lighthouse audit
+  consistently identifies this as one of the highest-impact performance
+  opportunities on most websites.
+aiContext: >-
+  Use when reviewing image assets, markup, and CDN or build transforms related
+  to Serve images at the correct display size. Check encoded size, rendered
+  size, loading strategy, and above-the-fold impact together.
+sources:
+  - title: 'MDN: Responsive images'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Learn/HTML/Multimedia_and_embedding/Responsive_images
+    type: mdn
+    id: mdn-responsive-images
+    role: reference
+    authority: primary
+  - title: 'web.dev: Responsive images'
+    url: 'https://web.dev/articles/responsive-images'
+    type: guide
+    id: web-dev-responsive-images
+    role: implementation
+    authority: primary
+---
+"Responsive size" means the image's pixel dimensions match how large it actually renders in the browser. Serving a 2000px image for a 300px thumbnail downloads ~44x unnecessary data.
+
+## Code Example
+
+```html
+<!-- ❌ Bad: 2000px image rendered at 400px — 25x too much data -->
+<img src="photo-2000w.jpg" alt="Product photo" style="width: 400px;">
+
+<!-- The browser downloads a 2000×1500px image but only displays 400×300px -->
+<!-- If photo-2000w.jpg is 800KB, photo-400w.jpg would be ~50KB -->
+```
+
+## Why It Matters
+
+A single oversized hero image can add several megabytes to a page load unnecessarily. On mobile devices with 375px screens, serving a 1600px image downloads 4x the data users need. The 'Properly size images' Lighthouse audit consistently identifies this as one of the highest-impact performance opportunities on most websites.
+
+## The Solution: srcset and sizes
+
+```html
+<!-- ✅ Good: Browser picks the appropriate size based on viewport and display density -->
+<img
+  src="photo-800w.jpg"
+  srcset="
+    photo-400w.jpg   400w,
+    photo-800w.jpg   800w,
+    photo-1200w.jpg 1200w,
+    photo-1600w.jpg 1600w
+  "
+  sizes="(max-width: 480px) 100vw,
+         (max-width: 900px) 50vw,
+         400px"
+  alt="Product photo"
+  width="1600"
+  height="1200"
+  loading="lazy"
+>
+```
+
+## Understanding the sizes Attribute
+
+`sizes` tells the browser how wide the image will be rendered at each breakpoint. The browser uses this—combined with the viewport width and device pixel ratio—to pick the optimal `srcset` candidate.
+
+```html
+<!-- sizes examples for common layout patterns -->
+
+<!-- Full-width image -->
+<img sizes="100vw" ...>
+
+<!-- Half-width grid on desktop, full-width on mobile -->
+<img sizes="(max-width: 768px) 100vw, 50vw" ...>
+
+<!-- Card in a 3-column grid with 24px gap, max 1200px container -->
+<img sizes="(max-width: 768px) 100vw, (max-width: 1200px) calc(33vw - 24px), 376px" ...>
+
+<!-- Sidebar image: fixed 300px on desktop, full-width on mobile -->
+<img sizes="(max-width: 768px) 100vw, 300px" ...>
+```
+
+<Warning title="Without sizes, the browser assumes 100vw">
+If you omit `sizes`, the browser assumes the image is 100% of viewport width and downloads the largest `srcset` candidate even on narrow mobile screens. Always include a `sizes` attribute when using `srcset`.
+</Warning>
+
+## Generating Multiple Sizes
+
+```javascript
+// scripts/generate-sizes.mjs
+import sharp from 'sharp'
+import path from 'path'
+
+const WIDTHS = [400, 800, 1200, 1600]
+
+async function generateSizes(inputPath) {
+  const { dir, name, ext } = path.parse(inputPath)
+
+  for (const width of WIDTHS) {
+    const outputPath = path.join(dir, `${name}-${width}w${ext}`)
+
+    await sharp(inputPath)
+      .resize(width, null, {
+        withoutEnlargement: true, // Don't upscale images smaller than the target width
+        fit: 'inside',
+      })
+      .toFile(outputPath)
+
+    console.log(`Generated: ${outputPath}`)
+  }
+}
+
+// Usage
+await generateSizes('public/images/hero.jpg')
+```
+
+## Checking Against Display Size
+
+Use DevTools to compare intrinsic vs rendered dimensions.
+
+```javascript
+// Paste in DevTools console to find oversized images on the page
+const oversized = Array.from(document.querySelectorAll('img'))
+  .filter(img => img.complete && img.naturalWidth > 0)
+  .map(img => {
+    const rendered = img.getBoundingClientRect()
+    const dpr = window.devicePixelRatio || 1
+    const renderedPx = rendered.width * dpr
+
+    return {
+      src: img.src.split('/').pop(),
+      intrinsic: img.naturalWidth,
+      rendered: Math.round(renderedPx),
+      ratio: Math.round(img.naturalWidth / renderedPx),
+    }
+  })
+  .filter(img => img.ratio > 2) // Flag anything more than 2x oversized
+
+console.table(oversized)
+```
+
+## Framework Examples
+
+<CodeTabs defaultTab="react">
+  <Tab value="react" label="React">
+
+```tsx
+interface ResponsiveImageProps {
+  baseSrc: string      // e.g., "/images/photo"
+  ext?: string         // e.g., "jpg" (default)
+  alt: string
+  sizes: string
+  aspectRatio?: string // e.g., "16/9"
+  widths?: number[]
+  priority?: boolean
+}
+
+function ResponsiveImage({
+  baseSrc,
+  ext = 'jpg',
+  alt,
+  sizes,
+  widths = [400, 800, 1200, 1600],
+  priority = false,
+}: ResponsiveImageProps) {
+  const srcset = widths.map(w => `${baseSrc}-${w}w.${ext} ${w}w`).join(', ')
+  const [maxWidth, maxHeight] = [widths[widths.length - 1], undefined]
+
+  return (
+    <img
+      src={`${baseSrc}-${widths[1]}w.${ext}`}
+      srcSet={srcset}
+      sizes={sizes}
+      alt={alt}
+      width={maxWidth}
+      loading={priority ? 'eager' : 'lazy'}
+      fetchPriority={priority ? 'high' : 'auto'}
+      decoding="async"
+      style={{ maxWidth: '100%', height: 'auto' }}
+    />
+  )
+}
+
+// Usage
+<ResponsiveImage
+  baseSrc="/images/hero"
+  ext="webp"
+  alt="Hero image"
+  sizes="(max-width: 768px) 100vw, 50vw"
+  priority
+/>
+```
+
+  </Tab>
+  <Tab value="nextjs" label="Next.js">
+
+```tsx
+import Image from 'next/image'
+
+// next/image handles srcset and sizes automatically
+function ProductCard({ product }) {
+  return (
+    <Image
+      src={product.imageUrl}
+      alt={product.name}
+      width={800}
+      height={600}
+      // sizes tells next/image which breakpoint variants to generate
+      sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 400px"
+      loading="lazy"
+      className="w-full h-auto"
+    />
+  )
+}
+```
+
+  </Tab>
+</CodeTabs>
+
+## Verification
+
+### Automated Checks
+
+- Run Lighthouse — "Properly size images" audit shows potential savings per image
+- In Chrome DevTools → Elements → hover over an image source to see intrinsic vs rendered size
+- Run the DevTools console script above to find all oversized images on the current page
+- Test on a mobile viewport (375px) and check the Network tab to verify small srcset candidates are chosen
+
+### Manual Checks
+
+- Verify the rendered or user-facing behavior manually in a representative browser or runtime flow.

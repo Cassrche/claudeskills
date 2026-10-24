@@ -1,0 +1,210 @@
+---
+title: Keep URLs concise
+description: Checks URL length for optimal crawlability and usability
+categories:
+  - seo
+subcategory: technical
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - >-
+    Keep URL paths under 100 characters; Google recommends short, descriptive
+    URLs without unnecessary parameters
+  - >-
+    Remove stop words (`the`, `a`, `of`, `in`) from slugs — `/guide-css-grid` is
+    better than `/a-guide-to-css-grid`
+  - >-
+    Deeply nested paths (`/blog/2024/03/category/subcategory/post-title`) are
+    harder to share and signal distance from the root
+whyItMatters: >-
+  While Google has no strict URL length limit beyond technical constraints, long
+  URLs with deep nesting, excessive parameters, or redundant words are harder
+  for users to read, copy, and share. Google's John Mueller has confirmed that
+  shorter, cleaner URLs are easier to understand and may perform slightly better
+  in search.
+aiContext: >-
+  Use when generating URL slugs from article titles, auditing URL structures for
+  unnecessary depth or length, or reviewing URL patterns in a CMS or router
+  configuration.
+prompts:
+  check: >-
+    For each page URL, extract the path component (excluding domain and query
+    string). Flag: (1) Path length over 100 characters. (2) More than 4 path
+    segments (e.g., `/a/b/c/d/e` has 5 segments). (3) Common stop words in slugs
+    (`the`, `a`, `an`, `of`, `in`, `at`, `to`, `for`, `with`). (4) Dates in URL
+    paths for evergreen content (e.g., `/blog/2024/03/css-guide`). (5) Session
+    IDs, tracking parameters, or other dynamic values in paths.
+  fix: >
+    1. Shorten slugs by removing stop words:
+       - `/how-to-optimise-your-websites-core-web-vitals` → `/optimise-core-web-vitals`
+       - `/a-comprehensive-guide-to-css-grid-layout` → `/css-grid-guide`
+    2. Flatten URL structure where category hierarchy is not essential:
+       - `/blog/2024/march/technology/css-grid` → `/blog/css-grid`
+    3. Remove dates from evergreen content URLs (with 301 redirects from old
+    URLs).
+
+    4. Remove session IDs and tracking parameters from URLs used as canonical-url
+    URLs.
+
+    5. Implement changes with 301 redirects from old to new URLs to preserve
+    link equity.
+
+    6. Update sitemaps and internal links after URL changes.
+  explain: >-
+    Google recommends keeping URLs 'simple, descriptive, and readable'. Long
+    URLs are more prone to being truncated in search snippets, harder to share,
+    and more confusing to users. Deep URL structures (many subdirectories) do
+    not directly harm rankings, but they can increase crawl distance from the
+    root, reducing crawl frequency for deep pages on large sites.
+  codeReview: >-
+    Parse the pathname of each URL. Count path segments (split by `/`). Measure
+    character length of the path. Flag slugs containing common stop words.
+    Report the longest 10 URLs by character count and deepest 10 by segment
+    count. Check whether URL generation utilities strip stop words and limit
+    segment depth.
+relatedRules:
+  - slug: hyphens
+    reason: Hyphen usage in slugs is part of the same URL formatting best practices
+  - slug: lowercase
+    reason: Lowercase URLs are part of the same URL hygiene rules
+  - slug: stop-words
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: slug-keywords
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+resources:
+  - title: 'Google Search Central: URL structure'
+    url: 'https://developers.google.com/search/docs/crawling-indexing/url-structure'
+    type: guide
+  - title: 'Google SEO Starter Guide: URL structure'
+    url: >-
+      https://developers.google.com/search/docs/fundamentals/seo-starter-guide#urls
+    type: guide
+sources:
+  - title: 'Google Search Central: URL structure best practices'
+    url: 'https://developers.google.com/search/docs/crawling-indexing/url-structure'
+    type: guide
+    id: google-search-central-url-structure-best-practices
+    role: search
+    authority: primary
+  - title: Google SEO Starter Guide
+    url: 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide'
+    type: guide
+    id: google-seo-starter-guide
+    role: implementation
+    authority: primary
+---
+URL length and structure affect readability, shareability, and how easily crawlers navigate your site. [Google's URL structure guidance](https://developers.google.com/search/docs/crawling-indexing/url-structure) favors short, descriptive paths, and the same cleanup work usually overlaps with [stop-word removal](/en/rules/seo/stop-words) and other slug-hygiene rules.
+
+## Code Examples
+
+#
+
+## ❌ Avoid — long slug with stop words
+
+```
+/blog/a-comprehensive-step-by-step-guide-to-the-basics-of-css-grid-layout-for-beginners
+```
+
+### ❌ Avoid — deep nesting with date components in evergreen content
+
+```
+/blog/2024/03/15/technology/css/a-guide-to-css-grid
+```
+
+### ✅ Correct — concise descriptive slug
+
+```
+/blog/css-grid-guide
+```
+
+### ✅ Correct — flat category structure
+
+```
+/css-grid-guide          (no category prefix if not needed)
+/blog/css-grid           (one level of category)
+/docs/css/grid-layout    (two levels for documentation is fine)
+```
+
+### ✅ Slug generation — removing stop words
+
+```js
+const STOP_WORDS = new Set([
+  'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at',
+  'to', 'for', 'of', 'with', 'how', 'what', 'your', 'is'
+])
+
+function toSlug(title) {
+  return title
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(word => !STOP_WORDS.has(word))
+    .join('-')
+    .replace(/[^a-z0-9-]/g, '')
+}
+
+toSlug('A Comprehensive Guide to the Basics of CSS Grid')
+// → 'comprehensive-guide-basics-css-grid'
+```
+
+### ✅ Next.js — concise dynamic routes
+
+```ts
+// Prefer flat routes:
+// app/blog/[slug]/page.tsx → /blog/css-grid-guide
+
+// Over deeply nested routes:
+// app/blog/[year]/[month]/[category]/[slug]/page.tsx
+// → /blog/2024/03/css/css-grid-guide
+```
+
+## Why It Matters
+
+- **Readability**: Short URLs are easier to copy, share, and remember, leading to more organic sharing.
+- **Crawl efficiency**: Deeply nested URLs signal larger crawl distance from the root, potentially reducing crawl frequency for deep pages.
+- **Search snippet display**: Long URLs are truncated in search results, making the displayed breadcrumb less informative and often creating the same usability issues as inconsistent [lowercase URL handling](/en/rules/seo/lowercase).
+
+## URL Length Guidelines
+
+| Path length | Status |
+|---|---|
+| Under 60 characters | Ideal |
+| 60–100 characters | Acceptable |
+| 100–150 characters | Consider shortening |
+| Over 150 characters | Shorten |
+
+## When to Use Dates in URLs
+
+Include dates in URLs only for content where the date is a meaningful identifier:
+- News articles: `/news/2024-03-15/budget-announcement`
+- Event coverage: `/events/2024/react-conf-recap`
+
+For evergreen tutorials, guides, and documentation, omit dates — they signal that content may become outdated.
+
+## Exceptions
+
+- Necessary utility or compliance pages can be intentionally brief and should not be judged by the same editorial-depth expectations as ranking-focused content.
+- AI-assisted drafting is not a failure by itself; flag unsupported claims, missing editorial review, or low-originality output instead.
+- When a page has both trust-signal issues and crawl/index problems, make the page eligible to rank first and then improve the content quality signals.
+
+## Standards
+
+- Use these references as the standard for the final search-facing HTML, metadata, and crawl behavior.
+- Check the implementation against Google Search Central: URL structure best practices before treating the rule as satisfied.
+- Check the implementation against Google SEO Starter Guide before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

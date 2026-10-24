@@ -1,0 +1,38 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Local build and cache output
+.next
+**/.next
+.turbo
+**/.turbo
+.content-collections
+**/.content-collections
+coverage
+**/coverage
+
+# Test artifacts
+test-results
+**/test-results
+playwright-report
+**/playwright-report
+blob-report
+**/blob-report
+*.trace.zip
+
+# Local environment and tooling state
+.env
+.env.*
+.vercel
+.DS_Store
+*.pem
+*.tsbuildinfo
+next-env.d.ts
+
+# Local/generated agent artifacts
+.artifacts
+.claude
+.agents/skills
+.cursor

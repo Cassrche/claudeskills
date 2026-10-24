@@ -1,0 +1,119 @@
+---
+title: Audit all noindex pages
+description: >-
+  Lists and reviews all pages blocked from indexing to ensure critical content
+  is accessible.
+categories:
+  - seo
+subcategory: technical
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - Identify all pages using the `noindex` directive in meta tags or headers
+  - 'Verify that critical pages (products, articles) aren''t accidentally blocked'
+  - >-
+    Ensure `noindex` is correctly applied to thin content, admin, or utility
+    pages
+whyItMatters: >-
+  An incorrect `noindex` tag can completely remove important pages from search
+  results, while proper usage helps manage crawl budget and prevents duplicate
+  content issues.
+prompts:
+  check: >-
+    Verify that the `noindex` directive is only applied to pages that should not
+    appear in search results.
+  fix: >-
+    Remove `&lt;meta name="robots" content="noindex"&gt;` from pages that should
+    be indexed and ranking.
+  explain: >-
+    Explain the difference between `noindex` and `disallow` in robots.txt and
+    when to use each for optimal SEO.
+  codeReview: >-
+    Review metadata generation, rendered HTML, structured data, and response
+    headers related to Audit all noindex pages. Flag exact routes or templates
+    where search-facing output violates the rule, and describe how to verify the
+    final page output.
+aiContext: >-
+  Use when auditing metadata, crawlability, structured data, or indexability
+  related to Audit all noindex pages. Verify the rendered HTML and HTTP response
+  rather than relying only on source files.
+sources:
+  - title: 'Google Search Central: Search Essentials'
+    url: 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide'
+    type: google
+    id: google-search-central-search-essentials
+    role: search
+    authority: primary
+  - title: Google Search Central documentation
+    url: 'https://developers.google.com/search/docs'
+    type: google
+    id: google-search-central-documentation
+    role: implementation
+    authority: primary
+resources:
+  - name: Google Search Console
+    url: 'https://search.google.com/search-console/about'
+    type: tool
+relatedRules:
+  - slug: indexability-conflicts
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: robots-meta-conflict
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: indexability
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: schema-noindex-conflict
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+---
+Regularly auditing your `noindex` directives ensures that you are only blocking pages that don't provide search value, such as staging environments, admin panels, or internal search results.
+
+## Code Example
+
+```html
+<head>
+  <!-- Use this for utility pages like 'Thank You' pages or internal search results -->
+  <meta name="robots" content="noindex, follow">
+  
+  <!-- For pages that should be completely ignored -->
+  <meta name="robots" content="noindex, nofollow">
+</head>
+```
+
+## Why It Matters
+
+- **Visibility**: Prevents accidental exclusion of high-value pages from Google and Bing.
+- **Crawl Budget**: Helps search engines focus their limited crawl resources on your most important pages.
+- **De-indexing**: Useful for removing outdated or sensitive pages from search results without deleting them.
+- **Strategic Control**: Allows you to manage which versions of content (e.g., filtered lists) are available for indexing.
+
+## Exceptions
+
+- Staging, utility, login, account, or internal search pages may intentionally use different crawl or index signals if they are not meant to rank.
+- Temporary migration states can produce noisy intermediate signals; flag the live production URL pattern, not one-off transition artifacts.
+- When redirects, canonicals, robots directives, or indexability signals conflict, fix the strongest final signal first instead of reporting every downstream symptom as a separate blocker.
+
+## Standards
+
+- Use these references as the standard for the final search-facing HTML, metadata, and crawl behavior.
+- Check the implementation against Google Search Central: Search Essentials before treating the rule as satisfied.
+- Check the implementation against Google Search Central documentation before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

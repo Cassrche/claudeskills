@@ -1,0 +1,193 @@
+---
+title: Make links in text blocks visually distinguishable
+description: >-
+  Links within blocks of text must be distinguishable from surrounding non-link
+  text by more than color alone.
+categories:
+  - accessibility
+subcategory: visual
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - >-
+    Color must not be the only visual means of distinguishing links from
+    surrounding text — WCAG 2.1 SC 1.4.1 (Use of Color)
+  - 'Option 1: Underline links (the browser default and most robust approach)'
+  - >-
+    Option 2: If no underline, the link color must have ≥ 3:1 contrast ratio
+    against surrounding body text AND ≥ 4.5:1 against the background
+  - Focus and hover states must also maintain distinguishability
+  - >-
+    Applies only to links embedded within paragraphs/text blocks; standalone
+    navigation links have different requirements
+whyItMatters: >-
+  Approximately 8% of men and 0.5% of women have color vision deficiency
+  (red-green being most common). If links are distinguished only by a color like
+  blue or red, these users may not identify them as links and miss critical
+  navigation or reference information. The underline is a universal,
+  color-independent signal understood across cultures and vision abilities.
+  Removing underlines is a common design trend that disproportionately affects
+  users with low vision and cognitive disabilities.
+aiContext: >-
+  Applies to hyperlinks (`<a>` elements) that appear inline within paragraphs or
+  text blocks. Does not apply to navigation menus, button-style links, or
+  standalone links that are visually isolated from body text. Use when reviewing
+  CSS that removes text-decoration from inline body copy links.
+prompts:
+  check: >-
+    Find all `<a>` elements within text-heavy containers (paragraphs, article
+    body, list items containing prose). Check the CSS applied: if
+    `text-decoration: none` or `text-decoration: underline` is removed, verify
+    that the link color has at least 3:1 contrast ratio against the surrounding
+    non-link text color AND at least 4.5:1 against the background. Also check
+    `:hover` and `:focus` states for a non-color visual change (underline
+    appearing, outline, background change).
+  fix: >-
+    The simplest fix is to restore `text-decoration: underline` on inline text
+    links within body copy — this is the most widely understood and
+    color-independent link indicator. If the design requires no underline:
+    calculate the contrast between link color and body text color using the WCAG
+    relative luminance formula; it must be ≥ 3:1. Add a non-color visual change
+    on `:hover` and `:focus` (e.g., underline appears, font-weight changes, or
+    background-color is added).
+  explain: >-
+    WCAG 2.1 SC 1.4.1 (Use of Color, Level A) states that color must not be the
+    sole visual means of conveying information, indicating an action, prompting
+    a response, or distinguishing a visual element. For links within text, this
+    means a user who cannot perceive the link color must still be able to
+    identify the link. The WCAG technique G183 specifies that a 3:1 contrast
+    ratio between link and surrounding text, combined with a non-color
+    hover/focus cue, is a sufficient technique. The browser default underline
+    satisfies SC 1.4.1 on its own.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Make links in
+    text blocks visually distinguishable. Flag exact elements, roles, labels,
+    focus behavior, or keyboard interactions that violate the rule, and note how
+    to verify the fix with browser accessibility tooling or assistive tech.
+sources:
+  - title: 'WCAG 2.1 SC 1.4.1: Use of Color'
+    url: 'https://www.w3.org/TR/WCAG21/#use-of-color'
+    type: wcag
+    id: wcag-2-1-sc-1-4-1-use-of-color
+    role: standard
+    authority: primary
+  - title: 'WCAG Technique G183: Using a contrast ratio of 3:1 with surrounding text'
+    url: 'https://www.w3.org/WAI/WCAG21/Techniques/general/G183'
+    type: wcag
+    id: wcag-technique-g183-using-a-contrast-ratio-of-3-1-with-surrounding-text
+    role: standard
+    authority: primary
+  - title: >-
+      WCAG Technique F73: Failure for creating links not visually evident
+      without color vision
+    url: 'https://www.w3.org/WAI/WCAG21/Techniques/failures/F73'
+    type: wcag
+    id: >-
+      wcag-technique-f73-failure-for-creating-links-not-visually-evident-without-color-vision
+    role: standard
+    authority: primary
+  - title: 'WebAIM: Links and Hypertext'
+    url: 'https://webaim.org/techniques/hypertext/'
+    type: guide
+    id: webaim-links-and-hypertext
+    role: implementation
+    authority: secondary
+  - title: 'MDN: text-decoration'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/CSS/text-decoration'
+    type: mdn
+    id: mdn-text-decoration
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: color-contrast
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+  - slug: identical-links-same-purpose
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+  - slug: focus-styles
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+  - slug: touch-targets
+    reason: >-
+      Both rules sit in the `accessibility/visual` area and are commonly
+      reviewed together.
+---
+Links embedded within paragraphs or text blocks must be identifiable without relying solely on color. [WCAG 1.4.1 Use of Color](https://www.w3.org/TR/WCAG21/#use-of-color), [Technique G183](https://www.w3.org/WAI/WCAG21/Techniques/general/G183), and [WebAIM's link guidance](https://webaim.org/techniques/hypertext/) all treat inline links as a distinct case because they sit inside surrounding prose.
+## Code Examples
+
+### Approach 1: Underline (Recommended)
+
+The browser's default `text-decoration: underline` satisfies WCAG SC 1.4.1 on its own. It is universally understood and color-independent.
+
+```css
+/* ✅ Good: underline preserved — default browser behavior */
+.article a {
+  color: #0056b3;
+  text-decoration: underline;
+}
+```
+
+### Approach 2: No Underline + 3:1 Contrast + Non-color Hover Cue
+
+If design requires removing underlines, all three conditions must be met simultaneously:
+
+1. Link color vs. body text color: ≥ 3:1 contrast ratio
+2. Link color vs. background: ≥ 4.5:1 contrast ratio (regular text requirement)
+3. A non-color visual change on hover/focus (underline, bold, background)
+
+```css
+/* ✅ Acceptable: no underline — but must verify 3:1 link vs body text contrast */
+.article a {
+  color: #0066cc;  /* Must be ≥ 3:1 against surrounding #333333 body text */
+  text-decoration: none;
+}
+
+/* ✅ Required: non-color change on hover and focus */
+.article a:hover,
+.article a:focus {
+  text-decoration: underline; /* non-color cue added on interaction */
+  outline: 2px solid #0066cc;
+}
+
+/* ❌ Fail: only color difference, no underline, no hover cue */
+.article a {
+  color: #cc0000; /* Might be visible to most, but not color-blind users */
+  text-decoration: none;
+}
+```
+
+## Why It Matters
+
+This is not just a styling preference. [Failure F73](https://www.w3.org/WAI/WCAG21/Techniques/failures/F73) documents exactly what happens when links are only different by color and nothing else cues users that the text is interactive.
+
+- **Color Blindness**: Users with protanopia or deuteranopia cannot distinguish red or green tints from surrounding text.
+- **Low Vision**: Users relying on high-contrast modes may see a different color palette where link color matches body text.
+- **Cognitive Load**: Underlines are a learned universal signal; removing them forces users to hover over text to discover links.
+- **WCAG Level A**: SC 1.4.1 is a Level A requirement — the lowest threshold, meaning it applies to all publicly accessible content.
+
+## Exceptions
+
+- Evaluate the rendered experience before treating a static-code smell as a blocker; interaction timing, browser behavior, and assistive technology output often determine severity.
+- Not every secondary accessibility issue deserves equal weight; prioritize the issue that most directly blocks perception, operation, or understanding.
+- Avoid adding redundant markup or ARIA solely to satisfy a rule when a simpler semantic implementation would eliminate the issue entirely.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

@@ -1,0 +1,217 @@
+---
+title: Use CSS Grid for two-dimensional layouts
+description: >-
+  Use CSS Grid when you need to control both rows and columns simultaneously,
+  such as page layouts, card grids, and complex component arrangements.
+categories:
+  - css
+subcategory: layout
+priority: medium
+difficulty: intermediate
+estimatedTime: 25
+tldr:
+  - >-
+    Use Grid for two-dimensional layouts (rows AND columns); use Flexbox for
+    one-dimensional
+  - >-
+    grid-template-areas provides a visual representation of the layout in your
+    CSS
+  - >-
+    minmax() and auto-fill/auto-fit create responsive grids without media
+    queries
+  - Subgrid allows nested elements to align to the parent grid's tracks
+whyItMatters: >-
+  CSS Grid solves layout problems that previously required JavaScript or complex
+  CSS hacks — aligning items across both axes simultaneously, creating named
+  layout areas, and building responsive grids that adapt to content. Using
+  Flexbox for two-dimensional layouts results in workarounds like fixed widths
+  that break responsiveness.
+relatedRules:
+  - slug: flexbox-patterns
+    reason: >-
+      Grid and Flexbox complement each other — Grid for page layout, Flexbox for
+      component internals
+  - slug: responsive-units
+    reason: 'Grid works best with relative units like fr, minmax, and clamp'
+  - slug: container-queries
+    reason: Both rules affect css quality and are commonly reviewed together.
+  - slug: horizontal-scroll
+    reason: Both rules affect css quality and are commonly reviewed together.
+tools:
+  - name: CSS Grid Generator
+    url: 'https://cssgrid-generator.netlify.app'
+  - name: MDN CSS Grid
+    url: 'https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout'
+prompts:
+  check: >-
+    Look for float-based or Flexbox layouts in this CSS that are trying to
+    control both rows and columns — they may be better implemented with CSS
+    Grid.
+  fix: >-
+    Convert this two-dimensional layout to use CSS Grid with appropriate
+    grid-template-columns, grid-template-rows, and grid-template-areas.
+  explain: >-
+    Explain CSS Grid fundamentals: tracks, cells, areas, fr units, minmax, and
+    auto-fill vs auto-fit.
+  codeReview: >-
+    Review stylesheets, component styles, and responsive states related to Use
+    CSS Grid for two-dimensional layouts. Flag exact selectors, declarations, or
+    breakpoints that violate the rule in the rendered UI.
+aiContext: >-
+  Use when reviewing stylesheets, component styles, and responsive behavior
+  related to Use CSS Grid for two-dimensional layouts. Check the rendered layout
+  across breakpoints and interaction states before proposing a fix.
+sources:
+  - title: 'MDN: CSS'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/CSS'
+    type: mdn
+    id: mdn-css
+    role: reference
+    authority: primary
+  - title: 'web.dev: Learn CSS'
+    url: 'https://web.dev/learn/css'
+    type: guide
+    id: web-dev-learn-css
+    role: implementation
+    authority: primary
+---
+CSS Grid is the most powerful layout system in CSS, designed specifically for two-dimensional layouts where you need to control placement across both rows and columns.
+
+## Code Example
+
+```css
+/* ✅ Simple 3-column grid */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+/* ✅ Responsive without media queries */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+/* Creates as many 280px+ columns as fit — automatically responsive */
+```
+
+## Why It Matters
+
+CSS Grid solves layout problems that previously required JavaScript or complex CSS hacks — aligning items across both axes simultaneously, creating named layout areas, and building responsive grids that adapt to content. Using Flexbox for two-dimensional layouts results in workarounds like fixed widths that break responsiveness.
+
+## Named Template Areas
+
+```css
+/* ✅ Visual layout declaration */
+.page-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "header  header"
+    "sidebar main"
+    "footer  footer";
+  min-height: 100vh;
+}
+
+.page-header { grid-area: header; }
+.page-sidebar { grid-area: sidebar; }
+.page-main { grid-area: main; }
+.page-footer { grid-area: footer; }
+
+/* Responsive: single column on mobile */
+@media (max-width: 768px) {
+  .page-layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "header"
+      "main"
+      "sidebar"
+      "footer";
+  }
+}
+```
+
+## minmax() and fr Units
+
+```css
+.layout {
+  display: grid;
+  /* First column: 200px to 300px; second: fills remaining space */
+  grid-template-columns: minmax(200px, 300px) 1fr;
+
+  /* Three equal columns, minimum 150px each */
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
+}
+```
+
+## Explicit Placement
+
+```css
+.featured-card {
+  /* Span across 2 columns and 2 rows */
+  grid-column: 1 / 3;
+  grid-row: 1 / 3;
+}
+
+/* Named lines */
+.container {
+  grid-template-columns: [start] 1fr [center] 1fr [end];
+}
+
+.full-bleed {
+  grid-column: start / end;
+}
+```
+
+## Subgrid for Nested Alignment
+
+```css
+/* Cards align their internal elements to the parent grid */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: auto auto 1fr auto;
+}
+
+.card {
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: subgrid; /* Inherit parent's row tracks */
+}
+/* Now all card titles, descriptions, and CTAs align across cards */
+```
+
+## Grid vs Flexbox: When to Use Which
+
+```
+Grid:
+- Full page layouts
+- Card grids where row height matters
+- Any 2D alignment requirement
+- Holy grail layouts
+
+Flexbox:
+- Navigation bars
+- Button groups
+- Single rows/columns
+- Centering a single element
+```
+
+## Support Notes
+
+- Core CSS Grid is broadly supported, but related features such as subgrid may require progressive enhancement or a simpler fallback for some target browsers.
+- Validate the actual rendered layout across the project browser matrix, not only in one evergreen browser.
+
+## Verification
+
+### Automated Checks
+
+- Confirm the computed styles match the intended fix in DevTools.
+- If the rule affects motion, contrast, or layout stability, verify those user-facing outcomes directly.
+
+### Manual Checks
+
+- Inspect the rendered UI at the breakpoints and interaction states affected by the rule.
+- Test at least one mobile and one desktop viewport before shipping.

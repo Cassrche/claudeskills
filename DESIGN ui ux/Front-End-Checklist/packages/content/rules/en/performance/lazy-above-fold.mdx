@@ -1,0 +1,135 @@
+---
+title: Disable lazy loading for above-the-fold content
+description: >-
+  Detects lazy loading on likely above-fold images to improve Largest Contentful
+  Paint (LCP)
+categories:
+  - performance
+subcategory: loading
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - Do not use `loading="lazy"` for images in the initial viewport
+  - Lazy loading above-the-fold images delays the Largest Contentful Paint (LCP)
+  - Ensure critical images start downloading as early as possible
+whyItMatters: >-
+  Applying lazy loading to hero images or other primary content can cause a
+  significant delay in how quickly users perceive the page as loaded.
+prompts:
+  check: >-
+    Review the page's images and check for `loading="lazy"` on any images that
+    are likely to be in the initial viewport (above-the-fold).
+  fix: >-
+    Remove `loading="lazy"` from above-the-fold images and consider using
+    `fetchpriority="high"` instead.
+  explain: >-
+    Explain why lazy loading above-the-fold content negatively impacts perceived
+    performance and LCP.
+  codeReview: >-
+    Review the routes, assets, and loading behavior that affect Disable lazy
+    loading for above-the-fold content. Flag exact files, requests, or rendering
+    steps that add unnecessary network, CPU, or layout cost, and describe the
+    measurement method used to confirm the issue.
+aiContext: >-
+  Use when auditing slow page loads, heavy assets, or rendering delays related
+  to Disable lazy loading for above-the-fold content. Verify the actual
+  bottleneck in DevTools, Lighthouse, or field data before recommending changes.
+sources:
+  - title: 'web.dev: Learn Performance'
+    url: 'https://web.dev/learn/performance'
+    type: guide
+    id: web-dev-learn-performance
+    role: reference
+    authority: primary
+  - title: 'Chrome Developers: Lighthouse overview'
+    url: 'https://developer.chrome.com/docs/lighthouse/overview/'
+    type: guide
+    id: chrome-developers-lighthouse-overview
+    role: implementation
+    authority: primary
+resources:
+  - name: PageSpeed Insights
+    url: 'https://pagespeed.web.dev/'
+    type: tool
+relatedRules:
+  - slug: lazy-loading
+    reason: >-
+      Both rules sit in the `performance/loading` area and are commonly reviewed
+      together.
+  - slug: resource-hints
+    reason: >-
+      Both rules sit in the `performance/loading` area and are commonly reviewed
+      together.
+  - slug: import-on-visibility
+    reason: >-
+      Both rules sit in the `performance/loading` area and are commonly reviewed
+      together.
+  - slug: fetchpriority-attribute
+    reason: >-
+      Both rules sit in the `performance/loading` area and are commonly reviewed
+      together.
+---
+Lazy loading is a powerful technique for reducing initial page weight, but it should only be applied to images and resources that are *not* immediately visible in the viewport.
+
+## Code Examples
+
+#
+
+## Avoid Lazy Loading for Hero Images
+```html
+<!-- ❌ Bad: Lazy loading an above-the-fold hero image -->
+<img src="/hero.jpg" alt="Our Product" loading="lazy">
+
+<!-- ✅ Good: Removing lazy loading and prioritizing the image -->
+<img src="/hero.jpg" alt="Our Product" fetchpriority="high">
+```
+
+### Next.js Image Component
+```jsx
+// ❌ Bad: Hero image with lazy loading (default)
+<Image src="/hero.jpg" alt="Hero" />
+
+// ✅ Good: Hero image with priority
+<Image src="/hero.jpg" alt="Hero" priority />
+```
+
+## Why It Matters
+
+Use [PageSpeed Insights](https://pagespeed.web.dev/) or Lighthouse to confirm which image is actually the LCP element before removing lazy loading, because the first visible asset is not always the real bottleneck.
+
+- **Largest Contentful Paint (LCP)**: The Largest Contentful Paint is usually the primary hero image. If the browser waits to discover if that image is in the viewport before loading it, LCP increases significantly.
+- **Resource Prioritization**: By default, lazy-loaded images are assigned a lower priority by the browser, which delays their download.
+- **Visual Stability**: If critical images load late, it can lead to layout shifts (CLS) or a poor user experience as content pops in late.
+- **Browser Discovery**: Browsers can't pre-scan and start downloading lazy-loaded images as early as regular images.
+
+## Best Practices
+
+✅ **Identify the LCP Element**: Use Lighthouse or PageSpeed Insights to find which image is your LCP candidate.
+✅ **Use `fetchpriority=\"high\"`**: For your LCP image, hint to the browser that it should be prioritized.
+✅ **Exclude First X Images**: A common rule of thumb is to avoid lazy loading the first 2-3 images on a page.
+✅ **Test Different Viewports**: Ensure images aren't lazy-loaded on mobile even if they might be below the fold on desktop.
+
+## Tools & Validation
+
+- [Web Vitals Chrome Extension](https://chrome.google.com/webstore/detail/web-vitals/ahmapmhookcmichpkccnnbabaccndpjg)
+- [PageSpeed Insights](https://pagespeed.web.dev/)
+- [Lighthouse](https://developers.google.com/web/tools/lighthouse)
+- [WebPageTest](https://www.webpagetest.org/)
+
+## Standards
+
+- Use web.dev: Learn Performance as the standard for measuring the final production behavior, not just local synthetic output.
+- Use Chrome Developers: Lighthouse overview as the standard for measuring the final production behavior, not just local synthetic output.
+
+## Verification
+
+### Automated Checks
+
+- Measure the affected page or flow in Lighthouse, PageSpeed Insights, or DevTools and confirm the targeted metric improves.
+- Inspect the network waterfall or performance timeline to confirm the intended resource or execution change actually took effect.
+
+### Manual Checks
+
+- Verify the change on a throttled mobile profile, not just local desktop.
+- If this rule maps to a budget or Web Vital, confirm the page now stays within that threshold.

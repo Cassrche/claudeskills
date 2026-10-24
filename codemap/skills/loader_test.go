@@ -1,0 +1,415 @@
+package skills
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"codemap/internal/projectpath"
+)
+
+func TestParseFrontmatter(t *testing.T) {
+	content := `---
+name: test-skill
+description: A test skill
+priority: 5
+keywords: ["refactor", "test"]
+languages: ["go", "python"]
+---
+
+# Test Skill
+
+This is the body.`
+
+	meta, body, err := parseFrontmatter(content)
+	if err != nil {
+		t.Fatalf("parseFrontmatter error: %v", err)
+	}
+	if meta.Name != "test-skill" {
+		t.Errorf("expected name 'test-skill', got %q", meta.Name)
+	}
+	if meta.Description != "A test skill" {
+		t.Errorf("expected description 'A test skill', got %q", meta.Description)
+	}
+	if meta.Priority != 5 {
+		t.Errorf("expected priority 5, got %d", meta.Priority)
+	}
+	if len(meta.Keywords) != 2 {
+		t.Errorf("expected 2 keywords, got %d", len(meta.Keywords))
+	}
+	if len(meta.Languages) != 2 {
+		t.Errorf("expected 2 languages, got %d", len(meta.Languages))
+	}
+	if body != "# Test Skill\n\nThis is the body." {
+		t.Errorf("unexpected body: %q", body)
+	}
+}
+
+func TestParseFrontmatter_NoFrontmatter(t *testing.T) {
+	content := "# Just a markdown file\n\nNo frontmatter here."
+	meta, body, err := parseFrontmatter(content)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if meta.Name != "" {
+		t.Errorf("expected empty name, got %q", meta.Name)
+	}
+	if body != content {
+		t.Errorf("expected body to equal content")
+	}
+}
+
+func TestParseSkill(t *testing.T) {
+	content := `---
+name: hub-safety
+description: Safety checks for hub files
+priority: 10
+keywords: ["hub", "refactor"]
+---
+
+# Hub Safety
+
+Check importers before editing.`
+
+	skill, err := ParseSkill(content, "test/hub-safety.md", "test")
+	if err != nil {
+		t.Fatalf("ParseSkill error: %v", err)
+	}
+	if skill.Meta.Name != "hub-safety" {
+		t.Errorf("expected name 'hub-safety', got %q", skill.Meta.Name)
+	}
+	if skill.Source != "test" {
+		t.Errorf("expected source 'test', got %q", skill.Source)
+	}
+	if skill.FilePath != "test/hub-safety.md" {
+		t.Errorf("unexpected file path: %q", skill.FilePath)
+	}
+}
+
+func TestLoadBuiltinSkills(t *testing.T) {
+	skills, err := loadBuiltinSkills()
+	if err != nil {
+		t.Fatalf("loadBuiltinSkills error: %v", err)
+	}
+	if len(skills) < 5 {
+		t.Errorf("expected at least 5 builtin skills, got %d", len(skills))
+	}
+
+	// Verify each has a name
+	for _, s := range skills {
+		if s.Meta.Name == "" {
+			t.Errorf("builtin skill from %s has empty name", s.FilePath)
+		}
+		if s.Source != "builtin" {
+			t.Errorf("expected source 'builtin', got %q", s.Source)
+		}
+	}
+}
+
+func TestConfigSetupSkillIncludesCargoWorkspaceCoverageGuidance(t *testing.T) {
+	skills, err := loadBuiltinSkills()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var body string
+	for _, skill := range skills {
+		if skill.Meta.Name == "config-setup" {
+			body = skill.Body
+			break
+		}
+	}
+
+	// Builtin skills are embedded runtime guidance. Keep these behavior
+	// requirements explicit without coupling the test to the document layout.
+	for _, check := range []struct {
+		name     string
+		guidance string
+	}{
+		{name: "reads agent instructions", guidance: "AGENTS.md"},
+		{name: "reads Cargo workspace manifests", guidance: "Cargo.toml"},
+		{name: "keeps workspace members", guidance: "workspace members"},
+		{name: "checks cross-layer dependencies", guidance: "cross-layer dependency"},
+	} {
+		t.Run(check.name, func(t *testing.T) {
+			if !strings.Contains(body, check.guidance) {
+				t.Fatalf("config-setup skill omits %q", check.guidance)
+			}
+		})
+	}
+}
+
+func TestLoadSkillsFromDir(t *testing.T) {
+	// Create temp dir with a skill
+	dir := t.TempDir()
+	content := `---
+name: custom-skill
+description: A custom skill
+keywords: ["custom"]
+---
+
+# Custom
+
+Custom instructions.`
+
+	if err := os.WriteFile(filepath.Join(dir, "custom.md"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	skills, err := loadSkillsFromDir(dir, "project")
+	if err != nil {
+		t.Fatalf("loadSkillsFromDir error: %v", err)
+	}
+	if len(skills) != 1 {
+		t.Fatalf("expected 1 skill, got %d", len(skills))
+	}
+	if skills[0].Meta.Name != "custom-skill" {
+		t.Errorf("expected name 'custom-skill', got %q", skills[0].Meta.Name)
+	}
+	if skills[0].Source != "project" {
+		t.Errorf("expected source 'project', got %q", skills[0].Source)
+	}
+}
+
+func TestNewIndex(t *testing.T) {
+	skills := []Skill{
+		{Meta: SkillMeta{Name: "a", Keywords: []string{"refactor"}, Languages: []string{"go"}}},
+		{Meta: SkillMeta{Name: "b", Keywords: []string{"refactor", "test"}, Languages: []string{"go", "python"}}},
+	}
+
+	idx := newIndex(skills)
+	if len(idx.ByName) != 2 {
+		t.Errorf("expected 2 names, got %d", len(idx.ByName))
+	}
+	if len(idx.ByKeyword["refactor"]) != 2 {
+		t.Errorf("expected 2 skills for 'refactor', got %d", len(idx.ByKeyword["refactor"]))
+	}
+	if len(idx.ByLanguage["go"]) != 2 {
+		t.Errorf("expected 2 skills for 'go', got %d", len(idx.ByLanguage["go"]))
+	}
+	if len(idx.ByLanguage["python"]) != 1 {
+		t.Errorf("expected 1 skill for 'python', got %d", len(idx.ByLanguage["python"]))
+	}
+}
+
+func TestMatchSkills_ByCategory(t *testing.T) {
+	skills := []Skill{
+		{Meta: SkillMeta{Name: "hub-safety", Keywords: []string{"hub", "refactor"}}},
+		{Meta: SkillMeta{Name: "test-first", Keywords: []string{"test", "tdd"}}},
+		{Meta: SkillMeta{Name: "explore", Keywords: []string{"explore", "understand"}}},
+	}
+	idx := newIndex(skills)
+
+	results := idx.MatchSkills("refactor", nil, nil, 3)
+	if len(results) != 1 {
+		t.Fatalf("expected 1 match for 'refactor', got %d", len(results))
+	}
+	if results[0].Skill.Meta.Name != "hub-safety" {
+		t.Errorf("expected hub-safety, got %q", results[0].Skill.Meta.Name)
+	}
+}
+
+func TestMatchSkills_ByLanguage(t *testing.T) {
+	skills := []Skill{
+		{Meta: SkillMeta{Name: "a", Keywords: []string{"refactor"}, Languages: []string{"go"}}},
+		{Meta: SkillMeta{Name: "b", Keywords: []string{"refactor"}, Languages: []string{"python"}}},
+	}
+	idx := newIndex(skills)
+
+	results := idx.MatchSkills("refactor", nil, []string{"go"}, 3)
+	if len(results) != 2 {
+		t.Fatalf("expected 2 matches, got %d", len(results))
+	}
+	// "a" should rank higher (keyword + language match)
+	if results[0].Skill.Meta.Name != "a" {
+		t.Errorf("expected 'a' first (language match), got %q", results[0].Skill.Meta.Name)
+	}
+}
+
+func TestMatchSkills_TopK(t *testing.T) {
+	var skills []Skill
+	for i := 0; i < 10; i++ {
+		skills = append(skills, Skill{
+			Meta: SkillMeta{
+				Name:     "skill-" + string(rune('a'+i)),
+				Keywords: []string{"common"},
+			},
+		})
+	}
+	idx := newIndex(skills)
+
+	results := idx.MatchSkills("common", nil, nil, 3)
+	if len(results) != 3 {
+		t.Errorf("expected 3 results (topK=3), got %d", len(results))
+	}
+}
+
+func TestMatchSkills_Empty(t *testing.T) {
+	idx := newIndex(nil)
+	results := idx.MatchSkills("refactor", nil, nil, 3)
+	if len(results) != 0 {
+		t.Errorf("expected 0 results for empty index, got %d", len(results))
+	}
+}
+
+func TestMatchSkills_NilIndex(t *testing.T) {
+	var idx *SkillIndex
+	results := idx.MatchSkills("refactor", nil, nil, 3)
+	if len(results) != 0 {
+		t.Errorf("expected 0 results for nil index, got %d", len(results))
+	}
+}
+
+func TestMatchPath(t *testing.T) {
+	tests := []struct {
+		pattern string
+		path    string
+		want    bool
+	}{
+		{"cmd/", "cmd/hooks.go", true},
+		{"*.go", "main.go", true},
+		{"scanner", "scanner/types.go", true},
+		{"nope", "cmd/hooks.go", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.pattern+"_"+tt.path, func(t *testing.T) {
+			if got := matchPath(tt.pattern, tt.path); got != tt.want {
+				t.Errorf("matchPath(%q, %q) = %v, want %v", tt.pattern, tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLoadSkills_Integration(t *testing.T) {
+	// Use a temp dir as root (no project/global skills, just builtins)
+	root := t.TempDir()
+	idx, err := LoadSkills(root)
+	if err != nil {
+		t.Fatalf("LoadSkills error: %v", err)
+	}
+	if idx == nil {
+		t.Fatal("expected non-nil index")
+	}
+	if len(idx.Skills) < 5 {
+		t.Errorf("expected at least 5 builtin skills, got %d", len(idx.Skills))
+	}
+}
+
+func TestLoadSkills_ProjectOverridesBuiltin(t *testing.T) {
+	root := t.TempDir()
+	skillsDir := filepath.Join(root, ".codemap", "skills")
+	if err := os.MkdirAll(skillsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Override the hub-safety builtin
+	override := `---
+name: hub-safety
+description: Custom hub safety
+priority: 20
+keywords: ["hub"]
+---
+
+# Custom Hub Safety
+
+My custom instructions.`
+	if err := os.WriteFile(filepath.Join(skillsDir, "hub-safety.md"), []byte(override), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	idx, err := LoadSkills(root)
+	if err != nil {
+		t.Fatalf("LoadSkills error: %v", err)
+	}
+
+	s := idx.ByName["hub-safety"]
+	if s == nil {
+		t.Fatal("expected hub-safety skill")
+	}
+	if s.Source != "project" {
+		t.Errorf("expected project override, got source %q", s.Source)
+	}
+	if s.Meta.Priority != 20 {
+		t.Errorf("expected priority 20 from override, got %d", s.Meta.Priority)
+	}
+}
+
+func TestLoadSkillsUsesSetupRoot(t *testing.T) {
+	projectRoot := t.TempDir()
+	setupRoot := t.TempDir()
+	projectpath.SetSetupRoot(setupRoot)
+	t.Cleanup(projectpath.ResetSetupRoot)
+
+	skillsDir := filepath.Join(setupRoot, ".codemap", "skills")
+	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	content := "---\nname: setup-only\ndescription: Loaded from setup root\n---\n\n# Setup only\n"
+	if err := os.WriteFile(filepath.Join(skillsDir, "setup-only.md"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	idx, err := LoadSkills(projectRoot)
+	if err != nil {
+		t.Fatalf("LoadSkills() error: %v", err)
+	}
+	if skill := idx.ByName["setup-only"]; skill == nil || skill.Source != projectSource {
+		t.Fatalf("setup-root skill = %#v, want project skill", skill)
+	}
+}
+
+func TestLoadSkillsUsesSelectedSetupRoot(t *testing.T) {
+	projectpath.ResetSetupRoot()
+	t.Cleanup(projectpath.ResetSetupRoot)
+
+	primary, linked := makeLinkedSkillsWorktreeFixture(t)
+	primarySkillsDir := filepath.Join(primary, ".codemap", "skills")
+	if err := os.WriteFile(filepath.Join(primarySkillsDir, "linked-primary.md"), []byte("---\nname: linked-primary\n---\n\nPrimary linked skill."), 0644); err != nil {
+		t.Fatal(err)
+	}
+	idx, err := LoadSkills(linked)
+	if err != nil {
+		t.Fatalf("linked LoadSkills() error: %v", err)
+	}
+	if skill := idx.ByName["linked-primary"]; skill == nil || skill.Source != projectSource || !strings.Contains(skill.Body, "Primary linked skill") {
+		t.Fatalf("linked LoadSkills() did not load primary skill: %#v", skill)
+	}
+
+	explicit := t.TempDir()
+	explicitSkillsDir := filepath.Join(explicit, ".codemap", "skills")
+	if err := os.MkdirAll(explicitSkillsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(explicitSkillsDir, "explicit-only.md"), []byte("---\nname: explicit-only\n---\n\nExplicit setup skill."), 0644); err != nil {
+		t.Fatal(err)
+	}
+	projectpath.SetSetupRoot(explicit)
+	idx, err = LoadSkills(linked)
+	if err != nil {
+		t.Fatalf("explicit LoadSkills() error: %v", err)
+	}
+	if skill := idx.ByName["explicit-only"]; skill == nil || skill.Source != projectSource || !strings.Contains(skill.Body, "Explicit setup skill") {
+		t.Fatalf("explicit LoadSkills() did not load explicit skill: %#v", skill)
+	}
+}
+
+func makeLinkedSkillsWorktreeFixture(t *testing.T) (primary, linked string) {
+	t.Helper()
+	primary = t.TempDir()
+	gitDir := filepath.Join(primary, ".git", "worktrees", "agent")
+	if err := os.MkdirAll(filepath.Join(primary, ".codemap", "skills"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(gitDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(gitDir, "commondir"), []byte("../..\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	linked = t.TempDir()
+	if err := os.WriteFile(filepath.Join(linked, ".git"), []byte("gitdir: "+gitDir+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	return primary, linked
+}

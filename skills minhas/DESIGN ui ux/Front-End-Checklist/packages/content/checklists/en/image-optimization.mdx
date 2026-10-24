@@ -1,0 +1,82 @@
+---
+title: Image Optimization
+description: Comprehensive guide to optimizing images for performance and quality. Reduce page weight while maintaining visual fidelity.
+icon: image
+rules:
+  - images/image-optimization
+  - images/webp-format
+  - images/avif-format
+  - images/responsive-images
+  - images/image-compression
+  - performance/lazy-loading
+  - images/image-cdn
+  - images/dimensions
+  - images/critical-images
+  - images/retina-display
+  - images/svg-optimization
+estimatedTime: "30 minutes"
+difficulty: beginner
+order: 6
+featured: false
+---
+
+Images typically account for 50-70% of total page weight. Optimizing them is one of the highest-impact performance improvements you can make.
+
+## When To Use It
+
+Use this checklist when media weight is a visible performance problem or when a team needs a structured image-delivery pass before tuning deeper rendering behavior.
+
+## Who It's For
+
+- Frontend developers improving page weight
+- Launch teams cleaning up obvious media bottlenecks
+- Reviewers working on responsive media quality
+
+## Done Looks Like
+
+You should leave with a clearer image strategy for format choice, compression, responsive sizing, and critical-image loading instead of treating image optimization as one-off fixes.
+
+## Why This Matters
+
+- **Page Speed** - Smaller images mean faster load times
+- **Core Web Vitals** - Images directly affect LCP and CLS scores
+- **Bandwidth Costs** - Optimized images reduce server and CDN costs
+- **User Experience** - Fast-loading images improve engagement
+- **Mobile Users** - Critical for users on slower connections
+
+## Modern Image Formats
+
+### WebP
+Widely supported format offering 25-35% smaller files than JPEG/PNG with equivalent quality.
+
+### AVIF
+Next-generation format with even better compression (50%+ smaller than JPEG). Growing browser support.
+
+### When to Use Each
+- **AVIF** - Primary format for browsers that support it
+- **WebP** - Fallback for wider compatibility
+- **JPEG/PNG** - Legacy fallback
+
+## Optimization Strategy
+
+### Above the Fold
+- Preload critical hero images
+- Use appropriate dimensions (no larger than needed)
+- Consider inline base64 for tiny images
+
+### Below the Fold
+- Implement lazy loading with `loading="lazy"`
+- Use placeholder images or blur-up techniques
+- Load on intersection with viewport
+
+### Responsive Images
+- Use `srcset` for multiple resolutions
+- Use `sizes` to hint layout width
+- Serve 2x images for Retina displays
+
+## Tools for Optimization
+
+- **Squoosh** - Browser-based compression
+- **Sharp** - Node.js image processing
+- **ImageOptim** - Desktop app for batch optimization
+- **Cloudinary/imgix** - CDN with on-the-fly optimization

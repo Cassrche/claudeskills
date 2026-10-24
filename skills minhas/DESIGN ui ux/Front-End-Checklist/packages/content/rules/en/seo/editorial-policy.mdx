@@ -1,0 +1,216 @@
+---
+title: Publish an editorial policy page
+description: >-
+  Checks for editorial and content policy pages that demonstrate site-wide
+  trustworthiness
+categories:
+  - seo
+subcategory: content
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - >-
+    Publish a dedicated editorial policy page explaining how content is
+    researched, written, reviewed, and updated
+  - >-
+    Link to the editorial policy from your About page and from individual
+    articles (byline or footer)
+  - >-
+    Include information on author qualifications, fact-checking processes, and
+    correction policies
+whyItMatters: >-
+  Google's E-E-A-T framework rates sites on Expertise, Authoritativeness, and
+  Trustworthiness. Quality raters look for editorial standards pages as evidence
+  of a trustworthy publication. Sites without visible editorial policies —
+  especially YMYL sites — receive lower trust ratings, which suppresses search
+  rankings.
+aiContext: >-
+  Use when auditing a blog, news site, or YMYL content site for trust signals,
+  drafting editorial policy page content, or evaluating whether a site meets
+  Google's quality rater trustworthiness criteria.
+prompts:
+  check: >-
+    Check if the site has a publicly accessible editorial policy page (commonly
+    at /editorial-policy, /about/editorial-standards, or linked from the About
+    page). Verify it covers: (1) how topics are chosen, (2) author
+    qualifications, (3) fact-checking or review process, (4) how corrections are
+    handled, and (5) conflicts of interest or funding disclosures.
+  fix: >
+    1. Create a page at /editorial-policy (or /about/editorial-standards).
+
+    2. Include these sections:
+       - Mission: what topics you cover and why
+       - Author standards: credentials, expertise required of contributors
+       - Research and fact-checking: sources used, review by subject matter experts
+       - Update policy: how often content is reviewed, how errors are corrected
+       - Conflict of interest: advertising, affiliate relationships, funding sources
+    3. Link to this page from your About page, site footer, and individual
+    article bylines.
+
+    4. Name specific authors with credentials rather than using "Editorial Team"
+    as a generic author.
+  explain: >-
+    Google's Search Quality Rater Guidelines specifically look for editorial
+    standards as part of evaluating a site's Trustworthiness. For YMYL topics
+    especially, the absence of an editorial policy is a clear signal to quality
+    raters that the site cannot be trusted to publish accurate, expert-reviewed
+    content, leading to lower quality ratings and reduced search visibility.
+  codeReview: >-
+    Check the site's footer links, About page, and individual article templates
+    for a link to an editorial policy page. Verify the editorial policy URL
+    returns a 200 status code and that the page contains substantive content —
+    not just a boilerplate paragraph — covering research methodology, author
+    qualifications, and correction policies.
+relatedRules:
+  - slug: author-byline
+    reason: Author bylines work together with editorial policy to establish E-E-A-T
+  - slug: disclaimers
+    reason: Per-page disclaimers complement the site-wide editorial standards
+  - slug: about-page
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+  - slug: article-links
+    reason: >-
+      Both rules sit in the `seo/content` area and are commonly reviewed
+      together.
+resources:
+  - title: Google Search Quality Rater Guidelines
+    url: >-
+      https://static.googleusercontent.com/media/guidelines.raterhub.com/en//searchqualityevaluatorguidelines.pdf
+    type: guide
+  - title: 'Google Search Central: Creating helpful, reliable, people-first content'
+    url: >-
+      https://developers.google.com/search/docs/fundamentals/creating-helpful-content
+    type: guide
+sources:
+  - title: Google Search Quality Rater Guidelines
+    url: >-
+      https://static.googleusercontent.com/media/guidelines.raterhub.com/en//searchqualityevaluatorguidelines.pdf
+    type: guide
+    id: google-search-quality-rater-guidelines
+    role: reference
+    authority: primary
+  - title: 'Google Search Central: E-E-A-T and quality content'
+    url: >-
+      https://developers.google.com/search/docs/fundamentals/creating-helpful-content
+    type: guide
+    id: google-search-central-e-e-a-t-and-quality-content
+    role: search
+    authority: primary
+---
+An editorial policy page documents how your site creates, reviews, and maintains content. [Google's Quality Rater Guidelines](https://static.googleusercontent.com/media/guidelines.raterhub.com/en//searchqualityevaluatorguidelines.pdf) and site-level [trust signals](/en/rules/seo/trust-signals) both benefit when that process is visible rather than implied.
+
+## Code Examples
+
+#
+
+## ❌ Avoid — no editorial policy linked anywhere
+
+```html
+<!-- Footer with no link to editorial standards -->
+<footer>
+  <nav>
+    <a href="/about">About</a>
+    <a href="/contact">Contact</a>
+    <a href="/privacy">Privacy Policy</a>
+  </nav>
+</footer>
+```
+
+### ✅ Correct — editorial policy linked from footer and About page
+
+```html
+<footer>
+  <nav aria-label="Legal and policies">
+    <a href="/about">About Us</a>
+    <a href="/editorial-policy">Editorial Policy</a>
+    <a href="/contact">Contact</a>
+    <a href="/privacy">Privacy Policy</a>
+  </nav>
+</footer>
+```
+
+### ✅ Article byline linking to author and editorial standards
+
+```html
+<article>
+  <header>
+    <h1>Understanding Type 2 Diabetes Risk Factors</h1>
+    <p class="byline">
+      By <a href="/authors/dr-jane-smith">Dr Jane Smith, MD</a>
+      · Reviewed by <a href="/authors/dr-robert-jones">Dr Robert Jones, PhD</a>
+      · <a href="/editorial-policy">Editorial standards</a>
+    </p>
+  </header>
+</article>
+```
+
+### ✅ Sample editorial policy structure
+
+```html
+<main>
+  <h1>Editorial Policy</h1>
+
+  <section>
+    <h2>Our Mission</h2>
+    <p>We publish evidence-based health information reviewed by licensed
+       medical professionals to help readers make informed decisions.</p>
+  </section>
+
+  <section>
+    <h2>Author Qualifications</h2>
+    <p>All health content is written or reviewed by practitioners with
+       relevant clinical credentials. Author profiles include credentials
+       and areas of expertise.</p>
+  </section>
+
+  <section>
+    <h2>Corrections Policy</h2>
+    <p>Factual errors are corrected within 24 hours of notification.
+       Corrections are noted at the top of the updated article.</p>
+  </section>
+</main>
+```
+
+## Why It Matters
+
+- **E-E-A-T**: Google's quality raters explicitly look for editorial standards when evaluating Trustworthiness. A published policy is direct evidence, especially when it aligns with Google's guidance on [helpful, reliable, people-first content](https://developers.google.com/search/docs/fundamentals/creating-helpful-content).
+- **YMYL sensitivity**: Health, finance, legal, and safety sites are held to higher standards. A missing editorial policy on a YMYL site is a significant trust deficit.
+- **Differentiation**: A detailed editorial policy distinguishes your site from AI-generated content farms that lack any editorial oversight and complements the page-level protections covered in [disclaimers](/en/rules/seo/disclaimers).
+
+## What to Include
+
+A strong editorial policy page covers:
+
+1. **Editorial mission** — what topics you cover and who the audience is
+2. **Author standards** — qualifications required to contribute (degrees, experience, credentials)
+3. **Research methodology** — primary sources, peer-reviewed studies, expert interviews
+4. **Review process** — who reviews content before publication (editors, subject matter experts)
+5. **Update policy** — how frequently content is reviewed; how errors are corrected
+6. **Conflict of interest disclosure** — advertising, affiliate relationships, funding sources
+
+## Exceptions
+
+- Necessary utility or compliance pages can be intentionally brief and should not be judged by the same editorial-depth expectations as ranking-focused content.
+- AI-assisted drafting is not a failure by itself; flag unsupported claims, missing editorial review, or low-originality output instead.
+- When a page has both trust-signal issues and crawl/index problems, make the page eligible to rank first and then improve the content quality signals.
+
+## Standards
+
+- Use these references as the standard for the final search-facing HTML, metadata, and crawl behavior.
+- Check the implementation against Google Search Quality Rater Guidelines before treating the rule as satisfied.
+- Check the implementation against Google Search Central: E-E-A-T and quality content before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Inspect rendered HTML and HTTP headers to confirm the expected metadata or crawlability signal is present.
+- Test the affected URL with Google Search Console or equivalent tooling where relevant.
+- Re-crawl a representative page set after deployment.
+
+### Manual Checks
+
+- Confirm the change does not create conflicting canonical-url, robots, or structured-data signals.

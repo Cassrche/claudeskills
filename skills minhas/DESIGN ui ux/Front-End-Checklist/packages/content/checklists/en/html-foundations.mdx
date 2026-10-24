@@ -1,0 +1,53 @@
+---
+title: HTML Foundations
+description: Baseline document, semantic, and form checks that keep pages robust, crawlable, and accessible.
+icon: 'file-check'
+rules:
+  - html/doctype
+  - html/charset
+  - html/viewport
+  - html/lang-attribute
+  - html/html5-semantic-elements
+  - html/navigation-landmark
+  - html/input-types
+  - html/form-validation
+  - html/search-input
+  - html/unique-id
+  - html/favicons
+  - html/w3c-compliant
+estimatedTime: '30 minutes'
+difficulty: beginner
+order: 9
+featured: false
+---
+
+This checklist focuses on the HTML decisions that quietly shape everything else: accessibility, browser compatibility, crawlability, and form reliability. It is a good first pass for new pages, templates, and design-system primitives.
+
+## Who It's For
+
+- Junior developers who need a reliable first checklist
+- Teams building new templates or shared UI primitives
+- Reviewers fixing repeated markup issues at the source
+
+## Done Looks Like
+
+You should finish with a page shell that is semantically solid, browser-friendly, and easier to layer accessibility, SEO, and framework behavior on top of.
+
+## What It Covers
+
+- Document setup and metadata the browser expects
+- Semantic structure and landmarks for navigation
+- Form and input behavior that reduces avoidable UX failures
+- Valid, predictable markup that is easier to test and maintain
+
+## When To Use It
+
+- Before shipping a new page template
+- When refactoring shared layout or form components
+- During audits where frontend bugs feel “small” but recur across the site
+
+## Review Tips
+
+1. Check templates before checking page-specific content.
+2. Verify the DOM output in the browser, not only JSX or templating code.
+3. Treat repeated HTML mistakes as design-system or framework issues, not isolated page bugs.

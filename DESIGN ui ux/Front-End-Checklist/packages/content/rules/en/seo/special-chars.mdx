@@ -1,0 +1,184 @@
+---
+title: URL Special Characters
+description: >-
+  Checks for problematic special characters in URL paths that can cause
+  crawling, parsing, or canonicalization issues.
+categories:
+  - seo
+subcategory: technical
+priority: medium
+difficulty: beginner
+estimatedTime: 10
+tldr:
+  - >-
+    URL paths should contain only unreserved characters: A-Z, a-z, 0-9, `-`,
+    `_`, `.`, `~`
+  - 'Spaces must be encoded as `%20` (not `+`, which is query-string syntax)'
+  - >-
+    Characters like `#`, `?`, `&`, `=` have reserved meaning in URLs and must be
+    percent-encoded in path segments
+  - >-
+    Non-ASCII characters (accented letters, CJK) should be percent-encoded in
+    URLs, though modern browsers decode them for display
+whyItMatters: >-
+  Special characters in URL paths cause inconsistent crawling, broken links when
+  shared, and canonicalization failures when different systems encode them
+  differently.
+aiContext: >-
+  Applies to any site with user-generated slugs, CMS-generated URLs, or content
+  in non-English languages. Use when auditing URLs for crawl errors or
+  canonicalization issues.
+prompts:
+  check: >-
+    Scan all crawled URL paths for characters outside `[A-Za-z0-9\-_./~]`. Flag
+    URLs containing spaces (`%20` or literal), special symbols (`#`, `?`, `&`,
+    `=`, `+` in paths), or unencoded non-ASCII characters. Check if different
+    encodings of the same URL return separate 200 responses.
+  fix: >-
+    Update the URL generation logic in your CMS or framework to strip or replace
+    special characters. Replace spaces with hyphens. Percent-encode any reserved
+    characters that must appear in paths. Set up redirects from problematic old
+    URLs to clean new slugs.
+  explain: >-
+    Explain the difference between reserved and unreserved characters in RFC
+    3986, how browsers and crawlers handle inconsistent percent-encoding, and
+    why special characters in paths create duplicate content risks.
+  codeReview: >-
+    Review metadata generation, rendered HTML, structured data, and response
+    headers related to URL Special Characters. Flag exact routes or templates
+    where search-facing output violates the rule, and describe how to verify the
+    final page output.
+sources:
+  - title: 'RFC 3986: Uniform Resource Identifier (URI) — Generic Syntax'
+    url: 'https://datatracker.ietf.org/doc/html/rfc3986'
+    type: spec
+    id: rfc-3986-uniform-resource-identifier-uri-generic-syntax
+    role: standard
+    authority: primary
+  - title: 'Google: Keep a simple URL structure'
+    url: 'https://developers.google.com/search/docs/crawling-indexing/url-structure'
+    type: guide
+    id: google-keep-a-simple-url-structure
+    role: search
+    authority: primary
+  - title: 'MDN: URL encoding'
+    url: 'https://developer.mozilla.org/en-US/docs/Glossary/Percent-encoding'
+    type: mdn
+    id: mdn-url-encoding
+    role: reference
+    authority: primary
+resources:
+  - name: Google Search Console
+    url: 'https://search.google.com/search-console/about'
+    type: tool
+relatedRules:
+  - slug: sitemap-valid
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: sitemap-coverage
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: stop-words
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: https-downgrade
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+---
+URL characters fall into two categories in [RFC 3986](https://datatracker.ietf.org/doc/html/rfc3986): **unreserved** characters are safe as-is, while **reserved** characters have special meaning and must be encoded when used literally in path segments. This rule sits right next to [clean URL structure](/en/rules/seo/length) and slug-formatting hygiene.
+
+## Code Example
+
+```
+A-Z  a-z  0-9  -  _  .  ~
+```
+
+## Why It Matters
+
+Special characters in URL paths cause inconsistent crawling, broken links when shared, and canonicalization failures when different systems encode them differently. [MDN's percent-encoding reference](https://developer.mozilla.org/en-US/docs/Glossary/Percent-encoding) is the practical baseline for understanding those failures.
+
+## Reserved Characters (Special Meaning)
+
+| Character | Reserved Meaning | Encoded Form |
+|-----------|-----------------|-------------|
+| `?` | Start of query string | `%3F` |
+| `#` | Fragment identifier | `%23` |
+| `&` | Query parameter separator | `%26` |
+| `=` | Key-value separator | `%3D` |
+| `+` | Space (in query strings only) | `%2B` in paths |
+| `/` | Path segment separator | `%2F` if literal |
+| `%` | Encoding prefix | `%25` |
+
+## ❌ Problematic URL Examples
+
+```
+/blog/my post title               # Space — breaks parsers
+/products/shoes#best              # Fragment lost during crawling
+/search?q=shoes&page=1/results    # Query chars in path
+/café-parisien                    # Non-ASCII — encoding inconsistency
+/products/C++ tips                # Special chars + space
+```
+
+## ✅ Clean URL Examples
+
+```
+/blog/my-post-title
+/products/shoes-best-sellers
+/search-results/shoes
+/cafe-parisien               # Transliterated to ASCII
+/products/cpp-tips
+```
+
+## Non-ASCII Characters in URLs
+
+For content in non-English languages (e.g., `/über-uns`, `/产品`), modern browsers display the decoded form but transmit the percent-encoded form. Inconsistencies arise when:
+
+- Some tools encode and others don't
+- The server treats `/über-uns` and `/%C3%BCber-uns` as different URLs
+
+**Best practice**: Use ASCII slugs (transliterate accented chars) or ensure your server normalizes all encodings to a single canonical-url form.
+
+## URL Slug Sanitization (Node.js)
+
+```js
+function slugify(text) {
+  return text
+    .toLowerCase()
+    .normalize('NFD')                   // Decompose accented chars
+    .replace(/[\u0300-\u036f]/g, '')    // Remove accent marks
+    .replace(/[^a-z0-9\s-]/g, '')      // Remove non-slug chars
+    .trim()
+    .replace(/\s+/g, '-')             // Spaces to hyphens
+    .replace(/-+/g, '-')              // Collapse multiple hyphens
+}
+
+slugify('Café & Restaurant — Paris!')  // → 'cafe-restaurant-paris'
+```
+
+## Exceptions
+
+- Necessary utility or compliance pages can be intentionally brief and should not be judged by the same editorial-depth expectations as ranking-focused content.
+- AI-assisted drafting is not a failure by itself; flag unsupported claims, missing editorial review, or low-originality output instead.
+- When a page has both trust-signal issues and crawl/index problems, make the page eligible to rank first and then improve the content quality signals.
+
+## Standards
+
+- Use these references as the standard for the final search-facing HTML, metadata, and crawl behavior.
+- Check the implementation against RFC 3986: Uniform Resource Identifier (URI) — Generic Syntax before treating the rule as satisfied.
+- Check the implementation against Google: Keep a simple URL structure before treating the rule as satisfied.
+
+## Verification
+
+### Automated Checks
+
+- Crawl the site and export all URLs; filter for characters outside `[A-Za-z0-9/\-_.]`
+- Test both encoded and decoded versions of a URL to ensure they return the same canonical-url response
+- Check server logs for crawl errors caused by misencoded URLs
+
+### Manual Checks
+
+- Review representative live pages manually and confirm there is no stronger conflicting signal that changes the intended SEO outcome.

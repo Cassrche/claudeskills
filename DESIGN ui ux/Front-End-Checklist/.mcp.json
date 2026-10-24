@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "frontend-checklist": {
+      "command": "npx",
+      "args": ["tsx", "packages/mcp/src/cli.ts"],
+      "cwd": "/Users/thedaviddias/Projects/frontendchecklist.io"
+    },
+    "qmd": {
+      "command": "qmd",
+      "args": ["mcp"],
+      "cwd": "/Users/thedaviddias/Projects/frontendchecklist.io"
+    }
+  }
+}

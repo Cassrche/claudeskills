@@ -1,0 +1,253 @@
+---
+title: Use semantic table markup for screen readers
+description: >-
+  Data tables use proper semantic markup with headers, captions, and scope
+  attributes for screen reader accessibility.
+categories:
+  - accessibility
+  - html
+subcategory: document-structure
+priority: medium
+difficulty: intermediate
+estimatedTime: 20
+tldr:
+  - Use <th> elements for headers with scope='col' or scope='row'
+  - Add <caption> to describe the table's purpose
+  - Never use tables for layout—use CSS Grid or Flexbox instead
+  - Use id/headers for complex tables with merged cells
+  - >-
+    For simple tables with a clear adjacent section heading, missing `scope` is
+    often a stronger finding than missing `<caption>`
+  - >-
+    Prefer one strong table-semantics finding over multiple weaker enhancements
+    on the same simple table
+whyItMatters: >-
+  Screen readers read table data cell-by-cell—without proper headers, users hear
+  meaningless numbers without context. 'Row 3, Column 2: $99' vs just '$99'.
+prompts:
+  check: >-
+    Verify tables use proper th elements with scope, caption or aria-labelledby,
+    and semantic table structure.
+  fix: >-
+    Add proper table headers with scope attributes, captions for context, and
+    ensure tables are not used for layout.
+  explain: >-
+    Explain how proper table markup helps screen reader users understand data
+    relationships and navigate table content.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Use semantic
+    table markup for screen readers. Flag exact elements, roles, labels, focus
+    behavior, or keyboard interactions that violate the rule, and note how to
+    verify the fix with browser accessibility tooling or assistive tech.
+aiContext: >-
+  Use when reviewing rendered HTML, interactive components, or design-system
+  patterns related to Use semantic table markup for screen readers. Check native
+  semantics first, then inspect keyboard behavior, focus flow, accessible names,
+  and screen-reader output where relevant.
+sources:
+  - title: 'W3C WAI: WCAG Overview'
+    url: 'https://www.w3.org/WAI/standards-guidelines/wcag/'
+    type: wcag
+    id: w3c-wai-wcag-overview
+    role: standard
+    authority: primary
+  - title: 'MDN: Accessibility'
+    url: 'https://developer.mozilla.org/en-US/docs/Web/Accessibility'
+    type: mdn
+    id: mdn-accessibility
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: table-headers
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+  - slug: td-headers-attr
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+  - slug: th-has-data-cells
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+  - slug: table-duplicate-name
+    reason: >-
+      Both rules sit in the `accessibility/document-structure` area and are
+      commonly reviewed together.
+---
+Proper table markup enables screen readers to announce header-cell relationships, making data understandable.
+
+## Code Example
+
+```html
+<table>
+  <caption>Q1 2024 Sales by Region</caption>
+  <thead>
+    <tr>
+      <th scope="col">Region</th>
+      <th scope="col">January</th>
+      <th scope="col">February</th>
+      <th scope="col">March</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th scope="row">North</th>
+      <td>$12,000</td>
+      <td>$14,500</td>
+      <td>$13,200</td>
+    </tr>
+    <tr>
+      <th scope="row">South</th>
+      <td>$9,800</td>
+      <td>$11,000</td>
+      <td>$10,500</td>
+    </tr>
+  </tbody>
+</table>
+```
+
+## Why It Matters
+
+Screen readers read table data cell-by-cell—without proper headers, users hear meaningless numbers without context. 'Row 3, Column 2: $99' vs just '$99'.
+
+## Scope Attribute
+
+| Value | Use When |
+|-------|----------|
+| `scope="col"` | Header applies to column below |
+| `scope="row"` | Header applies to row beside it |
+| `scope="colgroup"` | Header spans multiple columns |
+| `scope="rowgroup"` | Header spans multiple rows |
+
+## Complex Tables with Headers Attribute
+
+```html
+<table>
+  <caption>Sales Report</caption>
+  <thead>
+    <tr>
+      <th id="region" rowspan="2">Region</th>
+      <th id="q1" colspan="2">Q1</th>
+      <th id="q2" colspan="2">Q2</th>
+    </tr>
+    <tr>
+      <th id="q1-units" headers="q1">Units</th>
+      <th id="q1-revenue" headers="q1">Revenue</th>
+      <th id="q2-units" headers="q2">Units</th>
+      <th id="q2-revenue" headers="q2">Revenue</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th id="north" headers="region">North</th>
+      <td headers="north q1 q1-units">150</td>
+      <td headers="north q1 q1-revenue">$15,000</td>
+      <td headers="north q2 q2-units">180</td>
+      <td headers="north q2 q2-revenue">$18,000</td>
+    </tr>
+  </tbody>
+</table>
+```
+
+## React Table Component
+
+```tsx
+interface Column<T> {
+  key: keyof T
+  header: string
+}
+
+interface TableProps<T> {
+  caption: string
+  columns: Column<T>[]
+  data: T[]
+  rowHeader?: keyof T
+}
+
+function DataTable<T extends Record<string, unknown>>({
+  caption,
+  columns,
+  data,
+  rowHeader
+}: TableProps<T>) {
+  return (
+    <table>
+      <caption>{caption}</caption>
+      <thead>
+        <tr>
+          {columns.map(col => (
+            <th key={String(col.key)} scope="col">
+              {col.header}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {data.map((row, i) => (
+          <tr key={i}>
+            {columns.map(col => {
+              const isRowHeader = col.key === rowHeader
+              const Tag = isRowHeader ? 'th' : 'td'
+              return (
+                <Tag
+                  key={String(col.key)}
+                  scope={isRowHeader ? 'row' : undefined}
+                >
+                  {String(row[col.key])}
+                </Tag>
+              )
+            })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+```
+
+## Responsive Tables
+
+```html
+<!-- Scrollable wrapper for mobile -->
+<div class="table-wrapper" tabindex="0" role="region" aria-label="Sales data table">
+  <table>
+    <!-- Table content -->
+  </table>
+</div>
+```
+
+```css
+.table-wrapper {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* Focus indicator for keyboard users scrolling */
+.table-wrapper:focus {
+  outline: 2px solid #005fcc;
+}
+```
+
+## Exceptions
+
+- Simple data tables can sometimes fail more from missing header relationships than from missing enhancements such as captions or mobile wrappers, so prioritize the strongest semantic issue.
+- Do not convert layout structures into data-table markup just to satisfy a rule; the correct fix may be to remove table semantics entirely.
+- When several table-accessibility issues overlap, resolve the header-cell relationship first because downstream announcements depend on it.
+
+## Verification
+
+### Automated Checks
+
+- Use browser accessibility tooling, axe, Lighthouse, or equivalent automated checks against a representative rendered state.
+
+### Manual Checks
+
+- Use screen reader table navigation (Ctrl+Alt+Arrow keys in NVDA)
+- Verify headers are announced with each cell
+- Check caption describes the table purpose
+- Confirm table is not used for layout

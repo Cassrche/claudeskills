@@ -1,0 +1,279 @@
+---
+title: Create and submit an XML sitemap
+description: An XML sitemap is available at /sitemap.xml and includes all important pages.
+categories:
+  - seo
+subcategory: technical
+priority: high
+difficulty: beginner
+estimatedTime: 15
+tldr:
+  - XML sitemaps help search engines discover all your pages
+  - Include priority and lastmod for important pages
+  - Submit to Google Search Console and Bing Webmaster Tools
+  - Reference sitemap in robots.txt
+whyItMatters: >-
+  Search engines may not discover all your pages through links alone—a sitemap
+  ensures every important page gets indexed, especially for large or newly
+  launched sites.
+prompts:
+  check: >-
+    Verify that this website has a valid XML sitemap accessible at /sitemap.xml
+    and that it's properly formatted.
+  fix: >-
+    Generate or update the XML sitemap for this website including all important
+    pages with proper priority and changefreq values.
+  explain: >-
+    Explain how XML sitemaps help search engines discover and index website
+    pages more efficiently.
+  codeReview: >-
+    Review metadata generation, rendered HTML, structured data, and response
+    headers related to Create and submit an XML sitemap. Flag exact routes or
+    templates where search-facing output violates the rule, and describe how to
+    verify the final page output.
+aiContext: >-
+  Use when auditing metadata, crawlability, structured data, or indexability
+  related to Create and submit an XML sitemap. Verify the rendered HTML and HTTP
+  response rather than relying only on source files.
+sources:
+  - title: 'Google Search Central: Search Essentials'
+    url: 'https://developers.google.com/search/docs/fundamentals/seo-starter-guide'
+    type: google
+    id: google-search-central-search-essentials
+    role: search
+    authority: primary
+  - title: Google Search Central documentation
+    url: 'https://developers.google.com/search/docs'
+    type: google
+    id: google-search-central-documentation
+    role: implementation
+    authority: primary
+resources:
+  - name: Google Search Console
+    url: 'https://search.google.com/search-console/about'
+    type: tool
+relatedRules:
+  - slug: indexability
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: robots-txt
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+  - slug: sitemap-coverage
+    reason: >-
+      Both rules sit in the `seo/technical` area and are commonly reviewed
+      together.
+---
+XML sitemaps help search engines discover and index all your pages.
+
+## Code Example
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://example.com/</loc>
+    <lastmod>2024-01-15</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://example.com/about</loc>
+    <lastmod>2024-01-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>
+```
+
+## Why It Matters
+
+Search engines may not discover all your pages through links alone—a sitemap ensures every important page gets indexed, especially for large or newly launched sites.
+
+## Sitemap Elements
+
+| Element | Purpose | Required |
+|---------|---------|----------|
+| `loc` | Full URL of the page | Yes |
+| `lastmod` | Last modification date | Recommended |
+| `changefreq` | Update frequency hint | Optional |
+| `priority` | Relative importance (0.0-1.0) | Optional |
+
+## Next.js Dynamic Sitemap
+
+```typescript
+// app/sitemap.ts
+import { MetadataRoute } from 'next'
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const baseUrl = 'https://example.com'
+
+  // Static pages
+  const staticPages = [
+    '',
+    '/about',
+    '/contact',
+    '/pricing',
+  ].map(route => ({
+    url: `${baseUrl}${route}`,
+    lastModified: new Date(),
+    changeFrequency: 'monthly' as const,
+    priority: route === '' ? 1.0 : 0.8,
+  }))
+
+  // Dynamic pages from database
+  const products = await getProducts()
+  const productPages = products.map(product => ({
+    url: `${baseUrl}/products/${product.slug}`,
+    lastModified: product.updatedAt,
+    changeFrequency: 'weekly' as const,
+    priority: 0.7,
+  }))
+
+  // Blog posts
+  const posts = await getPosts()
+  const blogPages = posts.map(post => ({
+    url: `${baseUrl}/blog/${post.slug}`,
+    lastModified: post.updatedAt,
+    changeFrequency: 'monthly' as const,
+    priority: 0.6,
+  }))
+
+  return [...staticPages, ...productPages, ...blogPages]
+}
+```
+
+## Large Sites: Sitemap Index
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>https://example.com/sitemap-pages.xml</loc>
+    <lastmod>2024-01-15</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://example.com/sitemap-products.xml</loc>
+    <lastmod>2024-01-14</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://example.com/sitemap-blog.xml</loc>
+    <lastmod>2024-01-13</lastmod>
+  </sitemap>
+</sitemapindex>
+```
+
+```typescript
+// app/sitemap.ts - Multiple sitemaps
+import { MetadataRoute } from 'next'
+
+export async function generateSitemaps() {
+  const productCount = await getProductCount()
+  const numSitemaps = Math.ceil(productCount / 50000)
+
+  return Array.from({ length: numSitemaps }, (_, i) => ({ id: i }))
+}
+
+export default async function sitemap({
+  id,
+}: {
+  id: number
+}): Promise<MetadataRoute.Sitemap> {
+  const start = id * 50000
+  const products = await getProducts({ start, limit: 50000 })
+
+  return products.map(product => ({
+    url: `https://example.com/products/${product.slug}`,
+    lastModified: product.updatedAt,
+  }))
+}
+```
+
+## Priority Guidelines
+
+| Page Type | Suggested Priority |
+|-----------|-------------------|
+| Homepage | 1.0 |
+| Main category pages | 0.8-0.9 |
+| Product/service pages | 0.7-0.8 |
+| Blog posts | 0.5-0.7 |
+| Legal pages | 0.3-0.5 |
+| Archive/tag pages | 0.3-0.4 |
+
+## Reference in robots.txt
+
+```text
+User-agent: *
+Allow: /
+
+Sitemap: https://example.com/sitemap.xml
+```
+
+## Image Sitemap Extension
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://example.com/products/widget</loc>
+    <image:image>
+      <image:loc>https://example.com/images/widget.jpg</image:loc>
+      <image:title>Widget Product Photo</image:title>
+    </image:image>
+    <image:image>
+      <image:loc>https://example.com/images/widget-side.jpg</image:loc>
+      <image:title>Widget Side View</image:title>
+    </image:image>
+  </url>
+</urlset>
+```
+
+## Submit to Search Engines
+
+```bash
+# Google Search Console
+# 1. Go to https://search.google.com/search-console
+# 2. Select property
+# 3. Sitemaps → Add new sitemap
+# 4. Enter: sitemap.xml
+
+# Bing Webmaster Tools
+# 1. Go to https://www.bing.com/webmasters
+# 2. Submit sitemap URL
+
+# Programmatic submission (ping)
+curl "https://www.google.com/ping?sitemap=https://example.com/sitemap.xml"
+curl "https://www.bing.com/ping?sitemap=https://example.com/sitemap.xml"
+```
+
+## What NOT to Include
+
+| Exclude | Reason |
+|---------|--------|
+| Noindex pages | Won't be indexed anyway |
+| Duplicate content | May cause issues |
+| 404/error pages | Bad user experience |
+| Login-required pages | Can't be indexed |
+| Parameter variations | Use canonical URLs |
+
+## Exceptions
+
+- Staging, utility, login, account, or internal search pages may intentionally use different crawl or index signals if they are not meant to rank.
+- Temporary migration states can produce noisy intermediate signals; flag the live production URL pattern, not one-off transition artifacts.
+- When redirects, canonicals, robots directives, or indexability signals conflict, fix the strongest final signal first instead of reporting every downstream symptom as a separate blocker.
+
+## Verification
+
+### Automated Checks
+
+- Validate XML format with online validators
+- Check Google Search Console sitemap status
+
+### Manual Checks
+
+- Access sitemap at yourdomain.com/sitemap.xml
+- Verify all important pages are included
+- Ensure URLs match canonical-url versions

@@ -1,0 +1,180 @@
+---
+title: Provide accessible names for tree items
+description: >-
+  All elements with role="treeitem" must have a descriptive accessible name so
+  screen reader users can navigate hierarchical tree widgets.
+categories:
+  - accessibility
+subcategory: aria
+priority: medium
+difficulty: intermediate
+estimatedTime: 10
+tldr:
+  - Every element with `role='treeitem'` must have a non-empty accessible name
+  - >-
+    Text content of the element is used as the name by default — ensure it is
+    descriptive
+  - >-
+    Use `aria-label` to override or supplement the visible text (e.g., adding
+    file type context)
+  - >-
+    Use `aria-labelledby` to compose a name from multiple visible elements
+    within the item
+  - >-
+    A treeitem with `aria-expanded` must also convey its expanded/collapsed
+    state — this is separate from its name
+whyItMatters: >-
+  Tree widgets represent hierarchical data (file explorers, nested navigation,
+  organization charts). Screen readers announce each focused treeitem's name,
+  level, and position — e.g., 'src, collapsed, level 1, 1 of 3'. If the name is
+  empty or generic ('folder', 'item'), blind users cannot distinguish between
+  nodes and cannot navigate the hierarchy with confidence. VoiceOver on macOS
+  uses the name to populate the rotor, and NVDA reads it as the user moves
+  through the tree with arrow keys.
+aiContext: >-
+  Applies to custom tree widgets built with role='tree', role='treeitem', and
+  role='group'. Common in file explorers, nested navigation menus, org charts,
+  and any UI where items can be expanded or collapsed to reveal children.
+prompts:
+  check: >-
+    Find all elements with `role='treeitem'`. For each, determine its accessible
+    name via the accname computation: check `aria-labelledby` first, then
+    `aria-label`, then visible text content. Flag any treeitem with an empty or
+    whitespace-only accessible name. Also check whether treeitems with children
+    have `aria-expanded` set to 'true' or 'false' (not just absent).
+  fix: >-
+    For each unnamed treeitem: (1) If the element has visible text content that
+    is descriptive, no change is needed — the text content becomes the
+    accessible name. (2) If the visible text is ambiguous (e.g., an icon with no
+    text), add `aria-label='Descriptive name'`. (3) If the item has multiple
+    text parts (e.g., filename + file size), use `aria-labelledby` referencing
+    the most descriptive element's id. (4) For expandable treeitems, ensure
+    `aria-expanded='true'` or `aria-expanded='false'` is present and toggled on
+    expand/collapse.
+  explain: >-
+    WAI-ARIA 1.2 requires that treeitem elements have an accessible name as part
+    of the tree widget pattern. Screen readers convey position within the tree
+    using: name + level (aria-level or DOM nesting depth) + set size
+    (aria-setsize) + position in set (aria-posinset) + expanded state
+    (aria-expanded). The name is the only user-facing identifier — without it, a
+    user navigating by arrow keys hears only 'treeitem, level 2' with no way to
+    know which node they are on.
+  codeReview: >-
+    Review the rendered markup and interactive states that affect Provide
+    accessible names for tree items. Flag exact elements, roles, labels, focus
+    behavior, or keyboard interactions that violate the rule, and note how to
+    verify the fix with browser accessibility tooling or assistive tech.
+sources:
+  - title: 'WAI-ARIA 1.2: treeitem Role'
+    url: 'https://www.w3.org/TR/wai-aria-1.2/#treeitem'
+    type: spec
+    id: wai-aria-1-2-treeitem-role
+    role: standard
+    authority: primary
+  - title: 'ARIA Authoring Practices Guide: Tree View Pattern'
+    url: 'https://www.w3.org/WAI/ARIA/apg/patterns/treeview/'
+    type: spec
+    id: aria-authoring-practices-guide-tree-view-pattern
+    role: standard
+    authority: primary
+  - title: 'WCAG 2.1 SC 4.1.2: Name, Role, Value'
+    url: 'https://www.w3.org/TR/WCAG21/#name-role-value'
+    type: wcag
+    id: wcag-2-1-sc-4-1-2-name-role-value
+    role: standard
+    authority: primary
+  - title: 'MDN: ARIA treeitem role'
+    url: >-
+      https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles/treeitem_role
+    type: mdn
+    id: mdn-aria-treeitem-role
+    role: reference
+    authority: primary
+resources:
+  - name: axe DevTools
+    url: 'https://www.deque.com/axe/devtools/'
+    type: tool
+relatedRules:
+  - slug: aria-command-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-input-field-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-dialog-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+  - slug: aria-meter-name
+    reason: >-
+      Both rules sit in the `accessibility/aria` area and are commonly reviewed
+      together.
+---
+Tree items within a tree widget must have accessible names to allow users to navigate complex hierarchies. The [treeitem role definition](https://www.w3.org/TR/wai-aria-1.2/#treeitem) and the tree-view authoring pattern both depend on those names being meaningful in context.
+## Code Example
+
+```html
+<ul role="tree" aria-label="Project Files">
+  <!-- ✅ Correct: text content provides the name; aria-expanded signals state -->
+  <li role="treeitem" aria-expanded="true" aria-level="1">
+    src
+    <ul role="group">
+      <!-- ✅ Correct: descriptive text content as name -->
+      <li role="treeitem" aria-level="2">index.js</li>
+      <!-- ✅ Correct: aria-label supplements text to add context -->
+      <li role="treeitem" aria-level="2" aria-label="app.css — CSS stylesheet">app.css</li>
+    </ul>
+  </li>
+  <!-- ✅ Correct: collapsed folder; aria-expanded="false" -->
+  <li role="treeitem" aria-expanded="false" aria-level="1">
+    tests
+  </li>
+  <!-- ❌ Incorrect: icon-only treeitem with no accessible name -->
+  <li role="treeitem" aria-level="1">
+    <span class="icon-folder"></span>
+  </li>
+</ul>
+```
+
+## Why It Matters
+
+- **Hierarchical Clarity**: Names help users identify which folder, file, or node they are focused on without visual context.
+- **Rotor/Virtual Navigation**: VoiceOver and NVDA allow users to list all treeitems; an empty name means items appear as blank entries.
+- **Keyboard Navigation**: Arrow keys move focus between treeitems; the name is announced on each focus change — it is the primary signal.
+- **Position Announcements**: Screen readers say "index.js, level 2, 1 of 3" — without the name, only position data is conveyed.
+
+## Required ARIA Properties for Tree Items
+
+| Attribute | Purpose | Required when |
+|---|---|---|
+| `aria-expanded` | Signals collapsed/expanded state | treeitem has children |
+| `aria-level` | Nesting depth (1 = root) | When DOM nesting doesn't convey level |
+| `aria-setsize` | Total items in the parent group | When not all items are in DOM |
+| `aria-posinset` | Item's position in its group | When not all items are in DOM |
+| `aria-selected` | Selection state | When tree supports selection |
+
+## Exceptions
+
+- Prefer native HTML semantics over ARIA when both are possible; some apparent ARIA failures disappear when the underlying element is corrected.
+- A missing ARIA attribute is not automatically the strongest finding if the control is already semantically broken, unnamed, or keyboard-inaccessible.
+- Do not add ARIA only to satisfy the rule if the feature should instead be implemented with a native element or a simpler interaction pattern.
+
+## Standards
+
+- Align the implementation with WAI-ARIA 1.2: treeitem Role and verify the rendered experience, not only the source code.
+- Align the implementation with ARIA Authoring Practices Guide: Tree View Pattern and verify the rendered experience, not only the source code.
+- Align the implementation with WCAG 2.1 SC 4.1.2: Name, Role, Value and verify the rendered experience, not only the source code.
+
+## Verification
+
+### Automated Checks
+
+- Inspect the browser accessibility tree or accessibility pane for the relevant element, role, or accessible name.
+- Run an automated accessibility checker such as axe or Lighthouse where applicable.
+
+### Manual Checks
+
+- Test the affected UI with keyboard-only navigation and confirm the rule holds in the rendered experience.
+- Re-test one representative user flow with a screen reader if this rule affects a key interaction.

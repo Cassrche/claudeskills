@@ -1,0 +1,453 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      configs: ${{ steps.filter.outputs.configs }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+      e2e: ${{ steps.filter.outputs.e2e }}
+      rules: ${{ steps.filter.outputs.rules }}
+      guides: ${{ steps.filter.outputs.guides }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            web:
+              - 'apps/web/**'
+              - 'packages/**'
+              - 'configs/**'
+            configs:
+              - 'configs/**'
+              - '*.json'
+              - '*.yaml'
+              - '*.yml'
+            workflows:
+              - '.github/workflows/**'
+            e2e:
+              - 'apps/web/e2e/**'
+              - 'apps/web/playwright.config.ts'
+            rules:
+              - 'packages/content/rules/en/**/*.mdx'
+            guides:
+              - 'packages/content/guides/en/**/*.mdx'
+
+  quick-checks:
+    name: Quick Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check commit messages
+        run: |
+          # Check if commits follow conventional commits
+          pnpm add -g @commitlint/cli @commitlint/config-conventional
+          echo "module.exports = {extends: ['@commitlint/config-conventional']}" > commitlint.config.js
+          git log --format=%s origin/${{ github.base_ref }}..HEAD | while read line; do
+            echo "$line" | commitlint || true
+          done
+
+      - name: Check for console.logs
+        run: |
+          if grep -r "console.log" apps/web/app apps/web/components apps/web/hooks apps/web/lib apps/web/providers apps/web/scripts apps/web/test-utils apps/web/utils apps/web/proxy.ts --exclude-dir=__tests__ --exclude-dir=e2e; then
+            echo "::warning::Found console.log statements in source code"
+          fi
+
+      - name: Check for TODO comments
+        run: |
+          if grep -r "TODO\|FIXME\|HACK" apps/web/app apps/web/components apps/web/hooks apps/web/lib apps/web/providers apps/web/scripts apps/web/test-utils apps/web/utils apps/web/proxy.ts; then
+            echo "::warning::Found TODO/FIXME/HACK comments in source code"
+          fi
+
+  lint-and-format:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.configs == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Biome checks
+        run: |
+          pnpm biome check --no-errors-on-unmatched .
+          pnpm run lint --filter=web
+
+      - name: Check for formatting issues
+        run: |
+          pnpm biome format . --check
+          if [ $? -ne 0 ]; then
+            echo "::error::Formatting issues found. Please run 'pnpm biome format . --write' locally"
+            exit 1
+          fi
+
+  type-safety:
+    name: Type Safety
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build content collections
+        run: pnpm --filter web build:content
+
+      - name: TypeScript check
+        run: pnpm run typecheck --filter=web
+
+      - name: Check for any type usage
+        run: |
+          if grep -r ": any" apps/web/app apps/web/components apps/web/hooks apps/web/lib apps/web/providers apps/web/utils apps/web/test-utils apps/web/proxy.ts --exclude-dir=__tests__ --exclude-dir=e2e; then
+            echo "::warning::Found 'any' type usage in TypeScript files"
+          fi
+
+  test-coverage:
+    name: Test Coverage
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build content collections
+        run: pnpm --filter web build:content
+
+      - name: Run tests with coverage
+        working-directory: ./apps/web
+        run: pnpm run test:ci
+
+      - name: Check coverage thresholds
+        working-directory: ./apps/web
+        run: pnpm run test:coverage:check
+
+      - name: Comment coverage on PR
+        uses: actions/github-script@v7
+        if: always()
+        with:
+          script: |
+            const fs = require('fs');
+            const coverage = fs.readFileSync('./apps/web/coverage/coverage-summary.json', 'utf8');
+            const coverageData = JSON.parse(coverage);
+            const total = coverageData.total;
+            
+            const comment = `## 📊 Coverage Report
+            
+            | Type | Coverage | Threshold |
+            |------|----------|-----------|
+            | Statements | ${total.statements.pct}% | 80% |
+            | Branches | ${total.branches.pct}% | 70% |
+            | Functions | ${total.functions.pct}% | 80% |
+            | Lines | ${total.lines.pct}% | 80% |
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  rule-structure:
+    name: Rule Structure
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.rules == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate changed rule files
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=1
+          FILES=$(git diff --name-only --diff-filter=ACMRT origin/${{ github.base_ref }}...HEAD | grep '^packages/content/rules/en/.*\.mdx$' || true)
+          if [ -z "$FILES" ]; then
+            echo "No changed rule files to validate."
+            exit 0
+          fi
+          pnpm validate:rule-structure $FILES
+
+  guide-validation:
+    name: Guide Validation
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.guides == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate changed guide files
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=1
+          FILES=$(git diff --name-only --diff-filter=ACMRT origin/${{ github.base_ref }}...HEAD | grep '^packages/content/guides/en/.*\.mdx$' || true)
+          if [ -z "$FILES" ]; then
+            echo "No changed guide files to validate."
+            exit 0
+          fi
+          pnpm validate:guide-structure $FILES
+          pnpm validate:guides $FILES
+
+  e2e-smoke:
+    name: E2E Smoke Tests
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.web == 'true' || needs.changes.outputs.e2e == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright
+        working-directory: ./apps/web
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Build app
+        run: pnpm run build --filter=web
+
+      - name: Run smoke tests
+        working-directory: ./apps/web
+        run: |
+          pnpm run e2e \
+            --project=chromium \
+            --grep="@smoke" \
+            --reporter=github
+        env:
+          CI: true
+
+      - name: Upload failed test artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-smoke-artifacts
+          path: |
+            apps/web/test-results/
+            apps/web/playwright-report/
+          retention-days: 3
+
+  bundle-analysis:
+    name: Bundle Analysis
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and analyze bundle
+        run: |
+          ANALYZE=true pnpm run build --filter=web
+          
+      - name: Check bundle size
+        run: |
+          # Get JS bundle sizes
+          find apps/web/.next -name "*.js" -not -path "*/cache/*" -exec du -b {} + | \
+          awk '{total+=$1} END {print "Total JS bundle size: " total/1024/1024 " MB"}'
+          
+          # Fail if bundle is too large (e.g., > 1MB)
+          total=$(find apps/web/.next -name "*.js" -not -path "*/cache/*" -exec du -b {} + | \
+          awk '{total+=$1} END {print total}')
+          
+          if [ "$total" -gt 1048576 ]; then
+            echo "::warning::Bundle size exceeds 1MB threshold"
+          fi
+
+  pr-summary:
+    name: PR Summary
+    runs-on: ubuntu-latest
+    needs: [quick-checks, lint-and-format, type-safety, test-coverage, rule-structure, guide-validation, e2e-smoke]
+    if: always()
+    steps:
+      - name: Generate PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const jobs = [
+              { name: 'Quick Checks', status: '${{ needs.quick-checks.result }}' },
+              { name: 'Lint & Format', status: '${{ needs.lint-and-format.result }}' },
+              { name: 'Type Safety', status: '${{ needs.type-safety.result }}' },
+              { name: 'Test Coverage', status: '${{ needs.test-coverage.result }}' },
+              { name: 'Rule Structure', status: '${{ needs.rule-structure.result }}' },
+              { name: 'Guide Validation', status: '${{ needs.guide-validation.result }}' },
+              { name: 'E2E Smoke Tests', status: '${{ needs.e2e-smoke.result }}' }
+            ];
+            
+            const getEmoji = (status) => {
+              switch(status) {
+                case 'success': return '✅';
+                case 'failure': return '❌';
+                case 'skipped': return '⏭️';
+                default: return '⏳';
+              }
+            };
+            
+            const summary = `## PR Check Summary
+            
+            | Check | Status |
+            |-------|--------|
+            ${jobs.map(job => `| ${job.name} | ${getEmoji(job.status)} ${job.status} |`).join('\n')}
+            
+            ${jobs.some(j => j.status === 'failure') ? 
+              '⚠️ **Some checks failed. Please review the errors above.**' : 
+              '✅ **All checks passed!**'}
+            `;
+            
+            // Find and update existing comment or create new one
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && comment.body.includes('PR Check Summary')
+            );
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: summary
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: summary
+              });
+            }

@@ -1,0 +1,1298 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"os"
+	"os/exec"
+	"os/signal"
+	"path/filepath"
+	"strings"
+	"syscall"
+	"time"
+
+	"codemap/cmd"
+	"codemap/config"
+	"codemap/handoff"
+	"codemap/internal/buildinfo"
+	"codemap/internal/projectpath"
+	"codemap/limits"
+	"codemap/render"
+	"codemap/scanner"
+	"codemap/watch"
+)
+
+type watchProcess interface {
+	Start() error
+	Stop()
+	FileCount() int
+	GetEvents(limit int) []watch.Event
+}
+
+var (
+	newWatchProcess = func(root string, verbose bool) (watchProcess, error) {
+		return watch.NewDaemon(root, verbose)
+	}
+	watchIsRunning         = watch.IsRunning
+	stopWatchDaemon        = watch.Stop
+	writeWatchPID          = watch.WritePID
+	executablePath         = os.Executable
+	execCommand            = exec.Command
+	notifySignals          = signal.Notify
+	terminalChecker        = isTerminal
+	acquireWatchTransition = watch.AcquireTransition
+	releaseWatchTransition = func(transition *watch.Transition) error { return transition.Release() }
+	writeWatchProcessPID   = watch.WriteProcessPID
+)
+
+const (
+	watchReadinessEnv     = "CODEMAP_WATCH_READINESS_FILE"
+	watchReadinessTimeout = 30 * time.Second
+)
+
+type watchReadiness struct {
+	Error string `json:"error,omitempty"`
+}
+
+func main() {
+	args, projectRootExplicit, err := applyGlobalRootOptions(os.Args[1:])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(2)
+	}
+	os.Args = append([]string{os.Args[0]}, args...)
+
+	if len(os.Args) >= 2 && (os.Args[1] == "version" || os.Args[1] == "--version" || os.Args[1] == "-version") {
+		fmt.Printf("codemap %s\n", buildinfo.Current())
+		return
+	}
+
+	// Handle "watch" subcommand before flag parsing
+	if len(os.Args) >= 2 && os.Args[1] == "watch" {
+		subCmd := "status"
+		if len(os.Args) >= 3 {
+			subCmd = os.Args[2]
+		}
+		root, _ := os.Getwd()
+		if len(os.Args) >= 4 {
+			root = os.Args[3]
+		}
+		if err := runWatchSubcommand(subCmd, root); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	// Handle "hook" subcommand before flag parsing
+	if len(os.Args) >= 2 && os.Args[1] == "hook" {
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "Usage: codemap hook <hookname>")
+			fmt.Fprintln(os.Stderr, "Available hooks: session-start, pre-edit, post-edit, prompt-submit, pre-compact, session-stop")
+			os.Exit(1)
+		}
+		hookName := os.Args[2]
+		root, _ := os.Getwd()
+		hookAgent := "claude"
+		hookIntegration := ""
+		for _, arg := range os.Args[3:] {
+			switch {
+			case arg == "--agent=codex":
+				hookAgent = "codex"
+				_ = os.Setenv("CODEX", "1")
+			case strings.HasPrefix(arg, "--agent="):
+				fmt.Fprintf(os.Stderr, "Unsupported hook agent: %s\n", strings.TrimPrefix(arg, "--agent="))
+				os.Exit(2)
+			case strings.HasPrefix(arg, "--integration="):
+				hookIntegration = strings.TrimPrefix(arg, "--integration=")
+			default:
+				root = arg
+			}
+		}
+		if hookIntegration != "" {
+			valid := (hookIntegration == "claude-setup" && hookAgent == "claude") ||
+				(hookIntegration == "codex-setup" && hookAgent == "codex")
+			if !valid {
+				fmt.Fprintf(os.Stderr, "Unsupported hook integration: %s for agent %s\n", hookIntegration, hookAgent)
+				os.Exit(2)
+			}
+		}
+		if err := cmd.RunHookWithTimeout(hookName, root, cmd.HookTimeoutFromEnv(os.Getenv)); err != nil {
+			var timeoutErr *cmd.HookTimeoutError
+			if errors.As(err, &timeoutErr) {
+				fmt.Fprintf(os.Stderr, "Hook warning: %v\n", timeoutErr)
+				fmt.Fprintln(os.Stderr, "Continuing without hook output. Set CODEMAP_HOOK_TIMEOUT=0 to disable timeout.")
+				return
+			}
+			fmt.Fprintf(os.Stderr, "Hook error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	// Handle "config" subcommand before default analysis flag parsing.
+	if len(os.Args) >= 2 && os.Args[1] == "config" {
+		subCmd := ""
+		if len(os.Args) >= 3 {
+			subCmd = os.Args[2]
+		}
+		root, _ := os.Getwd()
+		if len(os.Args) >= 4 {
+			root = os.Args[3]
+		}
+		cmd.RunConfig(subCmd, root)
+		return
+	}
+
+	// Handle "setup" subcommand before default analysis flag parsing.
+	if len(os.Args) >= 2 && os.Args[1] == "setup" {
+		root, _ := os.Getwd()
+		if code := cmd.RunSetup(os.Args[2:], root); code != 0 {
+			os.Exit(code)
+		}
+		return
+	}
+
+	if len(os.Args) >= 2 && os.Args[1] == "doctor" {
+		root, _ := os.Getwd()
+		if code := cmd.RunDoctor(os.Args[2:], root); code != 0 {
+			os.Exit(code)
+		}
+		return
+	}
+
+	// Handle "mcp" subcommand before default analysis flag parsing.
+	if len(os.Args) >= 2 && os.Args[1] == "mcp" {
+		if code := cmd.RunMCP(os.Args[2:]); code != 0 {
+			os.Exit(code)
+		}
+		return
+	}
+
+	// Handle "skill" subcommand before default analysis flag parsing.
+	if len(os.Args) >= 2 && os.Args[1] == "skill" {
+		root, _ := os.Getwd()
+		cmd.RunSkill(os.Args[2:], root)
+		return
+	}
+
+	// Handle "plugin" subcommand before global flag parsing
+	if len(os.Args) >= 2 && os.Args[1] == "plugin" {
+		cmd.RunPlugin(os.Args[2:])
+		return
+	}
+
+	// Handle "context" subcommand before default analysis flag parsing.
+	if len(os.Args) >= 2 && os.Args[1] == "context" {
+		root, _ := os.Getwd()
+		cmd.RunContext(os.Args[2:], root)
+		return
+	}
+
+	// Handle "serve" subcommand before global flag parsing
+	if len(os.Args) >= 2 && os.Args[1] == "serve" {
+		root, _ := os.Getwd()
+		cmd.RunServe(os.Args[2:], root)
+		return
+	}
+
+	// Handle "handoff" subcommand before global flag parsing
+	if len(os.Args) >= 2 && os.Args[1] == "handoff" {
+		runHandoffSubcommand(os.Args[2:])
+		return
+	}
+
+	// Handle "blast-radius" subcommand before global flag parsing
+	if len(os.Args) >= 2 && os.Args[1] == "blast-radius" {
+		runBlastRadiusSubcommand(os.Args[2:])
+		return
+	}
+
+	// Handle "find" subcommand before global flag parsing
+	if len(os.Args) >= 2 && os.Args[1] == "find" {
+		root, _ := os.Getwd()
+		if code := runFindSubcommand(os.Args[2:], root); code != 0 {
+			os.Exit(code)
+		}
+		return
+	}
+
+	// Handle "collide" subcommand before global flag parsing
+	if len(os.Args) >= 2 && os.Args[1] == "collide" {
+		root, _ := os.Getwd()
+		if code := runCollideSubcommand(os.Args[2:], root); code != 0 {
+			os.Exit(code)
+		}
+		return
+	}
+
+	skylineMode := flag.Bool("skyline", false, "Enable skyline visualization mode")
+	animateMode := flag.Bool("animate", false, "Enable animation (use with --skyline)")
+	depsMode := flag.Bool("deps", false, "Enable dependency graph mode (function/import analysis)")
+	diffMode := flag.Bool("diff", false, "Only show files changed vs main (or use --ref to specify branch)")
+	diffRef := flag.String("ref", "main", "Branch/ref to compare against (use with --diff)")
+	depthLimit := flag.Int("depth", 0, "Limit tree depth (0 = unlimited)")
+	onlyExts := flag.String("only", "", "Only show files with these extensions (comma-separated, e.g., 'swift,go')")
+	excludePatterns := flag.String("exclude", "", "Exclude files matching patterns (comma-separated, e.g., '.xcassets,Fonts')")
+	jsonMode := flag.Bool("json", false, "Output JSON (for Python renderer compatibility)")
+	debugMode := flag.Bool("debug", false, "Show debug info (gitignore loading, paths, etc.)")
+	watchMode := flag.Bool("watch", false, "Live file watcher daemon (experimental)")
+	stdinMode := flag.Bool("stdin", false, "Read file manifest from stdin (use with --deps)")
+	importersMode := flag.String("importers", "", "Check file impact: who imports it, is it a hub?")
+	topologyMode := flag.Bool("topology", false, "Show project/module dependency topology")
+	moduleMode := flag.String("module", "", "Show context for one exact module ID or unique name")
+	moduleFileMode := flag.String("module-file", "", "Show context for the module owning a repository-relative file")
+	ecosystemMode := flag.String("ecosystem", "", "Filter topology to one provider/ecosystem")
+	helpMode := flag.Bool("help", false, "Show help")
+	flag.BoolVar(helpMode, "h", false, "Show help (shorthand)")
+	// Short flag aliases
+	flag.IntVar(depthLimit, "d", 0, "Limit tree depth (shorthand)")
+	flag.Parse()
+
+	if *helpMode {
+		fmt.Println("codemap - Generate a brain map of your codebase for LLM context")
+		fmt.Println()
+		fmt.Println("Usage: codemap [options] [path]")
+		fmt.Println()
+		fmt.Println("Options:")
+		fmt.Println("  --help              Show this help message")
+		fmt.Println("  --version           Show build version")
+		fmt.Println("  -C, --project-root <repo> Operate on code in <repo>.")
+		fmt.Println("  --setup-root <repo> Reuse state from <repo>/.codemap.")
+		fmt.Println("  --skyline           City skyline visualization")
+		fmt.Println("  --animate           Animated skyline (use with --skyline)")
+		fmt.Println("  --deps              Dependency flow map (functions & imports)")
+		fmt.Println("  --diff              Only show files changed vs main")
+		fmt.Println("  --ref <branch>      Branch to compare against (default: main)")
+		fmt.Println("  --depth, -d <n>     Limit tree depth (0 = unlimited)")
+		fmt.Println("  --only <exts>       Only show files with these extensions (e.g., 'swift,go')")
+		fmt.Println("  --exclude <patterns> Exclude paths matching patterns (e.g., '.xcassets,Fonts')")
+		fmt.Println("  --stdin             Read JSON file manifest from stdin (use with --deps)")
+		fmt.Println("  --importers <file>  Check file impact (who imports it, hub status)")
+		fmt.Println("  --json              Output machine-readable JSON")
+		fmt.Println("  --debug             Show scanner and path diagnostics")
+		fmt.Println("  --watch             Run the live file watcher daemon")
+		fmt.Println("  --topology          Project/module dependency topology")
+		fmt.Println("  --module <id|name>  Context for one module ID or unique name")
+		fmt.Println("  --module-file <file> Context for the module owning a file")
+		fmt.Println("  --ecosystem <provider> Filter topology by provider")
+		fmt.Println()
+		fmt.Println("Examples:")
+		fmt.Println("  codemap .                       # Basic tree view")
+		fmt.Println("  codemap --skyline .             # Skyline visualization")
+		fmt.Println("  codemap --skyline --animate     # Animated skyline")
+		fmt.Println("  codemap --deps /path/to/proj    # Dependency flow map")
+		fmt.Println("  codemap --diff                  # Files changed vs main")
+		fmt.Println("  codemap --diff --ref develop    # Files changed vs develop")
+		fmt.Println("  codemap --depth 3 .             # Show only 3 levels deep")
+		fmt.Println("  codemap --only swift .          # Just Swift files")
+		fmt.Println("  codemap --exclude .xcassets,Fonts,.png  # Hide assets")
+		fmt.Println("  codemap --importers scanner/types.go  # Check file impact")
+		fmt.Println("  codemap --topology /path/to/repo      # Project/module topology")
+		fmt.Println("  codemap --module app /path/to/repo    # Context for module app")
+		fmt.Println("  echo '{...}' | codemap --deps --stdin  # Deps from file manifest")
+		fmt.Println()
+		fmt.Println("Remote repos (clones temporarily):")
+		fmt.Println("  codemap github.com/user/repo    # GitHub repo")
+		fmt.Println("  codemap https://github.com/user/repo")
+		fmt.Println("  codemap gitlab.com/user/repo    # GitLab repo")
+		fmt.Println()
+		fmt.Println("Note: Flags must come before the path/URL.")
+		fmt.Println()
+		fmt.Println("Hooks (for Claude Code and Codex integration):")
+		fmt.Println("  codemap hook session-start      # Show project context")
+		fmt.Println("  codemap hook pre-edit           # Check before editing (stdin)")
+		fmt.Println("  codemap hook post-edit          # Check after editing (stdin)")
+		fmt.Println("  codemap hook prompt-submit      # Parse user prompt (stdin)")
+		fmt.Println("  codemap hook pre-compact        # Save state before compact")
+		fmt.Println("  codemap hook session-stop       # Session summary")
+		fmt.Println("  codemap handoff [path]          # Build handoff artifact for agent switching")
+		fmt.Println("  codemap blast-radius [path]     # Compact bounded blast-radius bundle")
+		fmt.Println("  codemap collide                 # Rank open PRs by shared-file merge-order hazard")
+		fmt.Println("  codemap find <query>            # Rank files by path and symbol match, with importer counts")
+		fmt.Println()
+		fmt.Println("Project config:")
+		fmt.Println("  codemap config init             # Create .codemap/config.json (auto-detects extensions)")
+		fmt.Println("  codemap config show             # Show current project config")
+		fmt.Println()
+		fmt.Println("Plugin management:")
+		fmt.Println("  codemap plugin install          # Install/update and activate the Codemap plugin")
+		fmt.Println("  codemap doctor                  # Check Codex or Claude integration prerequisites")
+		fmt.Println()
+		fmt.Println("MCP server:")
+		fmt.Println("  codemap mcp                     # Run Codemap MCP server on stdio")
+		fmt.Println()
+		fmt.Println("More subcommands:")
+		fmt.Println("  codemap watch status|start|stop # Manage the background watch daemon")
+		fmt.Println("  codemap skill list|show <name>  # List or show bundled agent skills")
+		fmt.Println("  codemap context                 # Print machine-readable project context JSON")
+		fmt.Println("  codemap serve                   # Serve project intelligence over HTTP")
+		fmt.Println("  codemap version                 # Show build version")
+		fmt.Println()
+		fmt.Println("Recommended onboarding:")
+		fmt.Println("  codemap setup                   # Configure project and agent hooks")
+		fmt.Println("  codemap setup --global          # Write hooks to ~/.claude/settings.json")
+		os.Exit(0)
+	}
+
+	root, importer, err := resolveImportersInvocation(flag.Arg(0), *importersMode, projectRootExplicit)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(2)
+	}
+	*importersMode = importer
+	if root == "" {
+		root = "."
+	}
+
+	// Handle GitHub URLs - clone to temp dir (but prefer local paths if they exist)
+	var tempDir string
+	var remoteURL, repoName string
+	_, localPathErr := os.Stat(root)
+	if isGitHubURL(root) && localPathErr != nil {
+		// Only clone if it looks like a URL AND doesn't exist locally
+		// This preserves ~/go/src/github.com/user/repo style paths
+		remoteURL = root
+		repoName = extractRepoName(root)
+		var err error
+		tempDir, err = cloneRepo(root, repoName)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error cloning repo: %v\n", err)
+			os.Exit(1)
+		}
+		defer os.RemoveAll(tempDir)
+		root = tempDir
+	}
+
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error getting absolute path: %v\n", err)
+		os.Exit(1)
+	}
+	// A bare word that isn't a directory is almost always a typo'd subcommand
+	// ("codemap drift"), so fail with directions instead of a path-resolution error.
+	if _, statErr := os.Stat(root); os.IsNotExist(statErr) {
+		fmt.Fprintf(os.Stderr, "Error: path %q does not exist.\n", root)
+		fmt.Fprintln(os.Stderr, "If you meant a subcommand, run 'codemap --help' for the full list.")
+		os.Exit(1)
+	}
+	if _, err := cmd.ValidateProjectPath(absRoot); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Initialize gitignore cache (supports nested .gitignore files)
+	gitCache := scanner.NewGitIgnoreCache(root)
+
+	// Parse --only and --exclude flags
+	var only, exclude []string
+	if *onlyExts != "" {
+		for _, ext := range strings.Split(*onlyExts, ",") {
+			if trimmed := strings.TrimSpace(ext); trimmed != "" {
+				only = append(only, trimmed)
+			}
+		}
+	}
+	if *excludePatterns != "" {
+		for _, pattern := range strings.Split(*excludePatterns, ",") {
+			if trimmed := strings.TrimSpace(pattern); trimmed != "" {
+				exclude = append(exclude, trimmed)
+			}
+		}
+	}
+
+	// Load project config (CLI flags take precedence)
+	if tempDir == "" {
+		cmd.EnsureProjectConfig(absRoot)
+	}
+	projCfg := config.Load(absRoot)
+	if len(only) == 0 && len(projCfg.Only) > 0 {
+		only = projCfg.Only
+	}
+	if len(exclude) == 0 && len(projCfg.Exclude) > 0 {
+		exclude = projCfg.Exclude
+	}
+	if *depthLimit == 0 && projCfg.Depth > 0 {
+		*depthLimit = projCfg.Depth
+	}
+	filters := scanner.Filters{Only: only, Exclude: exclude}
+
+	if *debugMode {
+		fmt.Fprintf(os.Stderr, "[debug] Root path: %s\n", root)
+		fmt.Fprintf(os.Stderr, "[debug] Absolute path: %s\n", absRoot)
+		fmt.Fprintf(os.Stderr, "[debug] GitIgnore cache initialized (supports nested .gitignore files)\n")
+	}
+
+	// Watch mode - start daemon
+	if *watchMode {
+		resolvedRoot, _, err := cmd.ResolveNearestGitRoot(absRoot)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error getting watch root: %v\n", err)
+			os.Exit(1)
+		}
+		runWatchMode(resolvedRoot, *debugMode)
+		return
+	}
+
+	// Importers mode - check file impact
+	if *importersMode != "" {
+		runImportersMode(absRoot, *importersMode, *jsonMode, filters)
+		return
+	}
+
+	if *moduleMode != "" && *moduleFileMode != "" {
+		fmt.Fprintln(os.Stderr, "Error: specify either --module or --module-file, not both")
+		os.Exit(2)
+	}
+	requestedTopology := *topologyMode || *moduleMode != "" || *moduleFileMode != ""
+	if *ecosystemMode != "" && !requestedTopology {
+		fmt.Fprintln(os.Stderr, "Error: --ecosystem requires --topology, --module, or --module-file")
+		os.Exit(2)
+	}
+	if requestedTopology {
+		topologyRoot, err := canonicalTopologyRoot(absRoot)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error selecting topology project: %v\n", err)
+			os.Exit(1)
+		}
+		if err := runTopologyMode(context.Background(), topologyRoot, *moduleMode, *moduleFileMode, *ecosystemMode, *jsonMode, os.Stdout); err != nil {
+			fmt.Fprintf(os.Stderr, "Error building topology: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	// Get changed files if --diff is specified
+	var diffInfo *scanner.DiffInfo
+	if *diffMode {
+		var err error
+		diffInfo, err = scanner.GitDiffInfo(context.Background(), absRoot, *diffRef)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error getting git diff: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Make sure '%s' is a valid branch/ref\n", *diffRef)
+			os.Exit(1)
+		}
+		if len(diffInfo.Changed) == 0 {
+			fmt.Printf("No files changed vs %s\n", *diffRef)
+			os.Exit(0)
+		}
+	}
+
+	// Handle --deps mode separately
+	if *depsMode {
+		var changedFiles map[string]bool
+		if diffInfo != nil {
+			changedFiles = diffInfo.Changed
+		}
+		runDepsMode(absRoot, root, *jsonMode, *diffRef, changedFiles, *stdinMode, filters)
+		return
+	}
+
+	mode := "tree"
+	if *skylineMode {
+		mode = "skyline"
+	}
+
+	// Scan files
+	files, err := scanner.ScanFiles(context.Background(), root, gitCache, only, exclude)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error walking tree: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Filter to changed files if --diff specified (with diff info annotations)
+	var impact []scanner.ImpactInfo
+	var activeDiffRef string
+	if diffInfo != nil {
+		files = scanner.FilterToChangedWithInfo(files, diffInfo)
+		impact, err = scanner.AnalyzeImpact(context.Background(), absRoot, files)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error analyzing impact: %v\n", err)
+			os.Exit(1)
+		}
+		activeDiffRef = *diffRef
+	}
+
+	project := scanner.Project{
+		Root:      absRoot,
+		Name:      repoName,
+		RemoteURL: remoteURL,
+		Mode:      mode,
+		Animate:   *animateMode,
+		Files:     files,
+		DiffRef:   activeDiffRef,
+		Impact:    impact,
+		Depth:     *depthLimit,
+		Only:      only,
+		Exclude:   exclude,
+	}
+
+	// Render or output JSON
+	if *jsonMode {
+		json.NewEncoder(os.Stdout).Encode(project)
+	} else if *skylineMode {
+		render.Skyline(os.Stdout, project, *animateMode)
+	} else {
+		render.Tree(os.Stdout, project)
+	}
+}
+
+func applyGlobalRootOptions(args []string) ([]string, bool, error) {
+	opts, remaining, err := cmd.ParseGlobalRootOptions(args)
+	if err != nil {
+		return nil, false, err
+	}
+	if !opts.Active() {
+		launchDir, err := os.Getwd()
+		if err != nil {
+			return nil, false, fmt.Errorf("get working directory: %w", err)
+		}
+		if _, err := projectpath.Select(launchDir); err != nil {
+			return nil, false, err
+		}
+		return remaining, false, nil
+	}
+
+	launchDir, err := os.Getwd()
+	if err != nil {
+		return nil, false, fmt.Errorf("get working directory: %w", err)
+	}
+	roots, err := cmd.ResolveGlobalRoots(opts, launchDir)
+	if err != nil {
+		return nil, false, err
+	}
+	// Canonicalize the stored setup root so projectpath and daemon args agree
+	// with the resolved project root (e.g. macOS /var -> /private/var).
+	if canonical, err := filepath.EvalSymlinks(roots.Setup); err == nil {
+		roots.Setup = canonical
+	}
+	if err := os.Chdir(roots.Project); err != nil {
+		return nil, false, fmt.Errorf("change to project root %q: %w", roots.Project, err)
+	}
+	if opts.SetupRoot != "" {
+		projectpath.SetSetupRoot(roots.Setup)
+	} else {
+		projectpath.ResetSetupRoot()
+	}
+
+	return remaining, opts.Directory != "", nil
+}
+
+func resolveImportersInvocation(root, importer string, projectRootExplicit bool) (string, string, error) {
+	if root != "" || projectRootExplicit || importer == "" || !filepath.IsAbs(importer) {
+		// Canonicalize the importer so the relative path matches the
+		// canonicalized project root (e.g. macOS /tmp -> /private/tmp).
+		if filepath.IsAbs(importer) {
+			if canonical, err := filepath.EvalSymlinks(importer); err == nil {
+				importer = canonical
+			}
+		}
+		return root, importer, nil
+	}
+
+	canonicalImporter, err := filepath.EvalSymlinks(importer)
+	if err != nil {
+		return "", "", fmt.Errorf("resolve --importers file %q: %w", importer, err)
+	}
+	inferred, found, err := cmd.ResolveNearestGitRoot(filepath.Dir(canonicalImporter))
+	if err != nil {
+		return "", "", fmt.Errorf("infer project root from --importers %q: %w", importer, err)
+	}
+	if !found {
+		return "", "", fmt.Errorf("infer project root from --importers %q: file is not inside a Git repository", importer)
+	}
+	return inferred, canonicalImporter, nil
+}
+
+// stdinManifest is the JSON format accepted by --stdin.
+type stdinManifest struct {
+	Root  string `json:"root"`
+	Files []struct {
+		Path    string `json:"path"`
+		Content string `json:"content"`
+	} `json:"files"`
+}
+
+// safeStdinManifestPath validates a --stdin manifest file path and returns a
+// cleaned, slash-normalized path that stays inside the manifest root. Absolute
+// paths and any ".." traversal are rejected so a hostile manifest cannot write
+// outside the private temp directory.
+func safeStdinManifestPath(rel string) (string, bool) {
+	if rel == "" || filepath.IsAbs(rel) {
+		return "", false
+	}
+	cleaned := filepath.Clean(filepath.FromSlash(rel))
+	if cleaned == ".." || strings.HasPrefix(cleaned, ".."+string(filepath.Separator)) || filepath.IsAbs(cleaned) {
+		return "", false
+	}
+	return cleaned, true
+}
+
+func runDepsMode(absRoot, root string, jsonMode bool, diffRef string, changedFiles map[string]bool, stdinMode bool, filters scanner.Filters) {
+	var outcome scanner.ScanOutcome
+	var externalDeps map[string][]string
+	var graph *scanner.FileGraph
+	var err error
+
+	if stdinMode {
+		outcome, externalDeps, graph, err = runDepsFromStdin(filters)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading stdin manifest: %v\n", err)
+			os.Exit(1)
+		}
+		if externalDeps == nil {
+			externalDeps = make(map[string][]string)
+		}
+	} else {
+		outcome, err = scanForDepsOutcomeWithHint(absRoot, filters)
+		if err != nil {
+			if errors.Is(err, scanner.ErrAstGrepNotFound) {
+				printAstGrepInstallHint(os.Stderr, err)
+			} else {
+				fmt.Fprintf(os.Stderr, "Error scanning dependencies: %v\n", err)
+			}
+			os.Exit(1)
+		}
+		externalDeps, err = scanner.ReadExternalDeps(context.Background(), absRoot, 0)
+		if err != nil {
+			externalDeps = make(map[string][]string)
+		}
+		// Build the graph from the scan outcome. The graph is best-effort: a
+		// fail-closed scan or a non-fatal graph build problem must not turn
+		// --deps into a hard error. Coverage falls back to the scan outcome's
+		// own sources when no graph is available.
+		if built, graphErr := scanner.BuildFileGraphFromOutcome(context.Background(), absRoot, outcome, filters); graphErr == nil {
+			graph = built
+		}
+	}
+
+	// Filter to changed files if --diff specified
+	if changedFiles != nil {
+		outcome.Analyses = scanner.FilterAnalysisToChanged(outcome.Analyses, changedFiles)
+	}
+
+	// Derive coverage from the graph's provenance when one was built; otherwise
+	// fall back to the scan outcome's sources (nil graph = empty stdin manifest
+	// or best-effort graph failure).
+	coverageSources := outcome.Sources
+	if graph != nil {
+		coverageSources = graph.Coverage.Sources
+	}
+	depsProject := scanner.NewDepsProjectWithCoverageAndFilters(absRoot, outcome.Analyses, externalDeps, diffRef, scanner.CoverageFromSources(coverageSources), filters)
+
+	// Render or output JSON
+	if jsonMode {
+		json.NewEncoder(os.Stdout).Encode(depsProject)
+	} else {
+		render.Depgraph(context.Background(), os.Stdout, depsProject)
+	}
+}
+
+// scanForDepsOutcomeWithHint wraps scanner.ScanForDeps (extracted for testability).
+func scanForDepsOutcomeWithHint(root string, filters scanner.Filters) (scanner.ScanOutcome, error) {
+	return scanner.ScanForDeps(context.Background(), root, filters)
+}
+
+// runDepsFromStdin reads a JSON manifest from stdin, writes files to a temp
+// directory, runs ast-grep on it, and returns the results with paths matching
+// the original manifest.
+func runDepsFromStdin(filters scanner.Filters) (scanner.ScanOutcome, map[string][]string, *scanner.FileGraph, error) {
+	var manifest stdinManifest
+	if err := json.NewDecoder(os.Stdin).Decode(&manifest); err != nil {
+		return scanner.ScanOutcome{}, nil, nil, fmt.Errorf("invalid JSON: %w", err)
+	}
+
+	if len(manifest.Files) == 0 {
+		// Return a valid empty graph/outcome so callers never dereference a nil
+		// graph when deriving coverage; an empty manifest is an empty answer.
+		return scanner.ScanOutcome{}, nil, &scanner.FileGraph{}, nil
+	}
+
+	// Create temp directory and write manifest files
+	tempDir, err := os.MkdirTemp("", "codemap-stdin-*")
+	if err != nil {
+		return scanner.ScanOutcome{}, nil, nil, fmt.Errorf("failed to create temp dir: %w", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	for _, f := range manifest.Files {
+		rel, ok := safeStdinManifestPath(f.Path)
+		if !ok {
+			return scanner.ScanOutcome{}, nil, nil, fmt.Errorf("invalid manifest path %q: must be a relative path inside the manifest root", f.Path)
+		}
+		dest := filepath.Join(tempDir, rel)
+		if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+			return scanner.ScanOutcome{}, nil, nil, fmt.Errorf("mkdir %s: %w", filepath.Dir(dest), err)
+		}
+		if err := os.WriteFile(dest, []byte(f.Content), 0644); err != nil {
+			return scanner.ScanOutcome{}, nil, nil, fmt.Errorf("write %s: %w", f.Path, err)
+		}
+	}
+
+	// Run ast-grep on temp directory
+	outcome, err := scanner.ScanForDeps(context.Background(), tempDir, filters)
+	if err != nil {
+		return scanner.ScanOutcome{}, nil, nil, err
+	}
+
+	// Read external deps from temp directory (manifest may include go.mod etc.)
+	externalDeps, err := scanner.ReadExternalDeps(context.Background(), tempDir, 0)
+	if err != nil {
+		return scanner.ScanOutcome{}, nil, nil, err
+	}
+
+	// Build the graph in the temp directory so coverage provenance is honest.
+	graph, err := scanner.BuildFileGraphFromOutcome(context.Background(), tempDir, outcome, filters)
+	if err != nil {
+		return scanner.ScanOutcome{}, nil, nil, err
+	}
+
+	return outcome, externalDeps, graph, nil
+}
+
+// FileAnalysis is a type alias for use in main package.
+type FileAnalysis = scanner.FileAnalysis
+
+func runWatchMode(root string, verbose bool) {
+	fmt.Println("codemap watch - Live code graph daemon")
+	fmt.Println()
+
+	daemon, err := newWatchProcess(root, verbose)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if err := daemon.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error starting watch: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Watching: %s\n", root)
+	fmt.Printf("Files tracked: %d\n", daemon.FileCount())
+	fmt.Println("Event log: .codemap/events.log")
+	fmt.Println()
+	fmt.Println("Press Ctrl+C to stop")
+	fmt.Println()
+
+	// Wait for interrupt
+	sigChan := make(chan os.Signal, 1)
+	notifySignals(sigChan, os.Interrupt, syscall.SIGTERM)
+	<-sigChan
+
+	fmt.Println()
+	fmt.Println("Shutting down...")
+	daemon.Stop()
+
+	// Print session summary
+	events := daemon.GetEvents(0)
+	fmt.Println()
+	fmt.Println("Session summary:")
+	fmt.Printf("  Files tracked: %d\n", daemon.FileCount())
+	fmt.Printf("  Events logged: %d\n", len(events))
+}
+
+func buildImportersReport(root, file string, filters scanner.Filters) (scanner.ImportersReport, error) {
+	fg, err := scanner.BuildFileGraph(context.Background(), root, filters)
+	if err != nil {
+		return scanner.ImportersReport{}, err
+	}
+	return buildImportersReportFromGraph(root, file, fg)
+}
+
+func runImportersMode(root, file string, jsonMode bool, filters scanner.Filters) {
+	report, err := buildImportersReport(root, file, filters)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error building file graph: %v\n", err)
+		os.Exit(1)
+	}
+
+	if jsonMode {
+		_ = json.NewEncoder(os.Stdout).Encode(report)
+		return
+	}
+	renderImportersReportCLI(os.Stdout, report)
+}
+
+func runWatchSubcommand(subCmd, root string) error {
+	absRoot, _, err := cmd.ResolveNearestGitRoot(root)
+	if err != nil {
+		return err
+	}
+	absRoot, err = cmd.ValidateProjectPath(absRoot)
+	if err != nil {
+		return err
+	}
+	// Canonicalize so the daemon identity and path comparisons agree (e.g.
+	// macOS /var -> /private/var).
+	if canonical, err := filepath.EvalSymlinks(absRoot); err == nil {
+		absRoot = canonical
+	}
+
+	switch subCmd {
+	case "start":
+		transition, err := acquireWatchTransition(absRoot)
+		if err != nil {
+			return fmt.Errorf("starting daemon: %w", err)
+		}
+		defer func() {
+			if transition != nil {
+				_ = releaseWatchTransition(transition)
+			}
+		}()
+		active, err := watch.ResolveActiveRuntime(absRoot)
+		if err != nil {
+			return fmt.Errorf("starting daemon: %w", err)
+		}
+		if active.PID > 0 {
+			fmt.Println("Watch daemon already running")
+			return nil
+		}
+		if err := watch.PreserveStalePIDEvidence(active); err != nil {
+			return fmt.Errorf("preserving stale daemon PID: %w", err)
+		}
+		// Fork a background daemon
+		exe, err := executablePath()
+		if err != nil {
+			return err
+		}
+		args := projectpath.PrependSetupRootArgs("watch", "daemon", absRoot)
+		cmd := execCommand(exe, args...)
+		cmd.Stdout = nil
+		cmd.Stderr = nil
+		cmd.Stdin = nil
+		readyFile, err := os.CreateTemp("", "codemap-watch-ready-*")
+		if err != nil {
+			return fmt.Errorf("creating daemon readiness file: %w", err)
+		}
+		readyPath := readyFile.Name()
+		_ = readyFile.Close()
+		_ = os.Remove(readyPath)
+		defer os.Remove(readyPath)
+		if cmd.Env == nil {
+			cmd.Env = os.Environ()
+		}
+		cmd.Env = append(cmd.Env, watchReadinessEnv+"="+readyPath)
+		// Detach from parent process group (Unix only)
+		setSysProcAttr(cmd)
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("starting daemon: %w", err)
+		}
+		pid := cmd.Process.Pid
+		if err := writeWatchProcessPID(absRoot, pid); err != nil {
+			_ = cmd.Process.Kill()
+			_ = cmd.Process.Release()
+			return fmt.Errorf("publishing daemon PID: %w", err)
+		}
+		if err := releaseWatchTransition(transition); err != nil {
+			_ = cmd.Process.Kill()
+			_ = cmd.Process.Release()
+			return fmt.Errorf("releasing daemon transition: %w", err)
+		}
+		transition = nil
+		if err := waitWatchReadiness(readyPath, watchReadinessTimeout); err != nil {
+			_ = cmd.Process.Kill()
+			_ = cmd.Process.Release()
+			_ = watch.RemoveProcessPID(absRoot, pid)
+			return fmt.Errorf("starting daemon: %w", err)
+		}
+		_ = cmd.Process.Release()
+		fmt.Printf("Watch daemon started (pid %d)\n", pid)
+
+	case "daemon":
+		// Internal: run as the actual daemon process
+		return runDaemon(absRoot)
+
+	case "stop":
+		active, resolveErr := watch.ResolveActiveRuntime(absRoot)
+		if resolveErr != nil {
+			return fmt.Errorf("stopping daemon: %w", resolveErr)
+		}
+		if active.PID <= 0 && !watchIsRunning(absRoot) {
+			fmt.Println("Watch daemon not running")
+			return nil
+		}
+		if err := stopWatchDaemon(absRoot); err != nil {
+			if errors.Is(err, watch.ErrForeignDaemonPID) {
+				fmt.Println("Watch daemon not running (cleared stale PID file)")
+				return nil
+			}
+			return fmt.Errorf("stopping daemon: %w", err)
+		}
+		fmt.Println("Watch daemon stopped")
+
+	case "status":
+		active, err := watch.ResolveActiveRuntime(absRoot)
+		if err != nil {
+			return fmt.Errorf("watch daemon status unavailable: %w", err)
+		}
+		if active.PID > 0 {
+			state := watch.ReadState(absRoot)
+			if state != nil {
+				fmt.Printf("Watch daemon running\n")
+				fmt.Printf("  Files: %d\n", state.FileCount)
+				fmt.Printf("  Hubs: %d\n", len(state.Hubs))
+				fmt.Printf("  Updated: %s\n", state.UpdatedAt.Format("15:04:05"))
+			} else {
+				fmt.Println("Watch daemon running (no state)")
+			}
+		} else {
+			fmt.Println("Watch daemon not running")
+		}
+
+	default:
+		return fmt.Errorf("unknown watch command %q (usage: codemap watch [start|stop|status])", subCmd)
+	}
+	return nil
+}
+
+func runHandoffSubcommand(args []string) {
+	fs := flag.NewFlagSet("handoff", flag.ExitOnError)
+	since := fs.String("since", "6h", "Look back window for recent events (Go duration, e.g. 2h, 30m)")
+	baseRef := fs.String("ref", handoff.DefaultBaseRef, "Git base ref for diff (default: main)")
+	jsonMode := fs.Bool("json", false, "Output raw handoff JSON")
+	latest := fs.Bool("latest", false, "Read the latest saved handoff instead of generating a new one")
+	prefixOnly := fs.Bool("prefix", false, "Render only the stable prefix layer")
+	deltaOnly := fs.Bool("delta", false, "Render only the recent delta layer")
+	detailPath := fs.String("detail", "", "Load full detail for a changed file path from handoff delta")
+	noSave := fs.Bool("no-save", false, "Do not persist generated handoff artifact")
+	if err := fs.Parse(args); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	if *prefixOnly && *deltaOnly {
+		fmt.Fprintln(os.Stderr, "Error: --prefix and --delta are mutually exclusive")
+		os.Exit(1)
+	}
+
+	root := "."
+	if fs.NArg() > 0 {
+		root = fs.Arg(0)
+	}
+
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	if _, err := cmd.ValidateProjectPath(absRoot); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	var artifact *handoff.Artifact
+	if *latest {
+		artifact, err = handoff.ReadLatest(absRoot)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading handoff: %v\n", err)
+			os.Exit(1)
+		}
+		if artifact == nil {
+			fmt.Printf("No handoff artifact found at %s\n", handoff.LatestPath(absRoot))
+			return
+		}
+	} else {
+		sinceDuration, err := time.ParseDuration(*since)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid --since duration: %v\n", err)
+			os.Exit(1)
+		}
+		if sinceDuration <= 0 {
+			fmt.Fprintf(os.Stderr, "Invalid --since duration: must be > 0\n")
+			os.Exit(1)
+		}
+		artifact, err = handoff.Build(absRoot, handoff.BuildOptions{
+			BaseRef: *baseRef,
+			Since:   sinceDuration,
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error building handoff: %v\n", err)
+			os.Exit(1)
+		}
+		if !*noSave {
+			if err := handoff.WriteLatest(absRoot, artifact); err != nil {
+				fmt.Fprintf(os.Stderr, "Error saving handoff: %v\n", err)
+				os.Exit(1)
+			}
+		}
+	}
+
+	if *detailPath != "" {
+		detail, err := handoff.BuildFileDetail(absRoot, artifact, *detailPath, nil)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading handoff detail: %v\n", err)
+			os.Exit(1)
+		}
+		if *jsonMode {
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(detail); err != nil {
+				fmt.Fprintf(os.Stderr, "Error encoding JSON: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		}
+		out := handoff.RenderFileDetailMarkdown(detail)
+		out = limits.TruncateAtLineBoundary(out, limits.MaxHandoffDetailBytes, "\n\n... (handoff detail truncated)\n")
+		fmt.Print(out)
+		return
+	}
+
+	if *jsonMode {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		switch {
+		case *prefixOnly:
+			if err := enc.Encode(artifact.Prefix); err != nil {
+				fmt.Fprintf(os.Stderr, "Error encoding JSON: %v\n", err)
+				os.Exit(1)
+			}
+		case *deltaOnly:
+			if err := enc.Encode(artifact.Delta); err != nil {
+				fmt.Fprintf(os.Stderr, "Error encoding JSON: %v\n", err)
+				os.Exit(1)
+			}
+		default:
+			if err := enc.Encode(artifact); err != nil {
+				fmt.Fprintf(os.Stderr, "Error encoding JSON: %v\n", err)
+				os.Exit(1)
+			}
+		}
+		return
+	}
+
+	var out string
+	switch {
+	case *prefixOnly:
+		out = handoff.RenderPrefixMarkdown(artifact.Prefix)
+	case *deltaOnly:
+		out = handoff.RenderDeltaMarkdown(artifact.Delta)
+	default:
+		out = handoff.RenderMarkdown(artifact)
+	}
+	out = limits.TruncateAtLineBoundary(out, limits.MaxHandoffMarkdownBytes, "\n\n... (handoff output truncated)\n")
+	fmt.Print(out)
+	if !*latest && !*noSave {
+		fmt.Println()
+		fmt.Printf("Saved: %s\n", handoff.LatestPath(absRoot))
+		fmt.Printf("Prefix: %s\n", handoff.PrefixPath(absRoot))
+		fmt.Printf("Delta: %s\n", handoff.DeltaPath(absRoot))
+		fmt.Printf("Metrics: %s\n", handoff.MetricsPath(absRoot))
+	}
+}
+
+func runDaemon(root string) (runErr error) {
+	readyPath := os.Getenv(watchReadinessEnv)
+	readyPublished := false
+	defer func() {
+		if readyPath != "" && !readyPublished {
+			_ = publishWatchReadiness(readyPath, runErr)
+		}
+	}()
+	var transition *watch.Transition
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		var err error
+		transition, err = acquireWatchTransition(root)
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, watch.ErrTransitionLocked) || time.Now().After(deadline) {
+			return fmt.Errorf("claiming daemon transition: %w", err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	defer func() {
+		if transition != nil {
+			_ = releaseWatchTransition(transition)
+		}
+	}()
+	active, err := watch.ResolveActiveRuntime(root)
+	if err != nil {
+		return fmt.Errorf("resolving daemon runtime: %w", err)
+	}
+	if active.PID > 0 && active.PID != os.Getpid() {
+		return errors.New("another watch daemon is already running")
+	}
+	daemon, err := newWatchProcess(root, false)
+	if err != nil {
+		return err
+	}
+
+	if err := daemon.Start(); err != nil {
+		return fmt.Errorf("starting watch: %w", err)
+	}
+
+	// Write PID file
+	if err := writeWatchPID(root); err != nil {
+		daemon.Stop()
+		return fmt.Errorf("publishing daemon PID: %w", err)
+	}
+	if err := releaseWatchTransition(transition); err != nil {
+		daemon.Stop()
+		_ = watch.RemoveProcessPID(root, os.Getpid())
+		return fmt.Errorf("releasing daemon transition: %w", err)
+	}
+	transition = nil
+	if readyPath != "" {
+		if err := publishWatchReadiness(readyPath, nil); err != nil {
+			daemon.Stop()
+			return fmt.Errorf("publishing daemon readiness: %w", err)
+		}
+		readyPublished = true
+	}
+	// Wait for stop signal (SIGTERM or state file removal)
+	sigChan := make(chan os.Signal, 1)
+	notifySignals(sigChan, syscall.SIGTERM, syscall.SIGINT)
+	<-sigChan
+
+	daemon.Stop()
+	_ = watch.RemoveProcessPID(root, os.Getpid())
+	return nil
+}
+
+func publishWatchReadiness(path string, readinessErr error) error {
+	status := watchReadiness{}
+	if readinessErr != nil {
+		status.Error = readinessErr.Error()
+	}
+	data, err := json.Marshal(status)
+	if err != nil {
+		return err
+	}
+	tmp := fmt.Sprintf("%s.%d.tmp", path, os.Getpid())
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+func waitWatchReadiness(path string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	// A readiness file that does not parse is a file still being written, not
+	// a daemon that failed: publishWatchReadiness renames its payload into
+	// place atomically, but nothing guarantees every writer does, and treating
+	// the first unparseable read as fatal reported a startup failure for a
+	// daemon that was starting fine. Keep the last parse error so a file that
+	// never becomes valid says why, rather than only that it timed out.
+	var lastParseErr error
+	for {
+		data, err := os.ReadFile(path)
+		if err == nil {
+			var status watchReadiness
+			if parseErr := json.Unmarshal(data, &status); parseErr != nil {
+				lastParseErr = parseErr
+			} else if status.Error != "" {
+				return errors.New(status.Error)
+			} else {
+				return nil
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("reading daemon readiness: %w", err)
+		}
+		if time.Now().After(deadline) {
+			if lastParseErr != nil {
+				return fmt.Errorf("reading daemon readiness: %w", lastParseErr)
+			}
+			return fmt.Errorf("daemon readiness timed out after %s", timeout)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// isGitHubURL checks if the input looks like a GitHub repo URL
+func isGitHubURL(s string) bool {
+	s = strings.ToLower(s)
+	return strings.HasPrefix(s, "github.com/") ||
+		strings.HasPrefix(s, "https://github.com/") ||
+		strings.HasPrefix(s, "http://github.com/") ||
+		strings.HasPrefix(s, "gitlab.com/") ||
+		strings.HasPrefix(s, "https://gitlab.com/")
+}
+
+// cloneRepo clones a git repo to a temp directory (shallow clone)
+func cloneRepo(url string, repoName string) (string, error) {
+	// Normalize URL
+	if !strings.HasPrefix(url, "https://") && !strings.HasPrefix(url, "http://") {
+		url = "https://" + url
+	}
+
+	// Create temp dir
+	tempDir, err := os.MkdirTemp("", "codemap-")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp dir: %w", err)
+	}
+
+	// Only animate if stderr is a real terminal
+	isTTY := terminalChecker(os.Stderr)
+
+	var done chan bool
+	if isTTY {
+		anim := render.NewCloneAnimation(os.Stderr, repoName)
+		done = make(chan bool)
+		go func() {
+			progress := 0
+			for {
+				select {
+				case <-done:
+					// Clear the line completely when done
+					fmt.Fprint(os.Stderr, "\r\033[K")
+					return
+				default:
+					anim.Render(progress)
+					if progress < 95 {
+						progress++
+					}
+					time.Sleep(50 * time.Millisecond)
+				}
+			}
+		}()
+	}
+
+	// Shallow clone (quiet)
+	cmd := execCommand("git", "clone", "--depth", "1", "--single-branch", "-q", url, tempDir)
+	cloneErr := cmd.Run()
+
+	if isTTY {
+		done <- true
+		time.Sleep(50 * time.Millisecond) // Let animation finish
+	}
+
+	if cloneErr != nil {
+		os.RemoveAll(tempDir)
+		return "", fmt.Errorf("git clone failed: %w", cloneErr)
+	}
+
+	return tempDir, nil
+}
+
+// isTerminal checks if a file is a terminal
+func isTerminal(f *os.File) bool {
+	stat, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return (stat.Mode() & os.ModeCharDevice) != 0
+}
+
+// extractRepoName extracts "owner/repo" from a GitHub URL
+func extractRepoName(url string) string {
+	// Remove protocol
+	url = strings.TrimPrefix(url, "https://")
+	url = strings.TrimPrefix(url, "http://")
+	// Remove host
+	url = strings.TrimPrefix(url, "github.com/")
+	url = strings.TrimPrefix(url, "gitlab.com/")
+	// Remove trailing .git
+	url = strings.TrimSuffix(url, ".git")
+	// Remove trailing slashes
+	url = strings.TrimSuffix(url, "/")
+	return url
+}
